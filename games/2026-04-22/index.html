@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cannon Fire!</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #050c1e;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Rounded rect helper
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// State
+const TITLE = 0, PLAYING = 1, GAMEOVER = 2;
+let state = TITLE;
+let score = 0, best = 0, ammo = 0, combo = 0;
+let aimAngle = 0, aimDir = 1;
+let ships = [], balls = [], particles = [], floaters = [];
+let spawnTimer = 0, spawnInterval = 0, gameTime = 0;
+let lastTs = 0;
+let gameOverPending = false;
+
+const CX = 80;
+const CY_FRAC = 0.72;
+const MIN_AIM = -Math.PI * 0.52;
+const MAX_AIM = -Math.PI * 0.08;
+const BALL_SPEED = 13;
+const GRAVITY = 0.16;
+const MAX_AMMO = 12;
+
+function getCY() { return H * CY_FRAC; }
+
+function getTip() {
+  return {
+    x: CX + Math.cos(aimAngle) * 52,
+    y: getCY() + Math.sin(aimAngle) * 52
+  };
+}
+
+// ─── Ship ────────────────────────────────────────────────────────────────────
+class Ship {
+  constructor() {
+    this.sw = 70 + Math.random() * 70;
+    this.sh = this.sw * 0.45;
+    this.x = W + this.sw + 20;
+    this.y = H * 0.13 + Math.random() * H * 0.38;
+    this.spd = 1.2 + (140 - this.sw) / 140 * 2.2;
+    this.hp = this.maxHp = Math.max(1, Math.round(this.sw / 60));
+    this.sinking = false;
+    this.sinkT = 0;
+    this.sailStyle = Math.floor(Math.random() * 3);
+    this.sailTint = ['#f0e8d0', '#ddd0b0', '#e8d4a0'][this.sailStyle];
+  }
+
+  update(dt) {
+    if (this.sinking) {
+      this.sinkT += dt * 0.0022;
+      return this.sinkT >= 1;
+    }
+    this.x -= this.spd * dt * 0.065;
+    return this.x < -this.sw * 2;
+  }
+
+  draw() {
+    const { sw, sh } = this;
+    const alpha = this.sinking ? Math.max(0, 1 - this.sinkT * 1.7) : 1;
+    const sinkOff = this.sinking ? this.sinkT * sh * 3 : 0;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(this.x, this.y + sinkOff);
+
+    // Hull
+    ctx.fillStyle = '#4a2d18';
+    ctx.beginPath();
+    ctx.moveTo(-sw/2 - 4, 0);
+    ctx.lineTo(sw/2 + 10, 0);
+    ctx.lineTo(sw/2, sh/2);
+    ctx.lineTo(-sw/2 + 4, sh/2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#6b4226';
+    ctx.beginPath();
+    ctx.moveTo(-sw/2 + 8, -sh/3);
+    ctx.lineTo(sw/2 - 4, -sh/3);
+    ctx.lineTo(sw/2 + 10, 0);
+    ctx.lineTo(-sw/2 - 4, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Deck rail
+    ctx.fillStyle = '#8b5e3c';
+    ctx.fillRect(-sw/2 + 8, -sh/3 - 5, sw - 12, 8);
+
+    // Portholes
+    const numPorts = Math.floor(sw / 40);
+    for (let i = 0; i < numPorts; i++) {
+      ctx.fillStyle = '#2a1a08';
+      ctx.beginPath();
+      ctx.arc(-sw/2 + 22 + i * 38, -sh/6, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#9b6e4c';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Mast
+    ctx.fillStyle = '#5c3d1a';
+    ctx.fillRect(-5, -sh * 2.0, 9, sh * 1.73);
+
+    // Sail
+    ctx.fillStyle = this.sailTint;
+    if (this.sailStyle === 0) {
+      ctx.beginPath();
+      ctx.moveTo(-4, -sh * 1.95);
+      ctx.quadraticCurveTo(sw * 0.44, -sh * 1.4, sw * 0.32, -sh * 0.3);
+      ctx.lineTo(-4, -sh * 0.3);
+      ctx.closePath();
+      ctx.fill();
+    } else if (this.sailStyle === 1) {
+      ctx.beginPath();
+      ctx.moveTo(-4, -sh * 1.95);
+      ctx.lineTo(sw * 0.42, -sh * 1.38);
+      ctx.lineTo(sw * 0.28, -sh * 0.3);
+      ctx.lineTo(-4, -sh * 0.3);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(-4, -sh * 1.95);
+      ctx.bezierCurveTo(sw * 0.5, -sh * 1.65, sw * 0.58, -sh * 0.7, sw * 0.3, -sh * 0.28);
+      ctx.lineTo(-4, -sh * 0.28);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Skull flag
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(-4, -sh * 2.0);
+    ctx.lineTo(sw * 0.26, -sh * 1.84);
+    ctx.lineTo(-4, -sh * 1.68);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#eee';
+    ctx.font = `${Math.max(10, sw * 0.14)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('☠', sw * 0.08, -sh * 1.82);
+
+    // HP pips
+    if (this.maxHp > 1 && !this.sinking) {
+      for (let i = 0; i < this.maxHp; i++) {
+        ctx.fillStyle = i < this.hp ? '#ff3333' : '#1a1a2a';
+        ctx.beginPath();
+        ctx.arc(-sw/2 + 12 + i * 14, -sh/3 - 14, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = i < this.hp ? '#ff8888' : '#333';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  getBounds() {
+    return {
+      l: this.x - this.sw / 2 - 4,
+      r: this.x + this.sw / 2 + 10,
+      t: this.y - this.sh * 2.0,
+      b: this.y + this.sh / 2
+    };
+  }
+
+  hit() {
+    this.hp--;
+    return this.hp <= 0;
+  }
+}
+
+// ─── Ball ─────────────────────────────────────────────────────────────────────
+class Ball {
+  constructor(x, y, angle) {
+    this.x = x; this.y = y;
+    this.vx = Math.cos(angle) * BALL_SPEED;
+    this.vy = Math.sin(angle) * BALL_SPEED;
+    this.trail = [];
+    this.alive = true;
+    this.hitShip = false;
+  }
+
+  update() {
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 10) this.trail.shift();
+    this.vy += GRAVITY;
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.x > W + 30 || this.y > H + 30 || this.x < -30) {
+      if (!this.hitShip) combo = 0;
+      this.alive = false;
+    }
+  }
+
+  draw() {
+    for (let i = 0; i < this.trail.length; i++) {
+      const t = i / this.trail.length;
+      ctx.beginPath();
+      ctx.arc(this.trail[i].x, this.trail[i].y, 7 * t, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(90,90,90,${t * 0.3})`;
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(this.x - 2, this.y - 2, 1, this.x, this.y, 8);
+    g.addColorStop(0, '#666');
+    g.addColorStop(1, '#111');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(this.x - 3, this.y - 3, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fill();
+  }
+}
+
+// ─── Particle ─────────────────────────────────────────────────────────────────
+class Particle {
+  constructor(x, y, col, sz, vx, vy, decay, grav) {
+    this.x = x; this.y = y; this.col = col; this.sz = sz;
+    this.vx = vx !== undefined ? vx : (Math.random() - 0.5) * 10;
+    this.vy = vy !== undefined ? vy : (Math.random() - 1) * 8;
+    this.life = 1;
+    this.decay = decay !== undefined ? decay : 0.03 + Math.random() * 0.04;
+    this.grav = grav !== undefined ? grav : 0.25;
+  }
+  update() {
+    this.vy += this.grav;
+    this.x += this.vx; this.y += this.vy;
+    this.sz *= 0.95; this.life -= this.decay;
+    return this.life > 0;
+  }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.col;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, Math.max(0.1, this.sz), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ─── Score popup ──────────────────────────────────────────────────────────────
+class Floater {
+  constructor(x, y, text, col) {
+    this.x = x; this.y = y; this.text = text; this.col = col;
+    this.life = 1; this.vy = -1.8;
+  }
+  update() { this.y += this.vy; this.life -= 0.022; return this.life > 0; }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.col;
+    ctx.font = 'bold 22px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 8;
+    ctx.fillText(this.text, this.x, this.y);
+    ctx.restore();
+  }
+}
+
+// ─── Effects ──────────────────────────────────────────────────────────────────
+function explode(x, y) {
+  const cols = ['#ff6a00', '#ffcc00', '#ff3300', '#ff8800', '#ffffff', '#ffee44'];
+  for (let i = 0; i < 20; i++) {
+    particles.push(new Particle(x, y, cols[i % cols.length], 4 + Math.random() * 8));
+  }
+  for (let i = 0; i < 7; i++) {
+    particles.push(new Particle(x, y, '#999', 10 + Math.random() * 8,
+      (Math.random() - 0.5) * 3, -Math.random() * 2.5, 0.013, 0.08));
+  }
+}
+
+function muzzleFlash(x, y) {
+  const cols = ['#ff6a00', '#ffcc00', '#fff'];
+  for (let i = 0; i < 10; i++) {
+    particles.push(new Particle(x, y, cols[i % cols.length], 5 + Math.random() * 5,
+      (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, 0.1, 0.05));
+  }
+}
+
+// ─── Fire ─────────────────────────────────────────────────────────────────────
+function fire() {
+  if (state !== PLAYING || ammo <= 0 || gameOverPending) return;
+  ammo--;
+  const tip = getTip();
+  balls.push(new Ball(tip.x, tip.y, aimAngle));
+  muzzleFlash(tip.x, tip.y);
+}
+
+// ─── Collision ────────────────────────────────────────────────────────────────
+function checkCollisions() {
+  for (let bi = balls.length - 1; bi >= 0; bi--) {
+    const b = balls[bi];
+    if (!b.alive) continue;
+    for (let si = ships.length - 1; si >= 0; si--) {
+      const s = ships[si];
+      if (s.sinking) continue;
+      const bd = s.getBounds();
+      if (b.x >= bd.l && b.x <= bd.r && b.y >= bd.t && b.y <= bd.b) {
+        b.alive = false;
+        b.hitShip = true;
+        explode(b.x, b.y);
+        const sunk = s.hit();
+        if (sunk) {
+          combo++;
+          const pts = 10 * combo;
+          score += pts;
+          s.sinking = true;
+          floaters.push(new Floater(s.x, s.y - s.sh * 1.5, `+${pts}`, combo >= 3 ? '#ff6a00' : '#ffd700'));
+          if (combo >= 3) {
+            floaters.push(new Floater(s.x, s.y - s.sh * 2.2, `${combo}× COMBO!`, '#ff6a00'));
+          }
+        } else {
+          score += 3;
+          floaters.push(new Floater(b.x, b.y - 20, '+3', '#ffffffcc'));
+        }
+        break;
+      }
+    }
+  }
+  for (let i = balls.length - 1; i >= 0; i--) {
+    if (!balls[i].alive) balls.splice(i, 1);
+  }
+}
+
+// ─── Draw background ──────────────────────────────────────────────────────────
+function drawBackground() {
+  // Sky gradient
+  const skyG = ctx.createLinearGradient(0, 0, 0, H * 0.62);
+  skyG.addColorStop(0, '#040a18');
+  skyG.addColorStop(1, '#0c2848');
+  ctx.fillStyle = skyG;
+  ctx.fillRect(0, 0, W, H * 0.62);
+
+  // Stars
+  const stars = [
+    [0.07,0.04],[0.14,0.13],[0.24,0.06],[0.35,0.02],[0.44,0.09],
+    [0.58,0.05],[0.67,0.14],[0.76,0.08],[0.88,0.03],[0.93,0.18],
+    [0.5,0.19],[0.3,0.22],[0.72,0.07],[0.62,0.21],[0.17,0.2],
+    [0.81,0.16],[0.4,0.16],[0.55,0.11]
+  ];
+  ctx.fillStyle = '#ffffff';
+  for (const [sx, sy] of stars) {
+    ctx.beginPath();
+    ctx.arc(W * sx, H * sy, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Moon
+  ctx.fillStyle = '#fffde0';
+  ctx.beginPath();
+  ctx.arc(W * 0.82, H * 0.1, 26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0c2848';
+  ctx.beginPath();
+  ctx.arc(W * 0.82 + 10, H * 0.1, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Moon glow
+  ctx.save();
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#fffde0';
+  ctx.beginPath();
+  ctx.arc(W * 0.82, H * 0.1, 50, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Ocean
+  const oceanG = ctx.createLinearGradient(0, H * 0.56, 0, H);
+  oceanG.addColorStop(0, '#0e4e8a');
+  oceanG.addColorStop(1, '#030f22');
+  ctx.fillStyle = oceanG;
+  ctx.fillRect(0, H * 0.56, W, H * 0.44);
+
+  // Horizon glow
+  ctx.fillStyle = 'rgba(30,100,180,0.18)';
+  ctx.fillRect(0, H * 0.54, W, 20);
+
+  // Animated waves
+  const wt = Date.now() * 0.0008;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    const wy = H * (0.56 + i * 0.07);
+    ctx.moveTo(0, wy);
+    for (let x = 0; x <= W; x += 12) {
+      ctx.lineTo(x, wy + Math.sin(x * 0.016 + wt + i * 0.9) * 4);
+    }
+    ctx.strokeStyle = `rgba(100,180,255,${0.22 - i * 0.04})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Moon reflection on water
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  const refG = ctx.createLinearGradient(W * 0.75, H * 0.58, W * 0.75, H);
+  refG.addColorStop(0, '#fffde0');
+  refG.addColorStop(1, 'transparent');
+  ctx.fillStyle = refG;
+  ctx.fillRect(W * 0.72, H * 0.58, W * 0.2, H * 0.42);
+  ctx.restore();
+
+  // Dock platform
+  const dockY = getCY() - 20;
+  const dockH = H - dockY;
+  ctx.fillStyle = '#1e0e04';
+  ctx.fillRect(0, dockY, 175, dockH);
+
+  // Dock planks
+  ctx.strokeStyle = '#3a2010';
+  ctx.lineWidth = 2;
+  const planks = 9;
+  for (let i = 1; i < planks; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, dockY + (dockH / planks) * i);
+    ctx.lineTo(175, dockY + (dockH / planks) * i);
+    ctx.stroke();
+  }
+
+  // Dock edge post
+  ctx.fillStyle = '#4a2d12';
+  ctx.fillRect(166, dockY - 10, 9, dockH + 10);
+
+  // Lantern on dock post
+  const lx = 171, ly = dockY - 10;
+  ctx.fillStyle = '#5a3a1a';
+  ctx.fillRect(lx - 8, ly - 22, 16, 22);
+  ctx.fillStyle = 'rgba(255, 200, 80, 0.9)';
+  ctx.fillRect(lx - 6, ly - 20, 12, 18);
+  ctx.save();
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = '#ffcc50';
+  ctx.beginPath();
+  ctx.arc(lx, ly - 11, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ─── Cannon ───────────────────────────────────────────────────────────────────
+function drawCannon() {
+  const cy = getCY();
+  ctx.save();
+  ctx.translate(CX, cy);
+
+  // Base
+  ctx.fillStyle = '#3a2010';
+  ctx.beginPath();
+  ctx.ellipse(0, 12, 30, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wheel spokes
+  ctx.strokeStyle = '#2a1808';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(0, 18, 22, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#4a2d12';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < 6; i++) {
+    const a = i * Math.PI / 3;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 5, 18 + Math.sin(a) * 5);
+    ctx.lineTo(Math.cos(a) * 20, 18 + Math.sin(a) * 20);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#2a1808';
+  ctx.beginPath();
+  ctx.arc(0, 18, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Barrel
+  ctx.save();
+  ctx.rotate(aimAngle);
+
+  const bg = ctx.createLinearGradient(-10, 0, 10, 0);
+  bg.addColorStop(0, '#111');
+  bg.addColorStop(0.35, '#555');
+  bg.addColorStop(1, '#1a1a1a');
+  ctx.fillStyle = bg;
+  rr(-10, -54, 20, 54, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Barrel rings
+  ctx.fillStyle = '#3a3a3a';
+  for (let i = 0; i < 3; i++) {
+    ctx.fillRect(-11, -50 + i * 15, 22, 5);
+  }
+
+  // Muzzle
+  const mg = ctx.createRadialGradient(0, -54, 1, 0, -54, 13);
+  mg.addColorStop(0, '#555');
+  mg.addColorStop(1, '#111');
+  ctx.fillStyle = mg;
+  ctx.beginPath();
+  ctx.ellipse(0, -54, 13, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+  ctx.restore();
+}
+
+// ─── Aim preview ──────────────────────────────────────────────────────────────
+function drawAimPreview() {
+  const tip = getTip();
+  let vx = Math.cos(aimAngle) * BALL_SPEED;
+  let vy = Math.sin(aimAngle) * BALL_SPEED;
+  let px = tip.x, py = tip.y;
+
+  ctx.save();
+  ctx.setLineDash([5, 12]);
+  ctx.strokeStyle = 'rgba(255, 215, 80, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  for (let i = 0; i < 20; i++) {
+    vy += GRAVITY;
+    px += vx;
+    py += vy;
+    if (py > H || px > W) break;
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ─── HUD ──────────────────────────────────────────────────────────────────────
+function drawHUD() {
+  const pad = 16;
+
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 28px Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${score}`, pad, pad + 28);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.font = '13px Georgia, serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`Best: ${best}`, W - pad, pad + 18);
+  ctx.textAlign = 'left';
+
+  // Ammo label
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '13px Georgia, serif';
+  ctx.fillText('AMMO', pad, H - 42);
+
+  // Ammo balls
+  for (let i = 0; i < MAX_AMMO; i++) {
+    const bx = pad + i * 24 + 10;
+    const by = H - 22;
+    if (i < ammo) {
+      ctx.fillStyle = '#cccccc';
+      ctx.strokeStyle = '#888';
+    } else {
+      ctx.fillStyle = '#111';
+      ctx.strokeStyle = '#2a2a2a';
+    }
+    ctx.beginPath();
+    ctx.arc(bx, by, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Tap hint
+  if (gameTime < 2800) {
+    const alpha = gameTime < 1800 ? 1 : (2800 - gameTime) / 1000;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 6;
+    ctx.fillText('TAP anywhere to fire!', W / 2, H - 50);
+    ctx.restore();
+  }
+}
+
+// ─── Title screen ─────────────────────────────────────────────────────────────
+function drawTitle() {
+  drawBackground();
+
+  const bw = 340, bh = 300;
+  const bx = W / 2 - bw / 2, by = H / 2 - bh / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(2, 10, 28, 0.82)';
+  rr(bx, by, bw, bh, 18);
+  ctx.fill();
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 54px Georgia, serif';
+  ctx.shadowColor = '#ff8800';
+  ctx.shadowBlur = 22;
+  ctx.fillText('CANNON', W / 2, by + 72);
+  ctx.fillText('FIRE!', W / 2, by + 130);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#cccccc';
+  ctx.font = '16px Georgia, serif';
+  ctx.fillText('The cannon sweeps — tap at the right', W / 2, by + 168);
+  ctx.fillText('moment to blast enemy ships!', W / 2, by + 190);
+  ctx.fillText('Combo sinks = more points.', W / 2, by + 212);
+
+  // Play button
+  ctx.fillStyle = '#c0392b';
+  rr(W / 2 - 100, by + 230, 200, 56, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#e74c3c';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 26px Georgia, serif';
+  ctx.fillText('⚓  SET SAIL', W / 2, by + 265);
+
+  if (best > 0) {
+    ctx.fillStyle = 'rgba(255,215,0,0.6)';
+    ctx.font = '14px Georgia, serif';
+    ctx.fillText(`Best: ${best}`, W / 2, by + 296);
+  }
+
+  ctx.restore();
+}
+
+// ─── Game-over screen ─────────────────────────────────────────────────────────
+function drawGameover() {
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, W, H);
+
+  const bw = 340, bh = 330;
+  const bx = W / 2 - bw / 2, by = H / 2 - bh / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(4, 16, 40, 0.97)';
+  rr(bx, by, bw, bh, 18);
+  ctx.fill();
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#e74c3c';
+  ctx.font = 'bold 40px Georgia, serif';
+  ctx.shadowColor = '#c0392b';
+  ctx.shadowBlur = 18;
+  ctx.fillText('GUNS EMPTY!', W / 2, by + 58);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#aaa';
+  ctx.font = '16px Georgia, serif';
+  ctx.fillText('You ran out of cannonballs!', W / 2, by + 88);
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 44px Georgia, serif';
+  ctx.fillText(score, W / 2, by + 148);
+
+  ctx.fillStyle = '#ccc';
+  ctx.font = '18px Georgia, serif';
+  ctx.fillText('points', W / 2, by + 175);
+
+  if (score >= best && score > 0) {
+    ctx.fillStyle = '#ff6a00';
+    ctx.font = 'bold 20px Georgia, serif';
+    ctx.fillText('★  NEW BEST!  ★', W / 2, by + 208);
+  } else {
+    ctx.fillStyle = '#777';
+    ctx.font = '16px Georgia, serif';
+    ctx.fillText(`Best: ${best}`, W / 2, by + 208);
+  }
+
+  // Restart button
+  ctx.fillStyle = '#27ae60';
+  rr(W / 2 - 110, by + 232, 220, 60, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#2ecc71';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 26px Georgia, serif';
+  ctx.fillText('⚓  Play Again', W / 2, by + 270);
+
+  ctx.restore();
+}
+
+// ─── Game management ──────────────────────────────────────────────────────────
+function startGame() {
+  state = PLAYING;
+  score = 0; ammo = MAX_AMMO; combo = 0;
+  aimAngle = -Math.PI * 0.32; aimDir = 1;
+  ships = []; balls = []; particles = []; floaters = [];
+  spawnTimer = 0; spawnInterval = 2600; gameTime = 0;
+  gameOverPending = false;
+  ships.push(new Ship());
+}
+
+function update(dt) {
+  if (state !== PLAYING) return;
+  gameTime += dt;
+
+  // Aim sweep — oscillates, speeds up over time
+  const baseSpeed = 0.00115;
+  const bonus = Math.min(gameTime * 0.0000018, 0.0014);
+  aimAngle += aimDir * (baseSpeed + bonus) * dt;
+  if (aimAngle > MAX_AIM) { aimAngle = MAX_AIM; aimDir = -1; }
+  else if (aimAngle < MIN_AIM) { aimAngle = MIN_AIM; aimDir = 1; }
+
+  // Spawn ships
+  spawnTimer += dt;
+  if (spawnTimer >= spawnInterval) {
+    spawnTimer = 0;
+    spawnInterval = Math.max(1100, spawnInterval - 45);
+    ships.push(new Ship());
+    // Occasionally double spawn
+    if (gameTime > 30000 && Math.random() < 0.3) ships.push(new Ship());
+  }
+
+  // Update ships
+  for (let i = ships.length - 1; i >= 0; i--) {
+    if (ships[i].update(dt)) {
+      if (!ships[i].sinking) combo = 0;
+      ships.splice(i, 1);
+    }
+  }
+
+  // Update entities
+  for (const b of balls) b.update();
+  for (let i = particles.length - 1; i >= 0; i--) {
+    if (!particles[i].update()) particles.splice(i, 1);
+  }
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    if (!floaters[i].update()) floaters.splice(i, 1);
+  }
+
+  checkCollisions();
+
+  // Game over when ammo gone and no balls in flight
+  if (ammo <= 0 && balls.length === 0 && !gameOverPending) {
+    gameOverPending = true;
+    setTimeout(() => {
+      if (score > best) best = score;
+      state = GAMEOVER;
+    }, 700);
+  }
+}
+
+// ─── Main loop ────────────────────────────────────────────────────────────────
+function loop(ts) {
+  const dt = Math.min(ts - lastTs, 60);
+  lastTs = ts;
+
+  update(dt);
+
+  if (state === TITLE) {
+    drawTitle();
+  } else {
+    drawBackground();
+    for (const s of ships) s.draw();
+    drawAimPreview();
+    drawCannon();
+    for (const b of balls) b.draw();
+    for (const p of particles) p.draw();
+    for (const f of floaters) f.draw();
+    drawHUD();
+    if (state === GAMEOVER) drawGameover();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+function onTap(x, y) {
+  if (state === TITLE) { startGame(); return; }
+  if (state === GAMEOVER) {
+    const bx = W / 2 - 110, by = H / 2 - 165 + 232;
+    if (x >= bx && x <= bx + 220 && y >= by && y <= by + 60) startGame();
+    return;
+  }
+  if (state === PLAYING) fire();
+}
+
+canvas.addEventListener('click', e => onTap(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  onTap(t.clientX, t.clientY);
+}, { passive: false });
+
+// Start
+requestAnimationFrame(ts => { lastTs = ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

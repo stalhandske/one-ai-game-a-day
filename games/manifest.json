@@ -5,6 +5,12 @@
       "name": "Jungle Dash",
       "theme": "Jungle",
       "genre": "Endless Runner"
+    },
+    {
+      "date": "2026-04-22",
+      "name": "Cannon Fire",
+      "theme": "Pirate",
+      "genre": "Arcade"
     }
   ]
 }
