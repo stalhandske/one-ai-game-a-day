@@ -40,6 +40,33 @@ Write the game in a complete, self-contained `index.html` file that:
 - Looks polished: good contrast, readable fonts, smooth animations
 - Performs well on mobile (no heavy loops, requestAnimationFrame for animations)
 
+### Back button (required)
+Every game must include a back button that returns the player to the main menu. Add this to your `<body>` and `<style>` — it must always be visible, floating above the game:
+
+```html
+<style>
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+</style>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+```
+
 ### Orientation handling (required)
 Every game must declare its intended orientation and handle the case where the device is held the wrong way.
 
@@ -103,6 +130,7 @@ Review your own game file critically:
 - Is the code free of obvious bugs (off-by-one errors, missing event listeners, broken game loops)?
 - Does it look good visually?
 - Is the `ORIENTATION` constant declared and is the orientation handler included?
+- Is the back button present, linking to `../../index.html`, and visible above the game at all times?
 
 If any check fails, rewrite the game until all checks pass. You may attempt up to 3 rewrites.
 
