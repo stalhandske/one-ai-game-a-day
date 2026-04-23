@@ -75,6 +75,12 @@
       color: #aaa;
     }
 
+    .game-card .orientation {
+      margin-left: auto;
+      font-size: 1rem;
+      opacity: 0.4;
+    }
+
     #empty {
       text-align: center;
       color: #555;
@@ -118,6 +124,7 @@
               <span>${formatDate(g.date)}</span>
               ${g.genre ? `<span class="genre">${g.genre}</span>` : ''}
               ${g.theme ? `<span>${g.theme}</span>` : ''}
+              ${g.orientation ? `<span class="orientation" title="${g.orientation}">${g.orientation === 'LANDSCAPE' ? '🔄' : '📱'}</span>` : ''}
             </div>
           </a>
         `).join('');

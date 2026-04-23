@@ -28,6 +28,8 @@ Flesh out the idea a bit further with a one-page initial game design document be
 
 Be creative and seek novelty in the game design.
 
+Decide on the intended play orientation: **PORTRAIT** or **LANDSCAPE**. Choose whichever best suits the game's layout and mechanics. Add this to the game design document.
+
 Create a fitting name for the game based on the game design document.
 
 ## Step 3 — Generate the game
@@ -38,6 +40,59 @@ Write the game in a complete, self-contained `index.html` file that:
 - Looks polished: good contrast, readable fonts, smooth animations
 - Performs well on mobile (no heavy loops, requestAnimationFrame for animations)
 
+### Orientation handling (required)
+Every game must declare its intended orientation and handle the case where the device is held the wrong way.
+
+**Declare the orientation** near the top of your `<script>` block:
+```js
+const ORIENTATION = 'PORTRAIT'; // or 'LANDSCAPE'
+```
+
+**Include this orientation handler** verbatim in every game, immediately after the declaration:
+```js
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+```
+
+**Progressive enhancement — also attempt to lock orientation** (works in Chrome on Android when fullscreen; silently ignored elsewhere):
+```js
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+// Call on first user interaction (tap/click), not on load
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+```
+
 Be creative and make it genuinely fun. The game should feel complete, not like a skeleton.
 
 ## Step 4 — Quality check
@@ -47,6 +102,7 @@ Review your own game file critically:
 - Does it have a start screen and a game over/win screen with restart?
 - Is the code free of obvious bugs (off-by-one errors, missing event listeners, broken game loops)?
 - Does it look good visually?
+- Is the `ORIENTATION` constant declared and is the orientation handler included?
 
 If any check fails, rewrite the game until all checks pass. You may attempt up to 3 rewrites.
 
@@ -60,7 +116,8 @@ Read `games/manifest.json` and add a new entry to the `games` array:
   "date": "YYYY-MM-DD",
   "name": "Game Name",
   "theme": "Theme",
-  "genre": "Genre"
+  "genre": "Genre",
+  "orientation": "PORTRAIT"
 }
 ```
 Write the updated manifest back to `games/manifest.json`.
