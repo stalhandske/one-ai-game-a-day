@@ -11,6 +11,12 @@
       "name": "Cannon Fire",
       "theme": "Pirate",
       "genre": "Arcade"
+    },
+    {
+      "date": "2026-04-23",
+      "name": "Ice Slide",
+      "theme": "Ice",
+      "genre": "Puzzle"
     }
   ]
 }
