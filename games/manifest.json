@@ -17,6 +17,13 @@
       "name": "Ice Slide",
       "theme": "Ice",
       "genre": "Puzzle"
+    },
+    {
+      "date": "2026-04-24",
+      "name": "Candle Keeper",
+      "theme": "Haunted",
+      "genre": "Reaction",
+      "orientation": "PORTRAIT"
     }
   ]
 }
