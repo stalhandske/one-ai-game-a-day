@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1f33">
+<title>Floe — Arctic Survival</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0d1f33;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    color: #fff;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #ui {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 100;
+    text-align: right;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+    pointer-events: none;
+  }
+  #score-line {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+  #fish-line {
+    font-size: 0.95rem;
+    opacity: 0.9;
+    margin-top: 0.2rem;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13, 31, 51, 0.86);
+    text-align: center;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .overlay.show { display: flex; }
+  .overlay h1 {
+    font-size: 3.4rem;
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.08em;
+    background: linear-gradient(180deg, #ffffff, #7fdbff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 4px 24px rgba(127, 219, 255, 0.4);
+  }
+  .overlay .sub {
+    font-size: 0.9rem;
+    opacity: 0.6;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 1.4rem;
+  }
+  .overlay p {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin-bottom: 1.6rem;
+    max-width: 320px;
+    line-height: 1.55;
+  }
+  .overlay .stat {
+    font-size: 1.05rem;
+    margin: 0.2rem 0;
+    opacity: 0.85;
+  }
+  .overlay .stat strong {
+    font-size: 1.5rem;
+    color: #7fdbff;
+    margin-left: 0.3rem;
+  }
+  .btn {
+    background: linear-gradient(180deg, #9ee6ff, #4cb8e6);
+    color: #0d1f33;
+    border: none;
+    padding: 0.95rem 2.8rem;
+    font-size: 1.15rem;
+    font-weight: 800;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #2a7da6, 0 8px 22px rgba(0,0,0,0.45);
+    transform: translateY(0);
+    transition: transform 0.08s, box-shadow 0.08s;
+    margin-top: 1.4rem;
+    letter-spacing: 0.08em;
+    font-family: inherit;
+  }
+  .btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 #2a7da6, 0 3px 10px rgba(0,0,0,0.4);
+  }
+  .hint {
+    margin-top: 1.6rem;
+    font-size: 0.8rem;
+    opacity: 0.55;
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <div id="score-line">0</div>
+  <div id="fish-line">🐟 0</div>
+</div>
+
+<div id="title-screen" class="overlay show">
+  <div class="sub">Arctic Survival</div>
+  <h1>FLOE</h1>
+  <p>You're a penguin on melting ice. Tap a nearby floe to hop. Snatch fish, keep moving — every floe you stand on sinks faster.</p>
+  <button class="btn" id="start-btn">START</button>
+  <div class="hint">Tap floes within the dotted ring</div>
+</div>
+
+<div id="gameover-screen" class="overlay">
+  <div class="sub">You Slipped In</div>
+  <h1>SPLASH!</h1>
+  <div class="stat">Score <strong id="final-score">0</strong></div>
+  <div class="stat">Fish <strong id="final-fish">0</strong></div>
+  <div class="stat">Best <strong id="best-score">0</strong></div>
+  <button class="btn" id="restart-btn">PLAY AGAIN</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// =========================================================
+// Game
+// =========================================================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- State ---
+let state = 'title'; // 'title' | 'playing' | 'gameover'
+let score = 0;
+let fishCount = 0;
+let bestScore = parseInt(localStorage.getItem('floe_best') || '0');
+let timeAlive = 0;
+let waveTime = 0;
+let snowAccum = 0;
+let popups = [];
+
+let player = null;
+let floes = [];
+let particles = [];
+let snowflakes = [];
+
+// Tunable
+const HOP_RANGE = 210;
+const HOP_DURATION = 0.34;
+const PLAYER_R = 14;
+const TARGET_FLOES = 9;
+
+// --- Floe ---
+function makeFloe(x, y, opts = {}) {
+  const r = opts.r || (40 + Math.random() * 30);
+  // build a stable irregular polygon shape
+  const sides = 9;
+  const verts = [];
+  for (let i = 0; i < sides; i++) {
+    const noise = 0.83 + Math.sin(i * 12.9 + x * 0.013 + y * 0.017) * 0.08
+                       + Math.cos(i * 5.7 + x * 0.041) * 0.06;
+    verts.push(noise);
+  }
+  return {
+    x, y, r,
+    stability: opts.stability ?? 1,
+    decayRate: opts.decayRate ?? (0.022 + Math.random() * 0.028),
+    hasFish: opts.hasFish !== undefined ? opts.hasFish : Math.random() < 0.28,
+    fishWobble: Math.random() * Math.PI * 2,
+    spinPhase: Math.random() * Math.PI * 2,
+    bobPhase: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.18,
+    verts,
+    sinking: false,
+    sinkAnim: 0,
+    landFlash: 0,
+  };
+}
+
+function spawnAroundPlayer() {
+  // ensure target count of floes within view, around player
+  let safety = 30;
+  while (floes.filter(f => !f.sinking).length < TARGET_FLOES && safety-- > 0) {
+    let placed = false;
+    for (let attempt = 0; attempt < 18; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 110 + Math.random() * 110;
+      const x = player.x + Math.cos(angle) * dist;
+      const y = player.y + Math.sin(angle) * dist;
+      const margin = 60;
+      if (x < margin || x > W - margin || y < 90 || y > H - margin) continue;
+
+      // overlap check
+      let overlap = false;
+      for (const f of floes) {
+        const minDist = f.r + 78;
+        if ((f.x - x) ** 2 + (f.y - y) ** 2 < minDist * minDist) { overlap = true; break; }
+      }
+      if (overlap) continue;
+
+      floes.push(makeFloe(x, y));
+      placed = true;
+      break;
+    }
+    if (!placed) break;
+  }
+}
+
+// --- Lifecycle ---
+function startGame() {
+  state = 'playing';
+  score = 0;
+  fishCount = 0;
+  timeAlive = 0;
+  popups.length = 0;
+  floes = [];
+  particles = [];
+
+  const startX = W / 2;
+  const startY = H * 0.55;
+  const startFloe = makeFloe(startX, startY, {
+    r: 75, stability: 1, hasFish: false, decayRate: 0.018,
+  });
+  floes.push(startFloe);
+
+  player = {
+    x: startX,
+    y: startY,
+    floe: startFloe,
+    hopping: false,
+    hopFrom: null,
+    hopTo: null,
+    hopT: 0,
+    facing: -Math.PI / 2,
+    bob: 0,
+    blink: 0,
+    nextBlink: 2 + Math.random() * 3,
+  };
+
+  spawnAroundPlayer();
+
+  document.getElementById('title-screen').classList.remove('show');
+  document.getElementById('gameover-screen').classList.remove('show');
+}
+
+function gameOver() {
+  if (state !== 'playing') return;
+  state = 'gameover';
+  if (score > bestScore) {
+    bestScore = score;
+    try { localStorage.setItem('floe_best', String(bestScore)); } catch (_) {}
+  }
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-fish').textContent = fishCount;
+  document.getElementById('best-score').textContent = bestScore;
+  setTimeout(() => {
+    document.getElementById('gameover-screen').classList.add('show');
+  }, 600);
+}
+
+// --- Input ---
+canvas.addEventListener('pointerdown', (e) => {
+  if (state !== 'playing' || !player || player.hopping) return;
+  const rect = canvas.getBoundingClientRect();
+  const tx = e.clientX - rect.left;
+  const ty = e.clientY - rect.top;
+
+  let best = null, bestDist = Infinity;
+  for (const floe of floes) {
+    if (floe === player.floe) continue;
+    if (floe.sinking) continue;
+    const dToTap = Math.hypot(floe.x - tx, floe.y - ty);
+    const dToPlayer = Math.hypot(floe.x - player.x, floe.y - player.y);
+    if (dToPlayer > HOP_RANGE) continue;
+    if (dToTap < floe.r + 28 && dToTap < bestDist) {
+      bestDist = dToTap;
+      best = floe;
+    }
+  }
+
+  if (best) {
+    player.hopping = true;
+    player.hopFrom = { x: player.x, y: player.y, floe: player.floe };
+    player.hopTo = best;
+    player.hopT = 0;
+    player.facing = Math.atan2(best.y - player.y, best.x - player.x);
+    // small jump particles from origin floe
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2;
+      particles.push({
+        x: player.x, y: player.y,
+        vx: Math.cos(a) * 60, vy: Math.sin(a) * 60 - 30,
+        life: 0.4, maxLife: 0.4, type: 'snow', size: 1.6 + Math.random() * 1.5,
+      });
+    }
+  } else {
+    // tap miss feedback
+    particles.push({
+      x: tx, y: ty,
+      vx: 0, vy: 0,
+      life: 0.4, maxLife: 0.4, type: 'miss', size: 6,
+    });
+  }
+});
+
+// --- Particles ---
+function emitSplash(x, y, count = 14) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 60 + Math.random() * 110;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 70,
+      life: 0.7, maxLife: 0.7,
+      type: 'splash',
+      size: 2 + Math.random() * 3,
+    });
+  }
+}
+function emitSparkle(x, y, count = 10) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * 90,
+      vy: Math.sin(a) * 90,
+      life: 0.55, maxLife: 0.55,
+      type: 'sparkle',
+      size: 3 + Math.random() * 2,
+    });
+  }
+}
+
+function pushPopup(text, x, y, color) {
+  popups.push({ text, x, y, vy: -36, life: 0.9, maxLife: 0.9, color });
+}
+
+// --- Update ---
+let lastTime = performance.now();
+
+function update(dt) {
+  waveTime += dt;
+  // ambient snow regardless of state
+  snowAccum += dt;
+  if (snowAccum > 0.18) {
+    snowAccum = 0;
+    snowflakes.push({
+      x: Math.random() * W,
+      y: -10,
+      vx: -10 + Math.random() * 20,
+      vy: 30 + Math.random() * 50,
+      r: 1 + Math.random() * 2,
+      sway: Math.random() * Math.PI * 2,
+    });
+  }
+  for (const s of snowflakes) {
+    s.y += s.vy * dt;
+    s.sway += dt * 1.5;
+    s.x += s.vx * dt + Math.sin(s.sway) * 0.3;
+  }
+  snowflakes = snowflakes.filter(s => s.y < H + 20);
+
+  if (state !== 'playing') return;
+
+  timeAlive += dt;
+
+  // Hop motion
+  if (player.hopping) {
+    player.hopT += dt / HOP_DURATION;
+    if (player.hopT >= 1) {
+      // Land
+      player.hopT = 1;
+      player.hopping = false;
+      player.x = player.hopTo.x;
+      player.y = player.hopTo.y;
+      player.floe = player.hopTo;
+      player.floe.landFlash = 1;
+
+      // Score for hop
+      score += 5;
+
+      // Catch fish
+      if (player.floe.hasFish) {
+        player.floe.hasFish = false;
+        fishCount++;
+        score += 30;
+        emitSparkle(player.x, player.y, 14);
+        pushPopup('+30', player.x, player.y - 18, '#ffd166');
+      } else {
+        pushPopup('+5', player.x, player.y - 18, '#cfe9ff');
+      }
+
+      // small landing dust
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * Math.PI * 2;
+        particles.push({
+          x: player.x, y: player.y + 4,
+          vx: Math.cos(a) * 40, vy: Math.sin(a) * 30 - 10,
+          life: 0.4, maxLife: 0.4, type: 'snow', size: 1.4 + Math.random() * 1.6,
+        });
+      }
+
+      spawnAroundPlayer();
+    } else {
+      const t = player.hopT;
+      player.x = player.hopFrom.x + (player.hopTo.x - player.hopFrom.x) * t;
+      player.y = player.hopFrom.y + (player.hopTo.y - player.hopFrom.y) * t;
+    }
+  } else {
+    // bobbing
+    player.bob += dt * 4;
+    player.blink += dt;
+    if (player.blink > player.nextBlink) {
+      player.blink = -0.12;
+      player.nextBlink = 2 + Math.random() * 3;
+    }
+  }
+
+  // Floe decay & sink animation
+  const difficulty = 1 + timeAlive / 55;
+  for (const floe of floes) {
+    if (floe.sinking) {
+      floe.sinkAnim += dt * 1.6;
+      continue;
+    }
+    floe.spinPhase += floe.rotSpeed * dt;
+    floe.bobPhase += dt;
+    if (floe.landFlash > 0) floe.landFlash = Math.max(0, floe.landFlash - dt * 2);
+
+    const standingOn = !player.hopping && player.floe === floe;
+    const rate = floe.decayRate * (standingOn ? 2.6 : 1) * difficulty;
+    floe.stability -= rate * dt;
+
+    if (floe.stability <= 0) {
+      floe.stability = 0;
+      floe.sinking = true;
+      emitSplash(floe.x, floe.y, 18);
+
+      if (player.floe === floe && !player.hopping) {
+        // Penguin in the drink
+        emitSplash(player.x, player.y, 24);
+        gameOver();
+      }
+    }
+  }
+
+  // Cleanup sunk floes
+  floes = floes.filter(f => f.sinkAnim < 1.4);
+  spawnAroundPlayer();
+
+  // Particles
+  for (const p of particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (p.type === 'splash') p.vy += 280 * dt;
+    else if (p.type === 'snow') { p.vy += 70 * dt; p.vx *= 0.96; }
+    else if (p.type === 'sparkle') { p.vx *= 0.86; p.vy *= 0.86; }
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  // Popups
+  for (const pop of popups) {
+    pop.y += pop.vy * dt;
+    pop.vy += 22 * dt;
+    pop.life -= dt;
+  }
+  popups = popups.filter(p => p.life > 0);
+
+  // Time score
+  score += Math.floor(dt * 12);
+
+  // UI
+  document.getElementById('score-line').textContent = score;
+  document.getElementById('fish-line').textContent = '🐟 ' + fishCount;
+}
+
+// --- Draw helpers ---
+function drawOcean() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#1e4870');
+  grad.addColorStop(0.55, '#143553');
+  grad.addColorStop(1, '#0a1a2c');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // wave lines
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 10; i++) {
+    const yBase = ((i * 80 + waveTime * 10) % (H + 80)) - 40;
+    const alpha = 0.06 + 0.04 * Math.sin(i + waveTime * 0.3);
+    ctx.strokeStyle = `rgba(180, 220, 255, ${alpha})`;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 14) {
+      const yo = Math.sin((x + waveTime * 36) * 0.018 + i * 0.7) * 4;
+      const y = yBase + yo;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawSnow() {
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  for (const s of snowflakes) {
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawHopRing() {
+  if (!player || player.hopping) return;
+  const pulse = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(waveTime * 2.4));
+  ctx.strokeStyle = `rgba(127, 219, 255, ${0.12 * pulse})`;
+  ctx.setLineDash([10, 10]);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, HOP_RANGE, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawFloe(floe) {
+  if (floe.sinking && floe.sinkAnim >= 1.4) return;
+
+  const sinkScale = floe.sinking ? Math.max(0, 1 - floe.sinkAnim * 0.7) : 1;
+  const opacity = floe.sinking ? Math.max(0, 1 - floe.sinkAnim * 0.85) : 1;
+  if (sinkScale <= 0) return;
+
+  const bob = Math.sin(floe.bobPhase) * 1.6;
+  const r = floe.r * sinkScale;
+
+  ctx.save();
+  ctx.translate(floe.x, floe.y + bob);
+  ctx.rotate(floe.spinPhase);
+
+  // Underwater shadow
+  ctx.fillStyle = `rgba(8, 20, 36, ${0.45 * opacity})`;
+  ctx.beginPath();
+  ctx.ellipse(3, 6, r * 0.96, r * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Floe body color based on stability
+  const stab = floe.stability;
+  let body, edge;
+  if (stab > 0.6) { body = '#f1f8fd'; edge = '#cfe2ee'; }
+  else if (stab > 0.3) { body = '#d8e6f0'; edge = '#a8c0d2'; }
+  else { body = '#a8bccd'; edge = '#7891a4'; }
+
+  // Edge / rim
+  ctx.fillStyle = edge;
+  ctx.globalAlpha = opacity;
+  ctx.beginPath();
+  for (let i = 0; i <= floe.verts.length; i++) {
+    const idx = i % floe.verts.length;
+    const a = (idx / floe.verts.length) * Math.PI * 2;
+    const rr = r * floe.verts[idx];
+    if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // Inner top surface (slightly inset)
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  for (let i = 0; i <= floe.verts.length; i++) {
+    const idx = i % floe.verts.length;
+    const a = (idx / floe.verts.length) * Math.PI * 2;
+    const rr = (r - 5) * floe.verts[idx];
+    if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // highlight blob
+  ctx.fillStyle = `rgba(255, 255, 255, ${0.55 * opacity})`;
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.22, -r * 0.32, r * 0.42, r * 0.22, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Land flash
+  if (floe.landFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${0.35 * floe.landFlash * opacity})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.95, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Cracks
+  if (stab < 0.65) {
+    const intensity = Math.min(1, (0.65 - stab) / 0.5);
+    ctx.strokeStyle = `rgba(40, 60, 80, ${intensity * 0.7 * opacity})`;
+    ctx.lineWidth = 1.2;
+    const cracks = stab < 0.3 ? 5 : 3;
+    for (let i = 0; i < cracks; i++) {
+      const a = (i / cracks) * Math.PI * 2 + floe.bobPhase * 0.05;
+      ctx.beginPath();
+      let cx = Math.cos(a) * r * 0.18;
+      let cy = Math.sin(a) * r * 0.18;
+      ctx.moveTo(cx, cy);
+      for (let j = 0; j < 4; j++) {
+        const a2 = a + Math.sin(i * 7.1 + j * 2.3) * 0.55;
+        cx += Math.cos(a2) * r * 0.15;
+        cy += Math.sin(a2) * r * 0.15;
+        ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+
+  // Fish (drawn over floe in world coords, no rotation)
+  if (floe.hasFish && !floe.sinking) {
+    const fx = floe.x + Math.cos(floe.spinPhase + 0.6) * floe.r * 0.32;
+    const fy = floe.y + bob + Math.sin(floe.spinPhase + 0.6) * floe.r * 0.32;
+    drawFish(fx, fy);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+function drawFish(x, y) {
+  const wobble = Math.sin(waveTime * 6 + x * 0.05) * 0.35;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(wobble);
+
+  // body
+  const grad = ctx.createLinearGradient(-8, 0, 10, 0);
+  grad.addColorStop(0, '#ffb774');
+  grad.addColorStop(1, '#ff7d3a');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 9, 5.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // tail
+  ctx.fillStyle = '#ff7d3a';
+  ctx.beginPath();
+  ctx.moveTo(7, 0);
+  ctx.lineTo(14, -6);
+  ctx.lineTo(14, 6);
+  ctx.closePath();
+  ctx.fill();
+
+  // belly
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(0, 1.6, 6, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eye
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(-3.5, -1.2, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0d1f33';
+  ctx.beginPath();
+  ctx.arc(-3.4, -1.0, 0.85, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPlayer() {
+  if (!player) return;
+  const r = PLAYER_R;
+
+  let arcOffset = 0;
+  if (player.hopping) {
+    arcOffset = -Math.sin(player.hopT * Math.PI) * 60;
+  }
+  const bob = player.hopping ? 0 : Math.sin(player.bob) * 1.5;
+
+  // Shadow on the surface (below)
+  const groundY = player.y;
+  const shadowScale = player.hopping ? Math.max(0.4, 1 - Math.sin(player.hopT * Math.PI) * 0.55) : 1;
+  ctx.fillStyle = `rgba(0,0,0,${0.28 * shadowScale})`;
+  ctx.beginPath();
+  ctx.ellipse(player.x, groundY + 11, 12 * shadowScale, 4 * shadowScale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(player.x, player.y + arcOffset + bob);
+  // tilt slightly toward facing
+  const tilt = player.hopping
+    ? Math.sin(player.hopT * Math.PI) * 0.25 * Math.sign(Math.cos(player.facing))
+    : 0;
+  ctx.rotate(tilt);
+
+  // Body
+  ctx.fillStyle = '#1a232f';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.88, r, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Belly
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(0, 2, r * 0.58, r * 0.72, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wings
+  ctx.fillStyle = '#0f1620';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.7, 1, r * 0.28, r * 0.6, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(r * 0.7, 1, r * 0.28, r * 0.6, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  const blinking = player.blink < 0;
+  ctx.fillStyle = '#fff';
+  if (!blinking) {
+    ctx.beginPath();
+    ctx.arc(-r * 0.28, -r * 0.42, r * 0.20, 0, Math.PI * 2);
+    ctx.arc(r * 0.28, -r * 0.42, r * 0.20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0d1f33';
+    ctx.beginPath();
+    ctx.arc(-r * 0.24, -r * 0.40, r * 0.10, 0, Math.PI * 2);
+    ctx.arc(r * 0.32, -r * 0.40, r * 0.10, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // closed eyes — short lines
+    ctx.strokeStyle = '#0d1f33';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.42, -r * 0.42); ctx.lineTo(-r * 0.14, -r * 0.42);
+    ctx.moveTo(r * 0.14, -r * 0.42); ctx.lineTo(r * 0.42, -r * 0.42);
+    ctx.stroke();
+  }
+
+  // Beak
+  ctx.fillStyle = '#ffa54c';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.2, -r * 0.15);
+  ctx.lineTo(r * 0.2, -r * 0.15);
+  ctx.lineTo(0, r * 0.08);
+  ctx.closePath();
+  ctx.fill();
+
+  // Feet (only when stationary)
+  if (!player.hopping) {
+    ctx.fillStyle = '#ffa54c';
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.35, r * 0.92, r * 0.22, r * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.35, r * 0.92, r * 0.22, r * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const a = Math.max(0, p.life / p.maxLife);
+    if (p.type === 'splash') {
+      ctx.fillStyle = `rgba(170, 220, 255, ${a * 0.9})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (p.type === 'snow') {
+      ctx.fillStyle = `rgba(255, 255, 255, ${a * 0.85})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (p.type === 'sparkle') {
+      ctx.fillStyle = `rgba(255, 220, 120, ${a})`;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.life * 6);
+      ctx.fillRect(-p.size, -1, p.size * 2, 2);
+      ctx.fillRect(-1, -p.size, 2, p.size * 2);
+      ctx.restore();
+    } else if (p.type === 'miss') {
+      ctx.strokeStyle = `rgba(255, 120, 120, ${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (1 - a) * 30 + p.size, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPopups() {
+  ctx.textAlign = 'center';
+  for (const pop of popups) {
+    const a = Math.max(0, pop.life / pop.maxLife);
+    ctx.font = 'bold 18px -apple-system, sans-serif';
+    ctx.fillStyle = pop.color;
+    ctx.globalAlpha = a;
+    ctx.fillText(pop.text, pop.x, pop.y);
+    ctx.globalAlpha = 1;
+  }
+  ctx.textAlign = 'left';
+}
+
+// --- Main loop ---
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+
+  update(dt);
+
+  drawOcean();
+  drawSnow();
+
+  if (state === 'playing' || state === 'gameover') {
+    drawHopRing();
+    // sort floes by y for fake depth
+    const sorted = floes.slice().sort((a, b) => a.y - b.y);
+    for (const floe of sorted) drawFloe(floe);
+    drawParticles();
+    if (state === 'playing') drawPlayer();
+    drawPopups();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame((t) => { lastTime = t; frame(t); });
+
+// --- UI hooks ---
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Re-check orientation on resize
+window.addEventListener('resize', checkOrientation);
+
+</script>
+</body>
+</html>

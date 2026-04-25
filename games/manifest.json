@@ -24,6 +24,13 @@
       "theme": "Haunted",
       "genre": "Reaction",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-04-25",
+      "name": "Floe",
+      "theme": "Arctic",
+      "genre": "Survival",
+      "orientation": "PORTRAIT"
     }
   ]
 }
