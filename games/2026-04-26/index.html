@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#03060f">
+<title>Orbiter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #03060f; color: #fff; font-family: 'Orbitron', system-ui, -apple-system, sans-serif; }
+  body { position: fixed; inset: 0; }
+  canvas { display: block; touch-action: none; position: absolute; inset: 0; }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: inherit;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #score-hud {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(105,246,255,0.3);
+    color: #d8f9ff;
+    letter-spacing: 0.1em;
+    pointer-events: none;
+  }
+  #score-hud.hidden { display: none; }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.4rem;
+    padding: 2rem;
+    text-align: center;
+    background: radial-gradient(ellipse at center, rgba(20,30,60,0.6) 0%, rgba(3,6,15,0.92) 70%);
+  }
+  .screen.hidden { display: none; }
+
+  .label {
+    font-size: 0.7rem;
+    opacity: 0.55;
+    letter-spacing: 0.4em;
+    font-weight: 500;
+  }
+  .title {
+    font-size: clamp(2.6rem, 14vw, 4.5rem);
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    color: #d8f9ff;
+    text-shadow: 0 0 16px #69f6ff, 0 0 36px rgba(105,246,255,0.5);
+    line-height: 1;
+  }
+  .subtitle {
+    font-size: 0.95rem;
+    opacity: 0.8;
+    max-width: 320px;
+    line-height: 1.55;
+    font-weight: 500;
+  }
+  .btn {
+    margin-top: 0.5rem;
+    padding: 1rem 2.6rem;
+    background: linear-gradient(180deg, #1a3550 0%, #0a1828 100%);
+    border: 1px solid #69f6ff;
+    color: #d8f9ff;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(105,246,255,0.35), inset 0 0 12px rgba(105,246,255,0.15);
+    transition: transform 0.08s ease, box-shadow 0.2s ease;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:hover { box-shadow: 0 0 22px rgba(105,246,255,0.55), inset 0 0 16px rgba(105,246,255,0.25); }
+
+  .score-big {
+    font-size: 4.5rem;
+    font-weight: 900;
+    color: #ffe87a;
+    text-shadow: 0 0 14px rgba(255,232,122,0.5), 0 0 28px rgba(255,232,122,0.25);
+    line-height: 1;
+  }
+
+  .hint-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    letter-spacing: 0.1em;
+  }
+  .tap-icon {
+    width: 22px; height: 22px;
+    border: 2px solid #69f6ff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #69f6ff;
+    animation: pulse 1.4s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.18); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="canvas"></canvas>
+<div id="score-hud" class="hidden">0</div>
+
+<div id="title-screen" class="screen">
+  <div class="label">A SPACE PHYSICS GAME</div>
+  <div class="title">ORBITER</div>
+  <div class="subtitle">Tap to release from orbit and slingshot to the next planet. Time it right — drift off the edge and you're lost.</div>
+  <button class="btn" id="start-btn">LAUNCH</button>
+  <div class="hint-row"><div class="tap-icon"></div>tap anywhere to release</div>
+</div>
+
+<div id="over-screen" class="screen hidden">
+  <div class="label">SIGNAL LOST</div>
+  <div class="score-big" id="final-score">0</div>
+  <div class="subtitle">planets reached<br><span id="best-line" style="opacity:0.6;font-size:0.85rem;letter-spacing:0.15em">best · 0</span></div>
+  <button class="btn" id="restart-btn">AGAIN</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ============================================================
+// Game
+// ============================================================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const STATE = { TITLE: 0, PLAYING: 1, OVER: 2 };
+let gameState = STATE.TITLE;
+
+const titleScreen = document.getElementById('title-screen');
+const overScreen = document.getElementById('over-screen');
+const scoreHud = document.getElementById('score-hud');
+const finalScoreEl = document.getElementById('final-score');
+const bestLineEl = document.getElementById('best-line');
+
+let best = 0;
+try { best = parseInt(localStorage.getItem('orbiter_best') || '0', 10) || 0; } catch (_) {}
+
+const RELEASE_SPEED = 460; // px/sec
+const PLANET_COLORS = [
+  ['#69f6ff', '#0e3845'],
+  ['#ff7adf', '#3e1638'],
+  ['#ffe066', '#3a3014'],
+  ['#a06bff', '#27124a'],
+  ['#7affb0', '#103d28'],
+  ['#ff9a4d', '#3a1a08']
+];
+
+let planets = [];
+let stars = [];
+let particles = [];
+let pulses = [];
+
+let ship = {
+  x: 0, y: 0,
+  vx: 0, vy: 0,
+  orbiting: null,
+  orbitAngle: 0,
+  orbitRadius: 0,
+  orbitDir: 1,
+  orbitSpeed: 0,
+  trail: []
+};
+let cameraY = 0;
+let score = 0;
+let highestVisited = 0;
+let timeFromRelease = 0;
+let combo = 0;
+let comboFlash = 0;
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function makePlanet(x, y, isStart) {
+  const c = pick(PLANET_COLORS);
+  return {
+    x, y,
+    r: isStart ? 38 : rand(22, 36),
+    color: c[0],
+    dark: c[1],
+    spin: Math.random() * Math.PI * 2,
+    spinRate: rand(-0.6, 0.6),
+    visited: !!isStart
+  };
+}
+
+function generateStars() {
+  stars = [];
+  for (let i = 0; i < 180; i++) {
+    stars.push({
+      x: Math.random() * W,
+      worldY: cameraY * 0.3 + (Math.random() * 2 - 1) * H,
+      r: Math.random() * 1.4 + 0.3,
+      tw: Math.random() * Math.PI * 2,
+      twSpeed: rand(0.6, 2.4)
+    });
+  }
+}
+
+function init() {
+  planets = [];
+  particles = [];
+  pulses = [];
+  cameraY = 0;
+  score = 0;
+  highestVisited = 0;
+  combo = 0;
+  comboFlash = 0;
+  timeFromRelease = 0;
+
+  // First planet anchored near bottom
+  const p0 = makePlanet(W / 2, H - 160, true);
+  planets.push(p0);
+
+  // Generate initial planets going upward
+  let lastY = p0.y;
+  let lastX = p0.x;
+  for (let i = 0; i < 6; i++) {
+    lastY -= rand(170, 240);
+    const dxRange = 130;
+    const newX = clamp(lastX + rand(-dxRange, dxRange), 70, W - 70);
+    planets.push(makePlanet(newX, lastY, false));
+    lastX = newX;
+  }
+
+  // Setup ship orbiting first planet (angle pointing right of planet, going up)
+  ship.orbiting = 0;
+  ship.orbitRadius = p0.r + 26;
+  ship.orbitAngle = 0; // start at right of planet
+  ship.orbitDir = -1; // counter-clockwise so ship initially heads up
+  ship.orbitSpeed = RELEASE_SPEED / ship.orbitRadius;
+  applyOrbitPosition();
+  ship.vx = 0; ship.vy = 0;
+  ship.trail.length = 0;
+
+  generateStars();
+}
+
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+function applyOrbitPosition() {
+  const p = planets[ship.orbiting];
+  ship.x = p.x + Math.cos(ship.orbitAngle) * ship.orbitRadius;
+  ship.y = p.y + Math.sin(ship.orbitAngle) * ship.orbitRadius;
+}
+
+function ensureAhead() {
+  let topY = Infinity;
+  let topX = W / 2;
+  for (const p of planets) {
+    if (p.y < topY) { topY = p.y; topX = p.x; }
+  }
+  while (topY > cameraY - H * 1.4) {
+    const gap = rand(170, 245);
+    topY -= gap;
+    const dxRange = 140;
+    const newX = clamp(topX + rand(-dxRange, dxRange), 70, W - 70);
+    planets.push(makePlanet(newX, topY, false));
+    topX = newX;
+  }
+}
+
+function release() {
+  if (ship.orbiting === null) return;
+  const tx = -Math.sin(ship.orbitAngle) * ship.orbitDir;
+  const ty = Math.cos(ship.orbitAngle) * ship.orbitDir;
+  ship.vx = tx * RELEASE_SPEED;
+  ship.vy = ty * RELEASE_SPEED;
+  ship.orbiting = null;
+  timeFromRelease = 0;
+
+  // Burst particles
+  for (let k = 0; k < 14; k++) {
+    particles.push({
+      x: ship.x, y: ship.y,
+      vx: rand(-1.5, 1.5) - tx * 1.2,
+      vy: rand(-1.5, 1.5) - ty * 1.2,
+      life: 0.6, max: 0.6,
+      r: rand(1.5, 3.2),
+      color: '#69f6ff'
+    });
+  }
+}
+
+function tryCapture() {
+  if (ship.orbiting !== null) return;
+  for (let i = highestVisited + 1; i < planets.length; i++) {
+    const p = planets[i];
+    const dx = ship.x - p.x;
+    const dy = ship.y - p.y;
+    const dist = Math.hypot(dx, dy);
+    const captureR = p.r + 70;
+    if (dist < captureR) {
+      // Capture
+      ship.orbiting = i;
+      ship.orbitRadius = clamp(dist, p.r + 16, p.r + 50);
+      ship.orbitAngle = Math.atan2(dy, dx);
+
+      // Determine direction: continue ship's existing tangential motion
+      const tx = -Math.sin(ship.orbitAngle);
+      const ty = Math.cos(ship.orbitAngle);
+      const dot = tx * ship.vx + ty * ship.vy;
+      ship.orbitDir = dot >= 0 ? 1 : -1;
+      ship.orbitSpeed = RELEASE_SPEED / ship.orbitRadius;
+
+      p.visited = true;
+      highestVisited = i;
+      score = i;
+
+      if (timeFromRelease < 0.55) combo += 1; else combo = 1;
+      comboFlash = 0.6;
+
+      // capture pulse + particles
+      pulses.push({ x: p.x, y: p.y, r: p.r, life: 0.7, max: 0.7, color: p.color });
+      for (let k = 0; k < 22; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = rand(1, 3.5);
+        particles.push({
+          x: ship.x, y: ship.y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: 0.9, max: 0.9,
+          r: rand(1.5, 3),
+          color: p.color
+        });
+      }
+
+      try {
+        if (score > best) {
+          best = score;
+          localStorage.setItem('orbiter_best', String(best));
+        }
+      } catch (_) {}
+      return;
+    }
+  }
+}
+
+function pointerHandler(e) {
+  if (gameState !== STATE.PLAYING) return;
+  e.preventDefault();
+  release();
+}
+canvas.addEventListener('pointerdown', pointerHandler);
+
+function update(dt) {
+  if (gameState !== STATE.PLAYING) return;
+
+  if (ship.orbiting !== null) {
+    ship.orbitAngle += ship.orbitSpeed * ship.orbitDir * dt;
+    applyOrbitPosition();
+  } else {
+    ship.x += ship.vx * dt;
+    ship.y += ship.vy * dt;
+    timeFromRelease += dt;
+
+    // Trail
+    ship.trail.push({ x: ship.x, y: ship.y, life: 0.45 });
+    if (ship.trail.length > 60) ship.trail.shift();
+
+    tryCapture();
+  }
+
+  // Decay trail
+  for (const t of ship.trail) t.life -= dt;
+  while (ship.trail.length && ship.trail[0].life <= 0) ship.trail.shift();
+
+  // Particles
+  for (const pt of particles) {
+    pt.x += pt.vx;
+    pt.y += pt.vy;
+    pt.vx *= 0.94;
+    pt.vy *= 0.94;
+    pt.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  // Pulses
+  for (const pl of pulses) {
+    pl.life -= dt;
+    pl.r += 110 * dt;
+  }
+  pulses = pulses.filter(p => p.life > 0);
+
+  // Combo flash
+  if (comboFlash > 0) comboFlash -= dt;
+
+  // Camera (frame-rate independent lerp)
+  const targetCamY = ship.y - H * 0.62;
+  const k = 1 - Math.pow(0.86, dt * 60);
+  cameraY += (targetCamY - cameraY) * k;
+
+  // Planet spin
+  for (const p of planets) p.spin += p.spinRate * dt;
+
+  ensureAhead();
+
+  // Stars
+  for (const s of stars) {
+    s.tw += s.twSpeed * dt;
+    const screenY = s.worldY - cameraY * 0.3;
+    if (screenY > H + 80) {
+      s.worldY = cameraY * 0.3 - rand(40, H);
+      s.x = Math.random() * W;
+    } else if (screenY < -80) {
+      s.worldY = cameraY * 0.3 + H + rand(40, H);
+      s.x = Math.random() * W;
+    }
+  }
+
+  // Failure check (after release only)
+  if (ship.orbiting === null) {
+    const margin = 60;
+    if (ship.x < -margin || ship.x > W + margin) gameOver();
+    else if (ship.y > cameraY + H + 200) gameOver();
+    else if (ship.y < cameraY - H * 3) gameOver();
+  }
+
+  scoreHud.textContent = score;
+}
+
+// ----------- Rendering -----------
+
+function drawBackground() {
+  ctx.fillStyle = '#03060f';
+  ctx.fillRect(0, 0, W, H);
+
+  // soft gradient overlay
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(40,16,80,0.35)');
+  grad.addColorStop(0.5, 'rgba(8,18,42,0.18)');
+  grad.addColorStop(1, 'rgba(10,40,60,0.20)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // distant nebula blobs (parallax)
+  for (let i = 0; i < 3; i++) {
+    const ny = ((i * 580 - cameraY * 0.2) % (H * 1.6) + H * 1.6) % (H * 1.6) - H * 0.3;
+    const nx = (W * 0.2) + (i * 0.31 % 1) * W * 0.6;
+    const colors = ['rgba(120,60,180,0.18)', 'rgba(60,140,200,0.14)', 'rgba(200,80,140,0.12)'];
+    const g = ctx.createRadialGradient(nx, ny, 10, nx, ny, 280);
+    g.addColorStop(0, colors[i % 3]);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawStars() {
+  for (const s of stars) {
+    const sy = s.worldY - cameraY * 0.3;
+    if (sy < -10 || sy > H + 10) continue;
+    const a = 0.45 + 0.45 * Math.sin(s.tw);
+    ctx.fillStyle = `rgba(220,240,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(s.x, sy, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawPlanet(p) {
+  const sx = p.x;
+  const sy = p.y - cameraY;
+  if (sy < -p.r * 3 - 60 || sy > H + p.r * 3 + 60) return;
+
+  // outer glow
+  const glow = ctx.createRadialGradient(sx, sy, p.r * 0.4, sx, sy, p.r * 2.6);
+  glow.addColorStop(0, hexA(p.color, 0.55));
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(sx - p.r * 2.8, sy - p.r * 2.8, p.r * 5.6, p.r * 5.6);
+
+  // body with shading
+  const body = ctx.createRadialGradient(sx - p.r * 0.45, sy - p.r * 0.45, p.r * 0.1, sx, sy, p.r);
+  body.addColorStop(0, lighten(p.color, 0.25));
+  body.addColorStop(0.6, p.color);
+  body.addColorStop(1, p.dark);
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(sx, sy, p.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ring band
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(p.spin);
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, p.r * 0.9, p.r * 0.28, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // visited check ring
+  if (p.visited) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, p.r + 6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawShip(x, y, angle, glowing) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // engine glow
+  if (glowing) {
+    const eg = ctx.createRadialGradient(-6, 0, 0, -6, 0, 14);
+    eg.addColorStop(0, 'rgba(105,246,255,0.9)');
+    eg.addColorStop(1, 'transparent');
+    ctx.fillStyle = eg;
+    ctx.fillRect(-22, -14, 28, 28);
+  }
+
+  // body
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = '#69f6ff';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(11, 0);
+  ctx.lineTo(-7, -7);
+  ctx.lineTo(-3, 0);
+  ctx.lineTo(-7, 7);
+  ctx.closePath();
+  ctx.fill();
+
+  // accent
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#69f6ff';
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.lineTo(-2, -3);
+  ctx.lineTo(-2, 3);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawTrail() {
+  if (ship.trail.length < 2) return;
+  for (let i = 0; i < ship.trail.length; i++) {
+    const t = ship.trail[i];
+    const a = Math.max(0, t.life / 0.45) * 0.7;
+    const r = 1.5 + 2.8 * (i / ship.trail.length);
+    ctx.fillStyle = `rgba(105,246,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y - cameraY, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawParticles() {
+  for (const pt of particles) {
+    const a = pt.life / pt.max;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = pt.color;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y - cameraY, pt.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPulses() {
+  for (const pl of pulses) {
+    const a = pl.life / pl.max;
+    ctx.strokeStyle = hexA(pl.color, a * 0.7);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(pl.x, pl.y - cameraY, pl.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawHints() {
+  // Tangent indicator while orbiting
+  if (ship.orbiting !== null) {
+    const tx = -Math.sin(ship.orbitAngle) * ship.orbitDir;
+    const ty = Math.cos(ship.orbitAngle) * ship.orbitDir;
+    const sx = ship.x;
+    const sy = ship.y - cameraY;
+
+    // dashed orbit ring
+    const p = planets[ship.orbiting];
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.setLineDash([3, 5]);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - cameraY, ship.orbitRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // arrow showing release direction
+    const len = 38;
+    const ex = sx + tx * len;
+    const ey = sy + ty * len;
+    ctx.strokeStyle = 'rgba(105,246,255,0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    // arrowhead
+    const ang = Math.atan2(ty, tx);
+    ctx.fillStyle = 'rgba(105,246,255,0.95)';
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - Math.cos(ang - 0.45) * 9, ey - Math.sin(ang - 0.45) * 9);
+    ctx.lineTo(ex - Math.cos(ang + 0.45) * 9, ey - Math.sin(ang + 0.45) * 9);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Next-planet target ring + off-screen indicator
+  const nextIdx = highestVisited + 1;
+  if (nextIdx < planets.length) {
+    const next = planets[nextIdx];
+    const sy = next.y - cameraY;
+    if (sy < 30) {
+      // off-screen above: draw caret pointing up at top of screen
+      const x = clamp(next.x, 30, W - 30);
+      ctx.fillStyle = 'rgba(255,232,122,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(x, 22);
+      ctx.lineTo(x - 9, 40);
+      ctx.lineTo(x + 9, 40);
+      ctx.closePath();
+      ctx.fill();
+      // small label
+      ctx.fillStyle = 'rgba(255,232,122,0.55)';
+      ctx.font = "600 10px 'Orbitron', sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText('NEXT', x, 56);
+    } else {
+      ctx.strokeStyle = 'rgba(255,232,122,0.55)';
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      ctx.arc(next.x, sy, next.r + 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // combo flash
+  if (comboFlash > 0 && combo > 1) {
+    const a = Math.min(1, comboFlash / 0.6);
+    ctx.font = "700 22px 'Orbitron', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(255,232,122,${a})`;
+    ctx.shadowColor = 'rgba(255,232,122,0.6)';
+    ctx.shadowBlur = 12;
+    ctx.fillText(`${combo}x QUICK`, W / 2, 90 + (1 - a) * -10);
+    ctx.shadowBlur = 0;
+  }
+}
+
+function render() {
+  drawBackground();
+  drawStars();
+  drawPulses();
+  for (const p of planets) drawPlanet(p);
+  drawTrail();
+  drawParticles();
+
+  // Ship
+  let sa;
+  if (ship.orbiting !== null) {
+    sa = ship.orbitAngle + (Math.PI / 2) * ship.orbitDir;
+  } else {
+    sa = Math.atan2(ship.vy, ship.vx);
+  }
+  drawShip(ship.x, ship.y - cameraY, sa, ship.orbiting === null);
+
+  drawHints();
+}
+
+// ---- color helpers ----
+function hexA(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function lighten(hex, amt) {
+  const h = hex.replace('#', '');
+  const r = Math.min(255, parseInt(h.slice(0, 2), 16) + Math.round(255 * amt));
+  const g = Math.min(255, parseInt(h.slice(2, 4), 16) + Math.round(255 * amt));
+  const b = Math.min(255, parseInt(h.slice(4, 6), 16) + Math.round(255 * amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ============================================================
+// Loop / state transitions
+// ============================================================
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function startGame() {
+  init();
+  gameState = STATE.PLAYING;
+  titleScreen.classList.add('hidden');
+  overScreen.classList.add('hidden');
+  scoreHud.classList.remove('hidden');
+  scoreHud.textContent = '0';
+}
+
+function gameOver() {
+  gameState = STATE.OVER;
+  finalScoreEl.textContent = score;
+  bestLineEl.textContent = `best · ${best}`;
+  overScreen.classList.remove('hidden');
+  scoreHud.classList.add('hidden');
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Render an idle background loop on title screen too
+requestAnimationFrame(loop);
+
+// Pre-populate stars/planets for the title backdrop
+init();
+gameState = STATE.TITLE;
+</script>
+</body>
+</html>

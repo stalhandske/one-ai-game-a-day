@@ -31,6 +31,13 @@
       "theme": "Arctic",
       "genre": "Survival",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-04-26",
+      "name": "Orbiter",
+      "theme": "Space",
+      "genre": "Physics",
+      "orientation": "PORTRAIT"
     }
   ]
 }
