@@ -9,7 +9,7 @@ Path: /Users/stalhandske/git/one-ai-game-a-day
 Read `games/manifest.json`. If there is already an entry with today's date (use the system date), stop immediately — today's game is done.
 
 ## Step 2A — Pick a theme and genre
-Read `games/manifest.json` to find the themes and genres used in the last 7 entries. You must avoid repeating them to keep things fresh.
+Read `games/manifest.json` to find the themes, genres, and goal types used in the last 7 entries. You must avoid repeating them to keep things fresh.
 
 Pick ONE theme and ONE genre from the lists below that haven't been used recently:
 
@@ -22,9 +22,14 @@ Pick ONE theme and ONE genre from the lists below that haven't been used recentl
 Based on the genre and theme, generate ideas for mechanics to base the game around. Generate at least 20 ideas before locking in on one of them. Each idea only needs to be a couple of words like "digging tunnels" or "swimming helicopter". Pick an idea that seems both innovative and doable.
 
 Flesh out the idea a bit further with a one-page initial game design document before proceeding to the next step. The design document should outline a game that:
-- Is a fully playable game (has win/lose conditions or a score loop)
+- Is a fully playable game with a clear player experience
+- Has a **goal type** — choose one that fits the design:
+  - **Score loop** — chase a high score (classic arcade style)
+  - **Win/lose** — clear a puzzle, survive a challenge, complete a level
+  - **Completion** — finish a narrative, build something, reach an ending
+  - **Exploration/sandbox** — no explicit goal; the experience is the point
 - Is mobile-first: touch controls, fits any screen size, large tap targets
-- Has a title screen and a game-over/restart screen
+- Has a title screen; end/restart screen only if the game has a win or lose condition
 
 Be creative and seek novelty in the game design.
 
@@ -126,7 +131,8 @@ Be creative and make it genuinely fun. The game should feel complete, not like a
 Review your own game file critically:
 - Does it have real gameplay (not just a placeholder)?
 - Are touch controls fully implemented and comfortable on a phone screen?
-- Does it have a start screen and a game over/win screen with restart?
+- Does it have a title/start screen?
+- If the game has a win or lose condition, does it have a game-over/win screen with a restart option?
 - Is the code free of obvious bugs (off-by-one errors, missing event listeners, broken game loops)?
 - Does it look good visually?
 - Is the `ORIENTATION` constant declared and is the orientation handler included?
@@ -145,7 +151,8 @@ Read `games/manifest.json` and add a new entry to the `games` array:
   "name": "Game Name",
   "theme": "Theme",
   "genre": "Genre",
-  "orientation": "PORTRAIT"
+  "orientation": "PORTRAIT",
+  "goalType": "score | win-lose | completion | sandbox"
 }
 ```
 Write the updated manifest back to `games/manifest.json`.
