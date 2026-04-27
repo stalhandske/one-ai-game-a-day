@@ -38,6 +38,13 @@
       "theme": "Space",
       "genre": "Physics",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-04-27",
+      "name": "Deep",
+      "theme": "Cave",
+      "genre": "Roguelike",
+      "orientation": "PORTRAIT"
     }
   ]
 }
