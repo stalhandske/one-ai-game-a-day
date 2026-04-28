@@ -45,6 +45,13 @@
       "theme": "Cave",
       "genre": "Roguelike",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-04-28",
+      "name": "Boilerworks",
+      "theme": "Steampunk",
+      "genre": "Clicker",
+      "orientation": "PORTRAIT"
     }
   ]
 }

@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Boilerworks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brass: #c89a4a;
+    --brass-light: #e8c577;
+    --brass-dark: #6e4d1e;
+    --copper: #b87333;
+    --iron: #2a221a;
+    --iron-dark: #14100c;
+    --paper: #f3e3bf;
+    --danger: #d8431b;
+    --danger-deep: #6c1a08;
+    --steam: #efe7d2;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    overflow: hidden; overscroll-behavior: none;
+    user-select: none; -webkit-user-select: none;
+    background: var(--iron-dark);
+    font-family: 'IM Fell English SC', serif;
+    color: var(--paper);
+    touch-action: manipulation;
+  }
+
+  #app {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 30%, #3a2a18 0%, #1a120c 60%, #0a0704 100%);
+    overflow: hidden;
+  }
+
+  /* Background gears */
+  .gear-bg {
+    position: absolute; pointer-events: none; opacity: 0.08;
+    color: var(--brass);
+  }
+
+  /* Back button */
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'IM Fell English SC', serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  /* Title screen */
+  .screen {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    text-align: center;
+    z-index: 5;
+  }
+  .screen.active { display: flex; }
+
+  #title-screen {
+    background:
+      radial-gradient(ellipse at 50% 35%, rgba(200,154,74,0.18) 0%, transparent 60%),
+      linear-gradient(180deg, #2b1f12 0%, #14100c 100%);
+  }
+
+  .title-logo {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: clamp(2.5rem, 12vw, 4rem);
+    letter-spacing: 0.04em;
+    color: var(--brass-light);
+    text-shadow:
+      0 1px 0 #2a1a08,
+      0 3px 0 #4a3010,
+      0 5px 14px rgba(0,0,0,0.7),
+      0 0 20px rgba(232,197,119,0.25);
+    margin: 0 0 0.4rem;
+  }
+
+  .title-sub {
+    font-size: 1rem;
+    opacity: 0.75;
+    margin-bottom: 2rem;
+    letter-spacing: 0.1em;
+  }
+
+  .btn {
+    background: linear-gradient(180deg, var(--brass-light) 0%, var(--brass) 50%, var(--brass-dark) 100%);
+    color: #1a0e02;
+    border: 2px solid #3a2410;
+    border-radius: 12px;
+    padding: 0.9rem 2.2rem;
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    box-shadow:
+      inset 0 2px 0 rgba(255,230,180,0.6),
+      inset 0 -3px 0 rgba(60,30,5,0.7),
+      0 6px 0 #2a1a08,
+      0 8px 18px rgba(0,0,0,0.5);
+    transform: translateY(0);
+    transition: transform 0.05s, box-shadow 0.05s;
+  }
+  .btn:active {
+    transform: translateY(4px);
+    box-shadow:
+      inset 0 2px 0 rgba(255,230,180,0.4),
+      inset 0 -2px 0 rgba(60,30,5,0.7),
+      0 2px 0 #2a1a08,
+      0 3px 6px rgba(0,0,0,0.5);
+  }
+
+  .how-to {
+    margin-top: 2rem;
+    max-width: 320px;
+    font-size: 0.9rem;
+    opacity: 0.65;
+    line-height: 1.5;
+  }
+  .how-to b { color: var(--brass-light); }
+
+  /* Game screen */
+  #game-screen {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    padding: 0.6rem;
+    padding-top: max(0.6rem, env(safe-area-inset-top));
+    padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+    gap: 0.5rem;
+  }
+  #game-screen.active { display: flex; }
+
+  /* HUD */
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.7rem;
+    margin-top: 2.6rem; /* leave room for back btn */
+    background: linear-gradient(180deg, #3a2a18 0%, #1f1610 100%);
+    border: 2px solid #5a3e1e;
+    border-radius: 10px;
+    box-shadow: inset 0 2px 0 rgba(255,200,120,0.15), 0 3px 8px rgba(0,0,0,0.4);
+  }
+  .hud-cell { display: flex; align-items: center; gap: 0.4rem; }
+  .hud-label {
+    font-size: 0.75rem; opacity: 0.7; letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hud-val {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--brass-light);
+    min-width: 2.5rem;
+    text-align: right;
+  }
+  .icon-steam { font-size: 1.1rem; }
+
+  /* Boilers area */
+  .boilers {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-height: 0;
+  }
+
+  .boiler {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    background:
+      linear-gradient(180deg, #2a1d10 0%, #1a1208 100%);
+    border: 3px solid var(--brass-dark);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+      inset 0 2px 0 rgba(255,200,120,0.15),
+      inset 0 -4px 12px rgba(0,0,0,0.5),
+      0 4px 10px rgba(0,0,0,0.4);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .boiler.warning {
+    border-color: #d57a3a;
+    box-shadow:
+      inset 0 0 30px rgba(216, 67, 27, 0.3),
+      0 4px 10px rgba(0,0,0,0.4);
+    animation: warn-pulse 0.5s infinite alternate;
+  }
+  .boiler.critical {
+    border-color: var(--danger);
+    box-shadow:
+      inset 0 0 60px rgba(216, 67, 27, 0.6),
+      0 0 20px rgba(216, 67, 27, 0.5);
+    animation: crit-pulse 0.25s infinite alternate;
+  }
+
+  @keyframes warn-pulse {
+    from { box-shadow: inset 0 0 30px rgba(216, 67, 27, 0.2), 0 4px 10px rgba(0,0,0,0.4); }
+    to   { box-shadow: inset 0 0 50px rgba(216, 67, 27, 0.45), 0 4px 14px rgba(216,67,27,0.3); }
+  }
+  @keyframes crit-pulse {
+    from { box-shadow: inset 0 0 60px rgba(216, 67, 27, 0.5), 0 0 20px rgba(216, 67, 27, 0.4); }
+    to   { box-shadow: inset 0 0 90px rgba(216, 67, 27, 0.85), 0 0 35px rgba(216, 67, 27, 0.7); }
+  }
+
+  /* Rivets on boiler */
+  .boiler::before, .boiler::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    width: 100%; height: 8px;
+    background-image:
+      radial-gradient(circle at 1rem 50%, var(--brass) 0 3px, transparent 4px),
+      radial-gradient(circle at calc(100% - 1rem) 50%, var(--brass) 0 3px, transparent 4px);
+  }
+  .boiler::before { top: 6px; }
+  .boiler::after  { bottom: 6px; }
+
+  /* Gauge */
+  .gauge {
+    width: 38%;
+    min-width: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.6rem 0.4rem;
+    gap: 0.4rem;
+  }
+
+  .gauge-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    opacity: 0.65;
+    text-transform: uppercase;
+  }
+
+  .gauge-dial {
+    position: relative;
+    width: 78px; height: 78px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 30%, #f3e3bf 0%, #c89a4a 60%, #6e4d1e 100%);
+    border: 3px solid #3a2410;
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,0.4),
+      inset 0 -4px 8px rgba(0,0,0,0.5),
+      0 2px 4px rgba(0,0,0,0.4);
+  }
+  .gauge-face {
+    position: absolute; inset: 6px;
+    background: radial-gradient(circle at 30% 25%, #fbf2dc, #d9c08a 70%, #a07a3a);
+    border-radius: 50%;
+    overflow: hidden;
+  }
+  .gauge-arc {
+    position: absolute; inset: 4px;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 225deg,
+      #4f9c3e 0deg 90deg,
+      #d8b03a 90deg 144deg,
+      #d8431b 144deg 180deg,
+      transparent 180deg 360deg
+    );
+    -webkit-mask: radial-gradient(transparent 60%, #000 61%, #000 100%);
+            mask: radial-gradient(transparent 60%, #000 61%, #000 100%);
+    opacity: 0.85;
+  }
+  .gauge-needle {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 3px; height: 32px;
+    background: linear-gradient(180deg, #1a0e02 0%, #d8431b 100%);
+    transform-origin: 50% 100%;
+    transform: translate(-50%, -100%) rotate(-135deg);
+    border-radius: 2px;
+    transition: transform 0.12s linear;
+    box-shadow: 0 0 4px rgba(0,0,0,0.6);
+  }
+  .gauge-cap {
+    position: absolute; left: 50%; top: 50%;
+    width: 10px; height: 10px;
+    background: #1a0e02;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--brass-dark);
+  }
+  .gauge-pct {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--brass-light);
+    min-width: 3ch;
+    text-align: center;
+  }
+
+  /* Valve / tap area */
+  .valve-area {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .valve {
+    position: relative;
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 25%, var(--brass-light) 0%, var(--brass) 45%, var(--brass-dark) 100%);
+    border: 3px solid #3a2410;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      inset 0 2px 0 rgba(255,230,180,0.6),
+      inset 0 -4px 6px rgba(40,20,5,0.7),
+      0 6px 0 #2a1a08,
+      0 8px 14px rgba(0,0,0,0.5);
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  .valve::before {
+    content: '';
+    position: absolute; inset: 14px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 30%, #f3e3bf 0%, #c89a4a 70%, #6e4d1e 100%);
+    border: 2px solid #3a2410;
+  }
+  /* Spokes */
+  .valve::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(0deg, transparent 46%, #3a2410 46%, #3a2410 54%, transparent 54%),
+      linear-gradient(60deg, transparent 46%, #3a2410 46%, #3a2410 54%, transparent 54%),
+      linear-gradient(120deg, transparent 46%, #3a2410 46%, #3a2410 54%, transparent 54%);
+    border-radius: 50%;
+    -webkit-mask: radial-gradient(circle, transparent 12px, #000 13px, #000 32px, transparent 33px);
+            mask: radial-gradient(circle, transparent 12px, #000 13px, #000 32px, transparent 33px);
+    opacity: 0.75;
+  }
+  .valve.cooling {
+    filter: grayscale(0.6) brightness(0.7);
+  }
+  .valve-area:active .valve:not(.cooling) {
+    transform: translateY(5px) rotate(20deg);
+    box-shadow:
+      inset 0 2px 0 rgba(255,230,180,0.4),
+      inset 0 -2px 4px rgba(40,20,5,0.7),
+      0 1px 0 #2a1a08,
+      0 2px 4px rgba(0,0,0,0.5);
+  }
+
+  /* Steam particles */
+  .steam-layer {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .puff {
+    position: absolute;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(239,231,210,0.85) 0%, rgba(239,231,210,0.4) 50%, rgba(239,231,210,0) 70%);
+    pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  .coin-popup {
+    position: absolute;
+    pointer-events: none;
+    color: var(--brass-light);
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 1rem;
+    text-shadow: 0 1px 2px #000, 0 0 8px rgba(232,197,119,0.6);
+    will-change: transform, opacity;
+  }
+
+  /* Upgrade panel */
+  .upgrades {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+  }
+  .upg {
+    background: linear-gradient(180deg, #3a2a18 0%, #1f1610 100%);
+    border: 2px solid #5a3e1e;
+    border-radius: 10px;
+    padding: 0.45rem 0.2rem 0.5rem;
+    color: var(--paper);
+    font-family: 'IM Fell English SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    text-align: center;
+    box-shadow: inset 0 2px 0 rgba(255,200,120,0.12), 0 2px 4px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    transition: transform 0.06s, box-shadow 0.06s, opacity 0.15s;
+  }
+  .upg-icon {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .upg-name {
+    font-weight: bold;
+    font-size: 0.72rem;
+    color: var(--brass-light);
+    line-height: 1.05;
+  }
+  .upg-cost {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 0.78rem;
+    color: var(--brass-light);
+    margin-top: 0.1rem;
+  }
+  .upg-lvl {
+    font-size: 0.6rem;
+    opacity: 0.65;
+    letter-spacing: 0.1em;
+  }
+  .upg:active:not(.disabled) {
+    transform: translateY(2px);
+    box-shadow: inset 0 1px 0 rgba(255,200,120,0.1), 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .upg.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .upg.affordable {
+    border-color: #d8b03a;
+    box-shadow: inset 0 2px 0 rgba(255,220,140,0.3), 0 0 8px rgba(216,176,58,0.3);
+  }
+
+  /* Game over screen */
+  #over-screen {
+    background: radial-gradient(ellipse at center, rgba(108,26,8,0.45) 0%, rgba(20,16,12,0.85) 60%, rgba(10,7,4,0.95) 100%);
+    backdrop-filter: blur(3px);
+  }
+  .over-title {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 9vw, 3rem);
+    color: var(--danger);
+    text-shadow: 0 0 20px rgba(216,67,27,0.6), 0 4px 0 #3a0e02;
+    margin: 0;
+    letter-spacing: 0.05em;
+  }
+  .over-sub {
+    margin: 0.4rem 0 1.5rem;
+    opacity: 0.75;
+  }
+  .over-stats {
+    background: rgba(0,0,0,0.4);
+    border: 2px solid var(--brass-dark);
+    border-radius: 12px;
+    padding: 1.2rem 1.6rem;
+    margin-bottom: 1.8rem;
+    min-width: 220px;
+  }
+  .over-row { display: flex; justify-content: space-between; margin: 0.3rem 0; gap: 1.5rem; }
+  .over-row .lbl { opacity: 0.7; }
+  .over-row .val { color: var(--brass-light); font-family: 'Cinzel', serif; font-weight: 800; }
+
+  /* Boiler explosion effect */
+  .boiler.exploded {
+    animation: explode 0.6s ease-out forwards;
+  }
+  @keyframes explode {
+    0%   { transform: scale(1); filter: brightness(1); }
+    20%  { transform: scale(1.1); filter: brightness(3) saturate(2); border-color: #fff; }
+    100% { transform: scale(0.95); filter: brightness(0.4) saturate(0.6); }
+  }
+
+  @media (max-height: 580px) {
+    .gauge-dial { width: 60px; height: 60px; }
+    .gauge-needle { height: 24px; }
+    .valve { width: 64px; height: 64px; }
+    .gauge { min-width: 90px; }
+    .upg { font-size: 0.65rem; }
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="app">
+
+  <!-- Title -->
+  <div id="title-screen" class="screen active">
+    <div class="title-logo">Boilerworks</div>
+    <div class="title-sub">— mind the pressure —</div>
+    <button class="btn" id="start-btn">START</button>
+    <div class="how-to">
+      Tap a <b>valve</b> to release steam.<br>
+      But every release leaks pressure to the <b>neighboring boilers</b>.<br>
+      If a gauge stays <b style="color:var(--danger)">red</b> too long, <b>BOOM</b>.
+    </div>
+  </div>
+
+  <!-- Game -->
+  <div id="game-screen">
+    <div class="hud">
+      <div class="hud-cell">
+        <span class="icon-steam">⚙</span>
+        <span class="hud-label">Steam</span>
+        <span class="hud-val" id="hud-steam">0</span>
+      </div>
+      <div class="hud-cell">
+        <span class="hud-label">Score</span>
+        <span class="hud-val" id="hud-score">0</span>
+      </div>
+    </div>
+
+    <div class="boilers" id="boilers"></div>
+
+    <div class="upgrades" id="upgrades"></div>
+  </div>
+
+  <!-- Game over -->
+  <div id="over-screen" class="screen">
+    <div class="over-title">RUPTURED!</div>
+    <div class="over-sub">A boiler gave way.</div>
+    <div class="over-stats">
+      <div class="over-row"><span class="lbl">Steam earned</span><span class="val" id="final-steam">0</span></div>
+      <div class="over-row"><span class="lbl">Final score</span><span class="val" id="final-score">0</span></div>
+      <div class="over-row"><span class="lbl">Best score</span><span class="val" id="final-best">0</span></div>
+      <div class="over-row"><span class="lbl">Time held</span><span class="val" id="final-time">0s</span></div>
+    </div>
+    <button class="btn" id="restart-btn">RESTART</button>
+  </div>
+
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ============================================================
+// GAME
+// ============================================================
+
+const STORAGE_KEY = 'boilerworks.best';
+
+const NUM_BOILERS = 3;
+
+const RISE_BASE = 5.5;       // %/sec base
+const RISE_RAMP = 0.07;      // adds %/sec for each second elapsed
+const NEIGHBOR_LEAK = 9;     // pressure transferred to each neighbor
+const CRITICAL_THRESHOLD = 100;
+const WARNING_THRESHOLD = 80;
+const RUPTURE_HOLD = 1.6;    // seconds at 100% before boom
+
+const UPGRADES = [
+  {
+    id: 'release',
+    name: 'Lighter Springs',
+    icon: '🔧',
+    desc: '+release per tap',
+    base: 12,
+    growth: 1.7,
+    init: 28,        // initial release%
+    perLvl: 4,       // +%
+  },
+  {
+    id: 'yield',
+    name: 'Wider Vents',
+    icon: '🛢',
+    desc: '+steam per tap',
+    base: 18,
+    growth: 1.85,
+    init: 1,
+    perLvl: 1,
+  },
+  {
+    id: 'damp',
+    name: 'Pressure Damper',
+    icon: '⚖',
+    desc: 'Slower rise',
+    base: 28,
+    growth: 2.1,
+    init: 1,         // multiplier base
+    perLvl: 0.10,    // -10% rise per level
+    cap: 6,
+  },
+  {
+    id: 'cool',
+    name: 'Quick Hands',
+    icon: '✋',
+    desc: 'Faster cooldown',
+    base: 22,
+    growth: 1.95,
+    init: 0.45,      // base cooldown sec
+    perLvl: 0.06,    // reduce by
+    cap: 5,
+  },
+];
+
+const game = {
+  running: false,
+  startTime: 0,
+  elapsed: 0,
+  steam: 0,
+  score: 0,
+  best: parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10),
+  boilers: [],
+  ups: {},
+  lastFrame: 0,
+};
+
+// DOM helpers
+const $ = (id) => document.getElementById(id);
+const titleScreen = $('title-screen');
+const gameScreen = $('game-screen');
+const overScreen = $('over-screen');
+const boilersEl = $('boilers');
+const upgradesEl = $('upgrades');
+const hudSteam = $('hud-steam');
+const hudScore = $('hud-score');
+
+function makeBoiler(idx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'boiler';
+  wrap.dataset.idx = idx;
+  wrap.innerHTML = `
+    <div class="gauge">
+      <div class="gauge-label">Boiler ${idx + 1}</div>
+      <div class="gauge-dial">
+        <div class="gauge-face">
+          <div class="gauge-arc"></div>
+        </div>
+        <div class="gauge-needle"></div>
+        <div class="gauge-cap"></div>
+      </div>
+      <div class="gauge-pct">0%</div>
+    </div>
+    <div class="valve-area">
+      <div class="steam-layer"></div>
+      <div class="valve"></div>
+    </div>
+  `;
+  return wrap;
+}
+
+function buildBoilers() {
+  boilersEl.innerHTML = '';
+  game.boilers = [];
+  for (let i = 0; i < NUM_BOILERS; i++) {
+    const el = makeBoiler(i);
+    boilersEl.appendChild(el);
+    const valveArea = el.querySelector('.valve-area');
+    const valve = el.querySelector('.valve');
+    const steamLayer = el.querySelector('.steam-layer');
+    const needle = el.querySelector('.gauge-needle');
+    const pctEl = el.querySelector('.gauge-pct');
+    const boiler = {
+      idx: i,
+      el, valveArea, valve, steamLayer, needle, pctEl,
+      pressure: 8 + Math.random() * 6,
+      cooldown: 0,
+      criticalTime: 0,
+      ruptured: false,
+    };
+    valveArea.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      onTap(boiler, e);
+    });
+    game.boilers.push(boiler);
+  }
+}
+
+function buildUpgrades() {
+  upgradesEl.innerHTML = '';
+  game.ups = {};
+  for (const u of UPGRADES) {
+    const lvl = 0;
+    const cost = u.base;
+    const cap = u.cap || Infinity;
+    game.ups[u.id] = { def: u, lvl, cost, cap };
+
+    const el = document.createElement('button');
+    el.className = 'upg disabled';
+    el.dataset.id = u.id;
+    el.innerHTML = `
+      <div class="upg-icon">${u.icon}</div>
+      <div class="upg-name">${u.name}</div>
+      <div class="upg-cost"><span class="cost">${cost}</span>⚙</div>
+      <div class="upg-lvl">Lv <span class="lvl">${lvl}</span></div>
+    `;
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      buyUpgrade(u.id);
+    });
+    upgradesEl.appendChild(el);
+    game.ups[u.id].el = el;
+  }
+}
+
+function getReleasePct() {
+  const u = game.ups['release'];
+  return u.def.init + u.def.perLvl * u.lvl;
+}
+function getYield() {
+  const u = game.ups['yield'];
+  return u.def.init + u.def.perLvl * u.lvl;
+}
+function getRiseMultiplier() {
+  const u = game.ups['damp'];
+  return Math.max(0.25, 1 - u.def.perLvl * u.lvl);
+}
+function getCooldown() {
+  const u = game.ups['cool'];
+  return Math.max(0.12, u.def.init - u.def.perLvl * u.lvl);
+}
+
+function onTap(boiler, evt) {
+  if (!game.running) return;
+  if (boiler.ruptured) return;
+  if (boiler.cooldown > 0) return;
+
+  const release = getReleasePct();
+  const yieldAmt = getYield();
+
+  // Yield scales slightly with pressure released — encourages letting it build a bit
+  const before = boiler.pressure;
+  const released = Math.min(before, release);
+  const factor = 0.6 + (before / 100) * 0.9; // up to 1.5x at 100%
+  const earn = Math.max(1, Math.round(yieldAmt * factor));
+
+  boiler.pressure = Math.max(0, boiler.pressure - released);
+  boiler.cooldown = getCooldown();
+
+  // Leak to neighbors (only if neighbor is not ruptured)
+  for (const n of game.boilers) {
+    if (n === boiler || n.ruptured) continue;
+    if (Math.abs(n.idx - boiler.idx) === 1) {
+      n.pressure = Math.min(125, n.pressure + NEIGHBOR_LEAK);
+    }
+  }
+
+  game.steam += earn;
+  game.score += earn;
+
+  // Visuals
+  spawnPuff(boiler.steamLayer, evt);
+  spawnCoin(boiler.steamLayer, evt, '+' + earn);
+  if (navigator.vibrate) {
+    try { navigator.vibrate(8); } catch (_) {}
+  }
+
+  refreshHUD();
+}
+
+function spawnPuff(layer, evt) {
+  const rect = layer.getBoundingClientRect();
+  const x = evt ? (evt.clientX - rect.left) : rect.width / 2;
+  const y = evt ? (evt.clientY - rect.top)  : rect.height / 2;
+  for (let i = 0; i < 5; i++) {
+    const p = document.createElement('div');
+    p.className = 'puff';
+    const dx = (Math.random() - 0.5) * 80;
+    const dy = -40 - Math.random() * 80;
+    const sz = 24 + Math.random() * 30;
+    p.style.width = p.style.height = sz + 'px';
+    p.style.left = (x - sz / 2) + 'px';
+    p.style.top = (y - sz / 2) + 'px';
+    p.style.transition = 'transform 0.7s ease-out, opacity 0.7s ease-out';
+    layer.appendChild(p);
+    requestAnimationFrame(() => {
+      p.style.transform = `translate(${dx}px, ${dy}px) scale(1.4)`;
+      p.style.opacity = '0';
+    });
+    setTimeout(() => p.remove(), 800);
+  }
+}
+
+function spawnCoin(layer, evt, text) {
+  const rect = layer.getBoundingClientRect();
+  const x = evt ? (evt.clientX - rect.left) : rect.width / 2;
+  const y = evt ? (evt.clientY - rect.top)  : rect.height / 2;
+  const c = document.createElement('div');
+  c.className = 'coin-popup';
+  c.textContent = text;
+  c.style.left = (x - 12) + 'px';
+  c.style.top = (y - 16) + 'px';
+  c.style.transition = 'transform 0.85s ease-out, opacity 0.85s ease-out';
+  layer.appendChild(c);
+  requestAnimationFrame(() => {
+    c.style.transform = 'translateY(-50px)';
+    c.style.opacity = '0';
+  });
+  setTimeout(() => c.remove(), 900);
+}
+
+function buyUpgrade(id) {
+  const u = game.ups[id];
+  if (!u) return;
+  if (u.lvl >= u.cap) return;
+  if (game.steam < u.cost) return;
+  game.steam -= u.cost;
+  u.lvl++;
+  u.cost = Math.round(u.def.base * Math.pow(u.def.growth, u.lvl));
+  refreshHUD();
+  refreshUpgrades();
+}
+
+function refreshUpgrades() {
+  for (const id in game.ups) {
+    const u = game.ups[id];
+    const el = u.el;
+    el.querySelector('.cost').textContent = (u.lvl >= u.cap) ? 'MAX' : u.cost;
+    el.querySelector('.lvl').textContent = u.lvl;
+    if (u.lvl >= u.cap) {
+      el.classList.add('disabled');
+      el.classList.remove('affordable');
+    } else if (game.steam >= u.cost) {
+      el.classList.remove('disabled');
+      el.classList.add('affordable');
+    } else {
+      el.classList.add('disabled');
+      el.classList.remove('affordable');
+    }
+  }
+}
+
+function refreshHUD() {
+  hudSteam.textContent = game.steam;
+  hudScore.textContent = game.score;
+  refreshUpgrades();
+}
+
+function updateBoilerVisual(b) {
+  // Needle from -135deg (0%) to +135deg (100%)
+  const p = Math.max(0, Math.min(110, b.pressure));
+  const angle = -135 + (p / 100) * 270;
+  b.needle.style.transform = `translate(-50%, -100%) rotate(${angle}deg)`;
+  b.pctEl.textContent = Math.round(p) + '%';
+  b.pctEl.style.color = (p >= CRITICAL_THRESHOLD - 0.01)
+    ? 'var(--danger)'
+    : (p >= WARNING_THRESHOLD ? '#e8c577' : 'var(--brass-light)');
+
+  b.el.classList.toggle('warning', p >= WARNING_THRESHOLD && p < CRITICAL_THRESHOLD);
+  b.el.classList.toggle('critical', p >= CRITICAL_THRESHOLD);
+  b.valve.classList.toggle('cooling', b.cooldown > 0);
+}
+
+function tick(now) {
+  if (!game.running) return;
+  const dt = Math.min(0.05, (now - game.lastFrame) / 1000);
+  game.lastFrame = now;
+  game.elapsed += dt;
+
+  // Difficulty: rise rate increases with elapsed time
+  const baseRise = (RISE_BASE + RISE_RAMP * game.elapsed) * getRiseMultiplier();
+
+  for (const b of game.boilers) {
+    if (b.ruptured) continue;
+
+    // Pressure rise; tiny per-boiler variance
+    const variance = 1 + (b.idx - 1) * 0.03; // -3%, 0%, +3%
+    b.pressure = Math.min(125, b.pressure + baseRise * variance * dt);
+
+    // Cooldown
+    if (b.cooldown > 0) b.cooldown = Math.max(0, b.cooldown - dt);
+
+    // Critical hold
+    if (b.pressure >= CRITICAL_THRESHOLD) {
+      b.criticalTime += dt;
+      if (b.criticalTime >= RUPTURE_HOLD) {
+        rupture(b);
+      }
+    } else {
+      b.criticalTime = Math.max(0, b.criticalTime - dt * 0.6);
+    }
+
+    updateBoilerVisual(b);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+function rupture(b) {
+  if (b.ruptured) return;
+  b.ruptured = true;
+  b.el.classList.add('exploded');
+  // Big steam burst from center
+  const rect = b.steamLayer.getBoundingClientRect();
+  const fakeEvt = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+  for (let i = 0; i < 4; i++) {
+    setTimeout(() => spawnPuff(b.steamLayer, fakeEvt), i * 60);
+  }
+  if (navigator.vibrate) {
+    try { navigator.vibrate([40, 30, 80]); } catch (_) {}
+  }
+  endGame();
+}
+
+function endGame() {
+  game.running = false;
+  setTimeout(() => {
+    if (game.score > game.best) {
+      game.best = game.score;
+      try { localStorage.setItem(STORAGE_KEY, String(game.best)); } catch (_) {}
+    }
+    $('final-steam').textContent = game.score;
+    $('final-score').textContent = game.score;
+    $('final-best').textContent = game.best;
+    $('final-time').textContent = game.elapsed.toFixed(1) + 's';
+    showScreen(overScreen);
+  }, 700);
+}
+
+function showScreen(el) {
+  for (const s of [titleScreen, gameScreen, overScreen]) {
+    s.classList.remove('active');
+  }
+  el.classList.add('active');
+}
+
+function startGame() {
+  game.running = true;
+  game.startTime = performance.now();
+  game.lastFrame = game.startTime;
+  game.elapsed = 0;
+  game.steam = 0;
+  game.score = 0;
+
+  buildBoilers();
+  buildUpgrades();
+  refreshHUD();
+
+  // Seed slightly different starting pressures
+  for (const b of game.boilers) {
+    b.pressure = 8 + Math.random() * 12;
+    updateBoilerVisual(b);
+  }
+
+  showScreen(gameScreen);
+  requestAnimationFrame(tick);
+}
+
+$('start-btn').addEventListener('click', startGame);
+$('restart-btn').addEventListener('click', startGame);
+
+// Prevent unwanted gestures
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('dblclick', (e) => e.preventDefault());
+
+</script>
+
+</body>
+</html>
