@@ -52,6 +52,13 @@
       "theme": "Steampunk",
       "genre": "Clicker",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-04-29",
+      "name": "Stormcaller",
+      "theme": "Sky",
+      "genre": "Memory",
+      "orientation": "PORTRAIT"
     }
   ]
 }
