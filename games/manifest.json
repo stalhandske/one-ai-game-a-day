@@ -59,6 +59,13 @@
       "theme": "Sky",
       "genre": "Memory",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-04-30",
+      "name": "Bloom",
+      "theme": "Forest",
+      "genre": "Tower Defense",
+      "orientation": "PORTRAIT"
     }
   ]
 }
