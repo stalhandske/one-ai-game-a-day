@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Eruption</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a0000; overflow: hidden; touch-action: none; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #back-btn {
+      position: fixed;
+      top: 0.75rem;
+      left: 0.75rem;
+      z-index: 9998;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    #back-btn:hover { background: rgba(0,0,0,0.75); }
+  </style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="c"></canvas>
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ─── Canvas setup ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); checkOrientation(); if (state === STATE.PLAYING) recalcControls(); });
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const GRAVITY    = -0.55;
+const JUMP_V     = 13;
+const VENT_V     = 26;
+const SPEED      = 4.5;
+const PLAT_H     = 10;
+const GOAL_H     = 3000;  // world units
+
+const PT = { SOLID: 0, CRUMBLE: 1, VENT: 2 };
+const STATE = { TITLE: 0, PLAYING: 1, DEAD: 2, WIN: 3 };
+
+// ─── Game state ──────────────────────────────────────────────────────────────
+let state = STATE.TITLE;
+let player, platforms, camY, lavaY, maxHeight, bestHeight;
+let smokeParticles = [];
+let lavaBubbles    = [];
+let lastTime = 0;
+let ctrlLayout;  // control zones (recalculated on resize)
+
+// ─── Input ───────────────────────────────────────────────────────────────────
+const keys = { left: false, right: false };
+let jumpPressed = false;
+const activeTouches = new Map(); // id -> zone
+
+function recalcControls() {
+  const btnH = Math.min(80, H * 0.12);
+  const btnY = H - btnH - 8;
+  ctrlLayout = { btnH, btnY, W };
+}
+recalcControls();
+
+function touchZone(x) {
+  if (x < W / 3) return 'left';
+  if (x > (W * 2 / 3)) return 'right';
+  return 'jump';
+}
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (state !== STATE.PLAYING) {
+    // any tap starts/restarts game from title/dead/win
+    startGame();
+    return;
+  }
+  for (const t of e.changedTouches) {
+    const zone = touchZone(t.clientX);
+    activeTouches.set(t.identifier, zone);
+    if (zone === 'left')  keys.left  = true;
+    if (zone === 'right') keys.right = true;
+    if (zone === 'jump')  jumpPressed = true;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const zone = activeTouches.get(t.identifier);
+    activeTouches.delete(t.identifier);
+    if (zone === 'left'  && !hasActiveZone('left'))  keys.left  = false;
+    if (zone === 'right' && !hasActiveZone('right')) keys.right = false;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const zone = activeTouches.get(t.identifier);
+    activeTouches.delete(t.identifier);
+    if (zone === 'left'  && !hasActiveZone('left'))  keys.left  = false;
+    if (zone === 'right' && !hasActiveZone('right')) keys.right = false;
+  }
+}, { passive: false });
+
+function hasActiveZone(z) {
+  for (const [, zone] of activeTouches) if (zone === z) return true;
+  return false;
+}
+
+// Keyboard
+window.addEventListener('keydown', e => {
+  if (state !== STATE.PLAYING) { if (e.key === ' ' || e.key === 'Enter') { startGame(); return; } }
+  if (e.key === 'ArrowLeft'  || e.key === 'a') keys.left  = true;
+  if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+  if ((e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') && state === STATE.PLAYING) jumpPressed = true;
+});
+window.addEventListener('keyup', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') keys.left  = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+});
+
+// Click for desktop title/dead/win
+canvas.addEventListener('click', () => {
+  if (state !== STATE.PLAYING) startGame();
+});
+
+// ─── Game init ───────────────────────────────────────────────────────────────
+function startGame() {
+  resize();
+  recalcControls();
+  keys.left = keys.right = false;
+  jumpPressed = false;
+  activeTouches.clear();
+  smokeParticles = [];
+  lavaBubbles    = [];
+
+  player = {
+    x: W / 2, y: 80,
+    w: 26, h: 34,
+    vx: 0, vy: 0,
+    onGround: false,
+    jumping: false,
+    coyoteFrames: 0,
+  };
+
+  camY = 0;
+  lavaY = -60;
+  maxHeight = 0;
+
+  // Generate platforms
+  platforms = [];
+
+  // Safe starting platform
+  platforms.push({ x: W/2 - 60, y: 50, w: 120, type: PT.SOLID, crumbleTimer: 0 });
+
+  genPlatforms(100, GOAL_H + 100);
+
+  // Escape platform at top
+  platforms.push({ x: W/2 - 90, y: GOAL_H, w: 180, type: PT.SOLID, isGoal: true, crumbleTimer: 0 });
+
+  state = STATE.PLAYING;
+}
+
+function genPlatforms(fromY, toY) {
+  let y = fromY;
+  while (y < toY) {
+    const gap = 65 + Math.random() * 65;
+    y += gap;
+    const count = Math.random() < 0.3 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const pw = 55 + Math.random() * 80;
+      const px = 10 + Math.random() * (W - pw - 20);
+      let type = PT.SOLID;
+      if (y > 400) {
+        const r = Math.random();
+        if (r < 0.22) type = PT.CRUMBLE;
+        else if (r < 0.36) type = PT.VENT;
+      }
+      platforms.push({ x: px, y, w: pw, type, crumbleTimer: 0, ventUsed: false });
+    }
+    if (count === 2) y += 5; // small offset for second platform in pair
+  }
+}
+
+// ─── Update ──────────────────────────────────────────────────────────────────
+function update() {
+  if (state !== STATE.PLAYING) return;
+
+  const p = player;
+
+  // Horizontal
+  if      (keys.left)  p.vx = -SPEED;
+  else if (keys.right) p.vx =  SPEED;
+  else                 p.vx *= 0.65;
+
+  // Jump (with small coyote window)
+  if (jumpPressed) {
+    if (p.onGround || p.coyoteFrames > 0) {
+      p.vy = JUMP_V;
+      p.onGround = false;
+      p.coyoteFrames = 0;
+    }
+    jumpPressed = false;
+  } else {
+    jumpPressed = false;
+  }
+
+  // Gravity
+  p.vy += GRAVITY;
+  if (p.vy < -22) p.vy = -22;  // terminal velocity (falling fast)
+
+  p.x += p.vx;
+  p.y += p.vy;
+
+  // Horizontal wrap
+  if (p.x < -p.w / 2)  p.x = W + p.w / 2;
+  if (p.x > W + p.w / 2) p.x = -p.w / 2;
+
+  // Platform collision (only from above)
+  const prevOnGround = p.onGround;
+  p.onGround = false;
+
+  for (const plat of platforms) {
+    if (plat.crumbled) continue;
+    const platTop = plat.y + PLAT_H;
+    const prevPY  = p.y - p.vy;
+    if (p.x + p.w / 2 > plat.x && p.x - p.w / 2 < plat.x + plat.w) {
+      if (prevPY >= platTop - 2 && p.y <= platTop + 1 && p.vy <= 0) {
+        p.y        = platTop;
+        p.vy       = 0;
+        p.onGround = true;
+
+        if (plat.type === PT.CRUMBLE) {
+          plat.crumbleTimer++;
+          if (plat.crumbleTimer >= 40) plat.crumbled = true;
+        }
+
+        if (plat.type === PT.VENT && !plat.ventUsed) {
+          p.vy = VENT_V;
+          p.onGround = false;
+          plat.ventUsed = true;
+          setTimeout(() => { plat.ventUsed = false; }, 1000);
+        }
+
+        if (plat.isGoal) {
+          if (p.y > maxHeight) maxHeight = p.y;
+          if (!bestHeight || maxHeight > bestHeight) bestHeight = maxHeight;
+          state = STATE.WIN;
+          return;
+        }
+      }
+    }
+  }
+
+  // Coyote time
+  if (prevOnGround && !p.onGround) p.coyoteFrames = 6;
+  if (p.coyoteFrames > 0) p.coyoteFrames--;
+
+  // Track height
+  if (p.y > maxHeight) maxHeight = p.y;
+
+  // Camera: smooth follow, keep player ~35% from top
+  const targetCam = p.y - H * 0.65;
+  camY += (targetCam - camY) * 0.12;
+  if (camY < 0) camY = 0;
+
+  // Lava rises (accelerates as you get higher)
+  const progress    = Math.min(maxHeight / GOAL_H, 1);
+  const lavaSpeed   = 0.35 + progress * 1.0;
+  lavaY += lavaSpeed;
+
+  // Death: lava catches player or player falls below camera
+  if (p.y < lavaY || p.y < camY - 80) {
+    if (!bestHeight || maxHeight > bestHeight) bestHeight = maxHeight;
+    state = STATE.DEAD;
+  }
+
+  // Smoke particles at top of screen
+  if (Math.random() < 0.08) {
+    smokeParticles.push({ x: Math.random() * W, sy: 0, vy: 0.4 + Math.random() * 0.5, r: 18 + Math.random() * 28, alpha: 0.18 });
+  }
+  smokeParticles.forEach(s => { s.sy += s.vy; s.alpha *= 0.992; s.r += 0.3; });
+  smokeParticles = smokeParticles.filter(s => s.alpha > 0.01 && s.sy < H + s.r);
+
+  // Lava surface bubbles
+  if (Math.random() < 0.12) {
+    const lsy = w2sy(lavaY);
+    if (lsy < H) lavaBubbles.push({ x: Math.random() * W, sy: lsy - 4, r: 4 + Math.random() * 8, life: 30 });
+  }
+  lavaBubbles.forEach(b => { b.sy -= 0.5; b.r -= 0.15; b.life--; });
+  lavaBubbles = lavaBubbles.filter(b => b.life > 0 && b.r > 0);
+}
+
+// ─── Draw helpers ────────────────────────────────────────────────────────────
+// World-Y to screen-Y: world 0 = bottom, screen 0 = top
+function w2sy(worldY) { return H - (worldY - camY); }
+
+function drawBg() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#07000f');
+  g.addColorStop(1, '#3d0800');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawSmoke() {
+  for (const s of smokeParticles) {
+    ctx.globalAlpha = s.alpha;
+    ctx.fillStyle = '#666';
+    ctx.beginPath();
+    ctx.arc(s.x, s.sy, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPlatforms() {
+  for (const plat of platforms) {
+    const sy = w2sy(plat.y + PLAT_H);
+    if (sy < -20 || sy > H + 20 || plat.crumbled) continue;
+
+    if (plat.isGoal) {
+      ctx.fillStyle = '#ffd700';
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.roundRect(plat.x, sy, plat.w, PLAT_H + 4, 4);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffe066';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▲ ESCAPE ▲', plat.x + plat.w / 2, sy - 6);
+      continue;
+    }
+
+    if (plat.type === PT.SOLID) {
+      ctx.fillStyle = '#6b3f22';
+    } else if (plat.type === PT.CRUMBLE) {
+      const fade = 1 - plat.crumbleTimer / 40;
+      ctx.fillStyle = `rgba(200,88,20,${fade})`;
+    } else {
+      ctx.fillStyle = '#cc2200';
+      ctx.shadowColor = '#ff4400';
+      ctx.shadowBlur = 8;
+    }
+    ctx.beginPath();
+    ctx.roundRect(plat.x, sy, plat.w, PLAT_H + 4, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    if (plat.type === PT.VENT) {
+      ctx.fillStyle = '#ff9900';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▲▲', plat.x + plat.w / 2, sy - 4);
+    }
+  }
+}
+
+function drawPlayer() {
+  const p = player;
+  const sx = p.x;
+  const sy = w2sy(p.y);
+  const dir = p.vx > 1 ? 1 : p.vx < -1 ? -1 : 0;
+
+  // Body
+  ctx.fillStyle = '#c63000';
+  ctx.beginPath();
+  ctx.roundRect(sx - p.w / 2, sy - p.h, p.w, p.h, 6);
+  ctx.fill();
+
+  // Helmet glow
+  ctx.fillStyle = '#e85020';
+  ctx.beginPath();
+  ctx.roundRect(sx - p.w / 2 + 3, sy - p.h + 3, p.w - 6, 10, 4);
+  ctx.fill();
+
+  // Eyes
+  const ex = dir === 1 ? 2 : dir === -1 ? -2 : 0;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(sx - 7 + ex, sy - p.h + 9, 5, 6);
+  ctx.fillRect(sx + 2 + ex,  sy - p.h + 9, 5, 6);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(sx - 6 + ex, sy - p.h + 10, 3, 3);
+  ctx.fillRect(sx + 3 + ex,  sy - p.h + 10, 3, 3);
+}
+
+function drawLava() {
+  const lsy = w2sy(lavaY);
+  if (lsy >= H + 10) return;
+  const clampedY = Math.min(lsy, H);
+
+  // Glow above lava
+  const glowH = 50;
+  const gg = ctx.createLinearGradient(0, clampedY - glowH, 0, clampedY);
+  gg.addColorStop(0, 'rgba(255,80,0,0)');
+  gg.addColorStop(1, 'rgba(255,80,0,0.25)');
+  ctx.fillStyle = gg;
+  ctx.fillRect(0, clampedY - glowH, W, glowH);
+
+  // Lava body
+  const lg = ctx.createLinearGradient(0, clampedY, 0, H);
+  lg.addColorStop(0, '#ff6a00');
+  lg.addColorStop(0.2, '#ff3300');
+  lg.addColorStop(1, '#aa1100');
+  ctx.fillStyle = lg;
+  ctx.fillRect(0, clampedY, W, H - clampedY + 2);
+
+  // Wavy surface
+  ctx.fillStyle = '#ff8c00';
+  const t = Date.now() / 400;
+  ctx.beginPath();
+  ctx.moveTo(0, clampedY);
+  for (let x = 0; x <= W; x += 8) {
+    ctx.lineTo(x, clampedY - 4 - Math.sin(x * 0.04 + t) * 4);
+  }
+  ctx.lineTo(W, clampedY + 6);
+  ctx.lineTo(0, clampedY + 6);
+  ctx.closePath();
+  ctx.fill();
+
+  // Bubbles
+  for (const b of lavaBubbles) {
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.arc(b.x, b.sy, b.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHUD() {
+  // Height progress bar (right side)
+  const barX = W - 22;
+  const barTop = 55;
+  const barBot = H - ctrlLayout.btnH - 20;
+  const barH = barBot - barTop;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.roundRect(barX, barTop, 14, barH, 7);
+  ctx.fill();
+
+  const progress = Math.min(maxHeight / GOAL_H, 1);
+  const fillH = barH * progress;
+  const fillY = barTop + barH - fillH;
+  const pg = ctx.createLinearGradient(0, barTop + barH, 0, barTop);
+  pg.addColorStop(0, '#ff4400');
+  pg.addColorStop(0.5, '#ff9900');
+  pg.addColorStop(1, '#ffd700');
+  ctx.fillStyle = pg;
+  ctx.beginPath();
+  ctx.roundRect(barX, fillY, 14, fillH, 7);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${Math.floor(maxHeight / 10)}m`, barX + 7, barTop - 6);
+
+  if (bestHeight) {
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Best: ${Math.floor(bestHeight / 10)}m`, 52, 26);
+  }
+}
+
+function drawControls() {
+  const { btnH, btnY } = ctrlLayout;
+  const third = W / 3;
+
+  // Left button
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.beginPath();
+  ctx.roundRect(8, btnY, third - 12, btnH, 12);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.font = `bold ${Math.floor(btnH * 0.45)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('◀', 8 + (third - 12) / 2, btnY + btnH * 0.65);
+
+  // Jump button
+  ctx.fillStyle = keys.left || keys.right ? 'rgba(255,160,0,0.18)' : 'rgba(255,160,0,0.18)';
+  ctx.beginPath();
+  ctx.roundRect(third, btnY, third, btnH, 12);
+  ctx.fill();
+  ctx.fillStyle = '#ffcc00';
+  ctx.fillText('▲', W / 2, btnY + btnH * 0.65);
+
+  // Right button
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
+  ctx.beginPath();
+  ctx.roundRect(third * 2 + 4, btnY, third - 12, btnH, 12);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.fillText('▶', third * 2 + 4 + (third - 12) / 2, btnY + btnH * 0.65);
+}
+
+// ─── Screens ─────────────────────────────────────────────────────────────────
+function drawTitle() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#07000f');
+  g.addColorStop(1, '#4a0900');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Volcano silhouette
+  ctx.fillStyle = '#180400';
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(W * 0.15, H * 0.65);
+  ctx.lineTo(W * 0.5, H * 0.42);
+  ctx.lineTo(W * 0.85, H * 0.65);
+  ctx.lineTo(W, H);
+  ctx.fill();
+
+  // Eruption glow
+  const rg = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, W * 0.45);
+  rg.addColorStop(0, 'rgba(255,120,0,0.7)');
+  rg.addColorStop(1, 'rgba(255,40,0,0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#ff6600';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = '#ff6600';
+  ctx.font = `bold ${Math.min(58, W * 0.13)}px sans-serif`;
+  ctx.fillText('ERUPTION', W / 2, H * 0.23);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#ffaa66';
+  ctx.font = `${Math.min(17, W * 0.042)}px sans-serif`;
+  ctx.fillText('Climb before the lava catches you!', W / 2, H * 0.30);
+
+  // Platform legend
+  const lx = W / 2 - 100;
+  const items = [
+    { col: '#6b3f22', label: 'Solid rock' },
+    { col: '#c85814', label: 'Crumbles — move fast!' },
+    { col: '#cc2200', label: '▲▲ Vent — mega boost!' },
+    { col: '#ffd700', label: '▲ ESCAPE — reach it!' },
+  ];
+  items.forEach((item, i) => {
+    const iy = H * 0.46 + i * 32;
+    ctx.fillStyle = item.col;
+    ctx.fillRect(lx, iy, 30, 12);
+    ctx.fillStyle = '#ddd';
+    ctx.font = `${Math.min(14, W * 0.035)}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(item.label, lx + 38, iy + 11);
+  });
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = `${Math.min(14, W * 0.035)}px sans-serif`;
+  ctx.fillText('← ▲ → touch zones  •  Arrow keys / WASD', W / 2, H * 0.77);
+
+  const blink = Math.sin(Date.now() / 450) > 0;
+  if (blink) {
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = `bold ${Math.min(22, W * 0.055)}px sans-serif`;
+    ctx.fillText('TAP TO PLAY', W / 2, H * 0.87);
+  }
+}
+
+function drawOverlay(titleText, titleCol, lines, btnText) {
+  ctx.fillStyle = 'rgba(0,0,0,0.68)';
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = titleCol;
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = titleCol;
+  ctx.font = `bold ${Math.min(44, W * 0.11)}px sans-serif`;
+  ctx.fillText(titleText, cx, cy - H * 0.18);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#eee';
+  ctx.font = `${Math.min(18, W * 0.046)}px sans-serif`;
+  lines.forEach((line, i) => ctx.fillText(line, cx, cy - H * 0.05 + i * 30));
+
+  const blink = Math.sin(Date.now() / 450) > 0;
+  if (blink) {
+    ctx.fillStyle = '#ffdd00';
+    ctx.font = `bold ${Math.min(20, W * 0.05)}px sans-serif`;
+    ctx.fillText(btnText, cx, cy + H * 0.22);
+  }
+}
+
+// ─── Main loop ───────────────────────────────────────────────────────────────
+function loop(ts) {
+  const dt = Math.min(ts - lastTime, 50);
+  lastTime = ts;
+
+  if (state === STATE.PLAYING) update();
+
+  if (state === STATE.TITLE) {
+    drawTitle();
+  } else {
+    drawBg();
+    drawSmoke();
+    drawPlatforms();
+    drawPlayer();
+    drawLava();
+    if (state === STATE.PLAYING) {
+      drawHUD();
+      drawControls();
+    }
+    if (state === STATE.DEAD) {
+      drawOverlay(
+        'CONSUMED!', '#ff4400',
+        [`Height: ${Math.floor((player?.y || 0) / 10)}m`, `Best: ${Math.floor((bestHeight || 0) / 10)}m`],
+        'TAP TO TRY AGAIN'
+      );
+    }
+    if (state === STATE.WIN) {
+      drawOverlay(
+        'ESCAPED!', '#ffd700',
+        ['You climbed out of the volcano!', `Best: ${Math.floor((bestHeight || 0) / 10)}m`],
+        'TAP TO PLAY AGAIN'
+      );
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

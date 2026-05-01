@@ -66,6 +66,13 @@
       "theme": "Forest",
       "genre": "Tower Defense",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-05-01",
+      "name": "Eruption",
+      "theme": "Volcano",
+      "genre": "Platformer",
+      "orientation": "PORTRAIT"
     }
   ]
 }
