@@ -8,25 +8,37 @@ Path: /Users/stalhandske/git/one-ai-game-a-day
 ## Step 1 — Check if a game already exists for today
 Read `games/manifest.json`. If there is already an entry with today's date (use the system date), stop immediately — today's game is done.
 
-## Step 2A — Pick a theme and genre
-Read `games/manifest.json` to find the themes and genres used in the last 7 entries. You must avoid repeating them to keep things fresh.
+## Step 2A — Conceive the game concept
 
-Pick ONE theme and ONE genre from the lists below that haven't been used recently:
+Read `games/manifest.json` to see what's been done in the last 7 entries — then **actively reject** whatever patterns you find there.
 
-**Genres:** Arcade, Puzzle, Platformer, Endless Runner, Clicker, Word Game, Strategy, Reaction, Memory, Roguelike, Tower Defense, Trivia, Physics, Narrative, Sandbox, Tycoon, Survival, Simulation, Farming
+**Do not** pick from a fixed list of genres or themes. Genre labels are a shorthand for expectations — and you should subvert expectations. Instead, start from a raw creative spark: a strange interaction, an absurd premise, an unexpected emotional tone, an unusual point of view, an overlooked corner of human experience.
 
-**Themes:** Space, Ocean, Forest, City, Desert, Ice, Cave, Sky, Jungle, Volcano, Castle, Cyberpunk, Underwater, Medieval, Futuristic, Pirate, Steampunk, Prehistoric, Arctic, Haunted, Everyday, School, Water, Science, Spelunking, Farming, Robots, AI
+**Think like an experimental artist who happens to make games.** Ask yourself:
+- What would this game be if it existed in no genre at all?
+- What two completely unrelated ideas create something surprising when combined?
+- What familiar game mechanic can be stripped of its context and placed somewhere deeply alien?
+- What emotion or experience almost never shows up in games but could?
+- What rule would make the player feel something unusual — curious, uncomfortable, tender, disoriented?
+
+Fusing genres is encouraged: a game can be a meditation simulator that is also a rhythm game, a grief narrative wrapped around a tower defense, a farming game where the player is the crop. The weirder the fusion the better, as long as it's still playable and coherent.
+
+Themes don't have to be settings. A theme can be a concept (loneliness, entropy, miscommunication, nostalgia, boredom), a texture (silence, weight, warmth), or an abstraction (the feeling of almost remembering something).
+
+The goal is to make a game that someone would remember because it surprised them — not because it executed a familiar formula well.
 
 ## Step 2B — Generate ideas
 
-Based on the genre and theme, generate ideas for mechanics to base the game around. Generate at least 20 ideas before locking in on one of them. Each idea only needs to be a couple of words like "digging tunnels" or "swimming helicopter". Pick an idea that seems both innovative and doable.
+Brainstorm at least 20 ideas. Ignore genre conventions entirely. Each idea should be a short provocation — "you play as the loading screen", "the controls change meaning each round", "winning makes things worse", "the enemy is the tutorial". Go strange. Go unexpected.
 
-Flesh out the idea a bit further with a one-page initial game design document before proceeding to the next step. The design document should outline a game that:
-- Is a fully playable game (has win/lose conditions or a score loop)
-- Is mobile-first: touch controls, fits any screen size, large tap targets
-- Has a title screen and a game-over/restart screen
+Review the last 7 games in the manifest and eliminate any ideas that feel like a variation of those. Then pick the ONE idea that is most surprising, most genuinely novel, and still achievable in a single HTML file.
 
-Be creative and seek novelty in the game design.
+Flesh out that idea into a one-page game design document. The game must:
+- Be fully playable (win/lose condition, score loop, or meaningful ending)
+- Be mobile-first: touch controls, fits any screen size, large tap targets
+- Have a title screen and a game-over/win/end screen with restart
+
+**Artistic boldness is a requirement, not a bonus.** A competent but forgettable game is a failed game. Take the risk.
 
 Decide on the intended play orientation: **PORTRAIT** or **LANDSCAPE**. Choose whichever best suits the game's layout and mechanics. Add this to the game design document.
 
@@ -120,7 +132,7 @@ async function tryLockOrientation() {
 document.addEventListener('pointerdown', tryLockOrientation, { once: true });
 ```
 
-Be creative and make it genuinely fun. The game should feel complete, not like a skeleton.
+Carry the artistic vision through to the implementation. Visual style, sound (if any), color palette, typography, and animation should all serve the concept — don't default to "game-looking" aesthetics if something stranger fits better. The game should feel like it could only exist as this specific idea.
 
 ## Step 4 — Quality check
 Review your own game file critically:
@@ -128,9 +140,10 @@ Review your own game file critically:
 - Are touch controls fully implemented and comfortable on a phone screen?
 - Does it have a start screen and a game over/win screen with restart?
 - Is the code free of obvious bugs (off-by-one errors, missing event listeners, broken game loops)?
-- Does it look good visually?
+- Does the visual design serve the concept — or did you default to a generic "game look"?
 - Is the `ORIENTATION` constant declared and is the orientation handler included?
 - Is the back button present, linking to `../../index.html`, and visible above the game at all times?
+- Is this game genuinely surprising? Would someone remember it a week later?
 
 If any check fails, rewrite the game until all checks pass. You may attempt up to 3 rewrites.
 
@@ -143,8 +156,8 @@ Read `games/manifest.json` and add a new entry to the `games` array:
 {
   "date": "YYYY-MM-DD",
   "name": "Game Name",
-  "theme": "Theme",
-  "genre": "Genre",
+  "theme": "free-form description of the concept/feeling (not a genre label)",
+  "genre": "free-form description of play style (invent a label if needed)",
   "orientation": "PORTRAIT"
 }
 ```
