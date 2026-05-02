@@ -73,6 +73,13 @@
       "theme": "Volcano",
       "genre": "Platformer",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-05-02",
+      "name": "Punkt",
+      "theme": "a single dot that means many things — period, pupil, star, tear, bloom, pause",
+      "genre": "meditative tap-vignettes",
+      "orientation": "PORTRAIT"
     }
   ]
 }
