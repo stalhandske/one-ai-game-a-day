@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>After You</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #150b08;
+    color: #f4e8d8;
+    font-family: 'Cormorant Garamond', serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100dvh;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% 35%, #2a1810 0%, #100805 70%, #050202 100%);
+    z-index: -2;
+  }
+  /* candleflicker overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% 60%, rgba(255,180,100,0.06), transparent 60%);
+    z-index: -1;
+    animation: flicker 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 0.8; }
+    37% { opacity: 0.95; }
+    52% { opacity: 0.7; }
+    78% { opacity: 1; }
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  /* TITLE */
+  #title {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 2rem;
+    z-index: 100;
+    background: radial-gradient(ellipse at 50% 50%, #2a1810 0%, #060302 100%);
+  }
+  #title h1 {
+    font-size: clamp(3rem, 14vw, 5rem);
+    font-weight: 500;
+    font-style: italic;
+    letter-spacing: 0.04em;
+    color: #f4d8a0;
+    text-shadow: 0 0 36px rgba(244, 180, 120, 0.5);
+    margin-bottom: 1.5rem;
+    line-height: 1;
+  }
+  #title .sub {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 300;
+    opacity: 0.65;
+    max-width: 22rem;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+  }
+  #title .rules {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 300;
+    opacity: 0.4;
+    max-width: 18rem;
+    line-height: 1.8;
+    margin-bottom: 3rem;
+    letter-spacing: 0.05em;
+  }
+  #title .rules em {
+    color: #f4d8a0;
+    font-style: normal;
+    font-weight: 500;
+  }
+  #title .start {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    border: 1px solid rgba(244, 216, 160, 0.4);
+    padding: 1rem 2.4rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  #title .start:hover, #title .start:active {
+    opacity: 1;
+    background: rgba(244, 216, 160, 0.08);
+    border-color: rgba(244, 216, 160, 0.8);
+  }
+
+  /* HUD */
+  #contribution-counter {
+    position: fixed;
+    top: 0.6rem;
+    left: 50%; transform: translateX(-50%);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.35em;
+    opacity: 0.45;
+    z-index: 50;
+    text-transform: uppercase;
+    display: none;
+  }
+  #contribution-counter span { color: #f4d8a0; font-weight: 500; }
+
+  #tension-wrap {
+    position: fixed;
+    top: 0.7rem;
+    right: 0.85rem;
+    width: 38%;
+    max-width: 170px;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 50;
+  }
+  #tension-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    opacity: 0.45;
+  }
+  #tension-bar {
+    flex: 1;
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  #tension-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f4d8a0, #e8a85c);
+    width: 100%;
+    transition: width 0.45s ease, background 0.3s ease;
+  }
+  body.in-game #contribution-counter { display: block; }
+  body.in-game #tension-wrap { display: flex; }
+
+  /* GAME */
+  #game {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 3.2rem 0.75rem 0.75rem;
+  }
+  body.in-game #game { display: flex; }
+
+  #speakers {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 0.5rem 0.25rem 0.75rem;
+    position: relative;
+    z-index: 10;
+    gap: 0.25rem;
+  }
+  .speaker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    flex: 1;
+    transition: transform 0.5s ease, opacity 0.5s ease;
+    opacity: 0.6;
+  }
+  .speaker .orb {
+    width: 13vw; height: 13vw;
+    max-width: 56px; max-height: 56px;
+    min-width: 36px; min-height: 36px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--c1), var(--c2) 75%);
+    position: relative;
+    box-shadow: 0 0 0 0 var(--glow), inset 0 0 12px rgba(0,0,0,0.3);
+    transition: box-shadow 0.4s ease, transform 0.4s ease;
+  }
+  .speaker.active {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+  .speaker.active .orb {
+    box-shadow: 0 0 28px 6px var(--glow), inset 0 0 8px rgba(0,0,0,0.2);
+    transform: scale(1.08);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 28px 6px var(--glow), inset 0 0 8px rgba(0,0,0,0.2); }
+    50%      { box-shadow: 0 0 40px 10px var(--glow), inset 0 0 8px rgba(0,0,0,0.2); }
+  }
+  .speaker .name {
+    font-size: 0.65rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    opacity: 0.4;
+    font-family: 'Inter', sans-serif;
+    transition: color 0.3s ease, opacity 0.3s ease;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .speaker.active .name { opacity: 1; color: var(--c1); }
+
+  #feed {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    padding: 0.5rem 0.6rem;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 100%);
+    min-height: 0;
+  }
+  .line {
+    font-size: 1.1rem;
+    line-height: 1.45;
+    margin-bottom: 0.7rem;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: appear 0.7s ease forwards;
+  }
+  .line .who {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.18rem;
+    opacity: 0.7;
+  }
+  .line.you {
+    text-align: right;
+    font-style: italic;
+    color: #f7d9a4;
+  }
+  .line.fade {
+    animation: fadeOut 1s ease forwards;
+  }
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: translateY(-14px); }
+  }
+  @media (min-height: 760px) { .line { font-size: 1.25rem; } }
+  @media (min-height: 900px) { .line { font-size: 1.4rem; } }
+
+  /* SPEAK BUTTON */
+  #speak-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 0.75rem 1.2rem;
+    z-index: 10;
+  }
+  #window-bar {
+    width: 100%;
+    max-width: 360px;
+    height: 1.5px;
+    background: rgba(255,255,255,0.04);
+    margin-bottom: 0.55rem;
+    overflow: hidden;
+    border-radius: 1px;
+  }
+  #window-fill {
+    height: 100%;
+    width: 0%;
+    background: #f4d8a0;
+    box-shadow: 0 0 8px #f4d8a0;
+  }
+  #speak {
+    width: 100%;
+    max-width: 360px;
+    padding: 1.2rem 1rem 1rem;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(244, 216, 160, 0.18);
+    border-radius: 999px;
+    color: #f4e8d8;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: all 0.35s ease;
+    letter-spacing: 0.04em;
+    position: relative;
+    overflow: hidden;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  #speak .state-text {
+    display: block;
+  }
+  #speak .hint {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-style: normal;
+    font-size: 0.55rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    opacity: 0.4;
+    margin-top: 0.3rem;
+  }
+  #speak.silence {
+    background: rgba(244, 216, 160, 0.13);
+    border-color: rgba(244, 216, 160, 0.7);
+    box-shadow: 0 0 24px rgba(244, 216, 160, 0.2);
+  }
+  #speak:active { transform: scale(0.98); }
+  #speak.flash-good {
+    background: rgba(244, 216, 160, 0.4) !important;
+    border-color: rgba(244, 216, 160, 1) !important;
+    animation: flashFade 0.7s ease forwards;
+  }
+  #speak.flash-bad {
+    background: rgba(204, 80, 70, 0.4) !important;
+    border-color: rgba(204, 80, 70, 1) !important;
+    animation: flashFade 0.7s ease forwards;
+  }
+  #speak.flash-weak {
+    background: rgba(150, 120, 90, 0.25) !important;
+    animation: flashFade 0.7s ease forwards;
+  }
+  @keyframes flashFade {
+    to {
+      background: rgba(255,255,255,0.025);
+      border-color: rgba(244, 216, 160, 0.18);
+    }
+  }
+
+  /* END SCREEN */
+  #end {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 2rem;
+    z-index: 110;
+    background: radial-gradient(ellipse at 50% 50%, #1a0e08 0%, #050202 100%);
+  }
+  #end.show { display: flex; }
+  #end h2 {
+    font-size: clamp(2.4rem, 11vw, 4rem);
+    font-style: italic;
+    font-weight: 400;
+    color: #f4d8a0;
+    margin-bottom: 1.2rem;
+    opacity: 0;
+    animation: fadeIn 1.6s ease 0.3s forwards;
+    letter-spacing: 0.02em;
+  }
+  #end .epilogue {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    opacity: 0;
+    color: #e8d8b8;
+    max-width: 22rem;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+    animation: fadeIn 2s ease 1.1s forwards;
+  }
+  #end .stats {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0;
+    margin-bottom: 2.5rem;
+    color: #c8a878;
+    animation: fadeIn 2s ease 1.5s forwards;
+  }
+  #end .restart {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    opacity: 0;
+    border: 1px solid rgba(244, 216, 160, 0.3);
+    padding: 0.95rem 2rem;
+    border-radius: 999px;
+    cursor: pointer;
+    color: #f4e8d8;
+    background: transparent;
+    animation: fadeIn 2s ease 2s forwards;
+    transition: all 0.3s ease;
+  }
+  #end .restart:hover, #end .restart:active {
+    background: rgba(244,216,160,0.08);
+    border-color: rgba(244, 216, 160, 0.7);
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="title">
+  <h1>After&nbsp;You</h1>
+  <div class="sub">A dinner has begun without you.<br>Find the moments to speak.<br>Belong, or drift away.</div>
+  <div class="rules">
+    Tap when there is <em>silence</em>.<br>
+    Not too soon. Not too late.<br>
+    Don't interrupt.
+  </div>
+  <button class="start" id="start-btn">Take a seat</button>
+</div>
+
+<div id="contribution-counter">spoken <span id="contributions">0</span> &nbsp;·&nbsp; need 7</div>
+<div id="tension-wrap">
+  <div id="tension-label">Held</div>
+  <div id="tension-bar"><div id="tension-fill"></div></div>
+</div>
+
+<div id="game">
+  <div id="speakers"></div>
+  <div id="feed"></div>
+  <div id="speak-wrap">
+    <div id="window-bar"><div id="window-fill"></div></div>
+    <button id="speak">
+      <span class="state-text">listen</span>
+      <span class="hint">tap when you can</span>
+    </button>
+  </div>
+</div>
+
+<div id="end">
+  <h2 id="end-title"></h2>
+  <div class="epilogue" id="end-text"></div>
+  <div class="stats" id="end-stats"></div>
+  <button class="restart" id="restart-btn">Try again</button>
+</div>
+
+<script>
+  const ORIENTATION = 'PORTRAIT';
+
+  function checkOrientation() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                  (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+    let overlay = document.getElementById('orientation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'orientation-overlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:9999;
+        background:#000; color:#fff; flex-direction:column;
+        align-items:center; justify-content:center;
+        font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+      `;
+      overlay.innerHTML = `
+        <div style="font-size:3rem">📱</div>
+        <div>Please rotate your device</div>
+        <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = wrong ? 'flex' : 'none';
+  }
+
+  window.addEventListener('resize', checkOrientation);
+  checkOrientation();
+
+  async function tryLockOrientation() {
+    try {
+      await document.documentElement.requestFullscreen?.();
+      await screen.orientation?.lock?.(
+        ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+      );
+    } catch (_) { /* not supported — overlay handles it */ }
+  }
+  document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+  // ============ GAME ============
+
+  const SPEAKERS = [
+    { id: 'meri', name: 'Meriwether', c1: '#d8a8e8', c2: '#5a3a6a', glow: 'rgba(184,136,208,0.5)' },
+    { id: 'juni', name: 'Juni',       c1: '#f5b878', c2: '#7a4a28', glow: 'rgba(245,168,80,0.5)' },
+    { id: 'cas',  name: 'Castor',     c1: '#88c8d8', c2: '#3a5a6a', glow: 'rgba(122,184,200,0.5)' },
+    { id: 'teal', name: 'Teal',       c1: '#a8c898', c2: '#4a6a3a', glow: 'rgba(136,184,120,0.5)' },
+  ];
+
+  const LINES = {
+    meri: [
+      "I'm not sure I believe in regret anymore.",
+      "Doesn't it feel like the years just… fold?",
+      "There was a time I confused certainty with peace.",
+      "Some doors are doors. Some are just paint.",
+      "My grandmother said the same thing about her grandmother.",
+      "The light here is always good.",
+      "I forget what I came in here to say.",
+      "I don't know who I'd be in a quieter life.",
+    ],
+    juni: [
+      "Oh god, that reminds me—",
+      "Wait wait wait, no. NO.",
+      "You did not. You did NOT.",
+      "I would never. Maybe once. Twice.",
+      "It was the seventh of June. I remember exactly.",
+      "Stop, this is too much.",
+      "Honestly? Honestly.",
+      "Pass the bread, this is going to take a minute.",
+      "Don't look at me like that.",
+      "Okay, but in my defense.",
+    ],
+    cas: [
+      "There is a particular order to these things.",
+      "I had occasion, once, to stand exactly there.",
+      "If I may.",
+      "It's the small inheritances that matter.",
+      "I find myself returning to it. Again and again.",
+      "Forgive me. The wine is excellent.",
+      "Some things are best understood late.",
+    ],
+    teal: [
+      "Mm.",
+      "I miss her too.",
+      "It rained that day, didn't it.",
+      "I haven't told anyone this.",
+      "Yes. That.",
+      "It's quieter than I remember.",
+      "I don't think I knew until just now.",
+    ],
+  };
+
+  const PLAYER_LINES = [
+    "I'd never thought of it that way.",
+    "There's a window I keep coming back to.",
+    "It's strange to be back at this table.",
+    "I don't know if I'm allowed to say this.",
+    "Sometimes I wake up before the dream ends.",
+    "I wanted to say — I miss this.",
+    "If we're being honest. Yes.",
+    "I forgot I knew that story.",
+    "I almost didn't come tonight.",
+    "I think you're right.",
+    "Was that — was that what she said?",
+    "It's good to hear your voice again.",
+  ];
+
+  const RHYTHM = {
+    meri: { speakDur: [3000, 4200], weight: 3 },
+    juni: { speakDur: [1500, 2400], weight: 4 },
+    cas:  { speakDur: [3000, 4200], weight: 2 },
+    teal: { speakDur: [1300, 2200], weight: 2 },
+  };
+
+  let state = null;
+
+  function newState() {
+    return {
+      tension: 100,
+      contributions: 0,
+      currentSpeaker: null,
+      speakingUntil: 0,
+      silenceWindow: null,
+      nextEvent: 0,
+      lastSpeakerId: null,
+      feedLines: [],
+      over: false,
+      lastPlayerSpoke: 0,
+      missedWindows: 0,
+      interrupts: 0,
+      playerLineQueue: shuffle([...PLAYER_LINES]),
+      playerLineIdx: 0,
+      animLoop: null,
+    };
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  // Build speakers UI
+  const speakersEl = document.getElementById('speakers');
+  SPEAKERS.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'speaker';
+    d.id = 'sp-' + s.id;
+    d.style.setProperty('--c1', s.c1);
+    d.style.setProperty('--c2', s.c2);
+    d.style.setProperty('--glow', s.glow);
+    d.innerHTML = `<div class="orb"></div><div class="name">${s.name}</div>`;
+    speakersEl.appendChild(d);
+  });
+
+  const feedEl = document.getElementById('feed');
+  const speakBtn = document.getElementById('speak');
+  const tensionFill = document.getElementById('tension-fill');
+  const contributionsEl = document.getElementById('contributions');
+  const windowFill = document.getElementById('window-fill');
+  const speakStateText = speakBtn.querySelector('.state-text');
+  const speakHintText = speakBtn.querySelector('.hint');
+
+  function startSpeaker(spId) {
+    state.currentSpeaker = spId;
+    const r = RHYTHM[spId];
+    const dur = rand(r.speakDur[0], r.speakDur[1]);
+    state.speakingUntil = performance.now() + dur;
+    state.silenceWindow = null;
+    state.lastSpeakerId = spId;
+
+    document.querySelectorAll('.speaker').forEach(el => el.classList.remove('active'));
+    const spEl = document.getElementById('sp-' + spId);
+    if (spEl) spEl.classList.add('active');
+
+    const sp = SPEAKERS.find(s => s.id === spId);
+    addLine(sp.name, sp.c1, pick(LINES[spId]));
+  }
+
+  function endSpeaker() {
+    state.currentSpeaker = null;
+    document.querySelectorAll('.speaker').forEach(el => el.classList.remove('active'));
+    // open a window of silence
+    const gapPick = Math.random();
+    const gapMs = gapPick < 0.35 ? rand(1200, 1700)
+                : gapPick < 0.75 ? rand(1900, 2700)
+                                 : rand(2900, 3800);
+    const now = performance.now();
+    state.silenceWindow = { from: now + 220, to: now + gapMs, missed: false };
+    state.nextEvent = now + gapMs + rand(150, 350);
+  }
+
+  function chooseNextSpeaker() {
+    const candidates = SPEAKERS.filter(s => s.id !== state.lastSpeakerId);
+    const pool = [];
+    candidates.forEach(c => {
+      const w = RHYTHM[c.id].weight;
+      for (let i = 0; i < w; i++) pool.push(c.id);
+    });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function addLine(name, color, text) {
+    const div = document.createElement('div');
+    div.className = 'line';
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.style.color = color;
+    who.textContent = name;
+    div.appendChild(who);
+    div.appendChild(document.createTextNode(text));
+    feedEl.appendChild(div);
+    state.feedLines.push(div);
+    cullFeed();
+  }
+
+  function addPlayerLine(text) {
+    const div = document.createElement('div');
+    div.className = 'line you';
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.style.color = '#f4d8a0';
+    who.textContent = 'You';
+    div.appendChild(who);
+    div.appendChild(document.createTextNode(text));
+    feedEl.appendChild(div);
+    state.feedLines.push(div);
+    cullFeed();
+  }
+
+  function cullFeed() {
+    while (state.feedLines.length > 6) {
+      const old = state.feedLines.shift();
+      old.classList.add('fade');
+      setTimeout(() => old.remove(), 950);
+    }
+  }
+
+  function setTension(v) {
+    state.tension = Math.max(0, Math.min(100, v));
+    tensionFill.style.width = state.tension + '%';
+    if (state.tension < 30) {
+      tensionFill.style.background = 'linear-gradient(90deg,#cc6644,#993333)';
+    } else if (state.tension < 60) {
+      tensionFill.style.background = 'linear-gradient(90deg,#e8a85c,#cc6644)';
+    } else {
+      tensionFill.style.background = 'linear-gradient(90deg,#f4d8a0,#e8a85c)';
+    }
+  }
+
+  function flashSpeak(kind) {
+    speakBtn.classList.remove('flash-good', 'flash-bad', 'flash-weak');
+    void speakBtn.offsetWidth;
+    speakBtn.classList.add('flash-' + kind);
+  }
+
+  function nextPlayerLine() {
+    if (state.playerLineIdx >= state.playerLineQueue.length) {
+      state.playerLineQueue = shuffle([...PLAYER_LINES]);
+      state.playerLineIdx = 0;
+    }
+    return state.playerLineQueue[state.playerLineIdx++];
+  }
+
+  function attemptSpeak() {
+    if (state.over) return;
+    const now = performance.now();
+    if (now - state.lastPlayerSpoke < 750) return;
+    state.lastPlayerSpoke = now;
+
+    if (state.currentSpeaker !== null && now < state.speakingUntil) {
+      // INTERRUPTION
+      setTension(state.tension - 18);
+      state.interrupts++;
+      flashSpeak('bad');
+      // shorten speaker — they trail off
+      state.speakingUntil = now + 250;
+      return;
+    }
+
+    if (state.silenceWindow && now >= state.silenceWindow.from && now <= state.silenceWindow.to) {
+      // GOOD
+      addPlayerLine(nextPlayerLine());
+      state.contributions += 1;
+      contributionsEl.textContent = state.contributions;
+      setTension(state.tension + 6);
+      flashSpeak('good');
+      state.silenceWindow = null;
+      state.nextEvent = now + rand(1200, 1900);
+      if (state.contributions >= 7) { endGame(true); return; }
+    } else {
+      // WEAK — tapping into dead air with no window
+      setTension(state.tension - 4);
+      flashSpeak('weak');
+    }
+  }
+
+  function tick() {
+    if (state.over) return;
+    const now = performance.now();
+
+    if (state.currentSpeaker && now >= state.speakingUntil) {
+      endSpeaker();
+    } else if (!state.currentSpeaker) {
+      if (now >= state.nextEvent) {
+        startSpeaker(chooseNextSpeaker());
+      }
+    }
+
+    // missed window
+    if (state.silenceWindow && now > state.silenceWindow.to && !state.silenceWindow.missed) {
+      state.silenceWindow.missed = true;
+      state.missedWindows++;
+      setTension(state.tension - 7);
+    }
+
+    // window indicator
+    if (state.silenceWindow) {
+      const w = state.silenceWindow;
+      if (now < w.from) {
+        windowFill.style.width = '0%';
+        speakBtn.classList.remove('silence');
+        speakStateText.textContent = 'wait';
+        speakHintText.textContent = 'someone is finishing';
+      } else if (now <= w.to) {
+        const pct = 1 - (now - w.from) / (w.to - w.from);
+        windowFill.style.width = (Math.max(0, pct) * 100) + '%';
+        speakBtn.classList.add('silence');
+        speakStateText.textContent = 'speak';
+        speakHintText.textContent = 'now — your moment';
+      } else {
+        windowFill.style.width = '0%';
+        speakBtn.classList.remove('silence');
+        speakStateText.textContent = 'listen';
+        speakHintText.textContent = 'the moment passed';
+      }
+    } else {
+      windowFill.style.width = '0%';
+      speakBtn.classList.remove('silence');
+      speakStateText.textContent = 'listen';
+      speakHintText.textContent = 'tap when you can';
+    }
+
+    if (state.tension <= 0) { endGame(false); return; }
+    state.animLoop = requestAnimationFrame(tick);
+  }
+
+  function endGame(won) {
+    state.over = true;
+    if (state.animLoop) cancelAnimationFrame(state.animLoop);
+    const endEl = document.getElementById('end');
+    document.getElementById('end-title').textContent = won ? 'You belonged.' : 'You drifted.';
+    document.getElementById('end-text').textContent = won
+      ? "They didn't notice when you arrived. They'll notice when you leave."
+      : 'They never quite saw you. The conversation went on without you, soft as ever.';
+    document.getElementById('end-stats').textContent =
+      `${state.contributions} spoken · ${state.interrupts} interrupted · ${state.missedWindows} missed`;
+    endEl.classList.add('show');
+  }
+
+  function startGame() {
+    document.getElementById('title').style.display = 'none';
+    document.getElementById('end').classList.remove('show');
+    document.body.classList.add('in-game');
+    state = newState();
+    setTension(100);
+    contributionsEl.textContent = 0;
+    feedEl.innerHTML = '';
+    state.nextEvent = performance.now() + 700;
+    state.animLoop = requestAnimationFrame(tick);
+  }
+
+  // Event listeners
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('restart-btn').addEventListener('click', () => {
+    document.getElementById('end').classList.remove('show');
+    startGame();
+  });
+
+  // Speak button — handle pointerdown for instant response, prevent ghost click
+  let lastPointerTime = 0;
+  speakBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    lastPointerTime = performance.now();
+    attemptSpeak();
+  });
+  speakBtn.addEventListener('click', (e) => {
+    // skip if pointerdown already fired recently
+    if (performance.now() - lastPointerTime < 600) return;
+    attemptSpeak();
+  });
+
+  // Prevent accidental double-tap zoom
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('dblclick', e => e.preventDefault());
+</script>
+</body>
+</html>
