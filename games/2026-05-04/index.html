@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a0f0a">
+<title>Still Life</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0604;
+    color: #e8d4b0;
+    font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+    user-select: none; -webkit-user-select: none;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+  #game {
+    display: block; width: 100%; height: 100%;
+    background: radial-gradient(ellipse at 50% 30%, #1a0f0a 0%, #0a0604 70%, #050201 100%);
+    position: absolute; inset: 0;
+  }
+  #ui {
+    position: fixed; inset: 0; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+  .panel {
+    pointer-events: auto;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    max-width: 320px;
+    color: #e8d4b0;
+  }
+  .panel h1 {
+    font-size: 3.5rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 0.95;
+    margin-bottom: 0.4rem;
+    color: #f4e4c4;
+    text-shadow: 0 0 30px rgba(244,228,196,0.15);
+  }
+  .panel .subtitle {
+    font-size: 1rem;
+    font-style: italic;
+    opacity: 0.65;
+    letter-spacing: 0.04em;
+    margin-bottom: 2.5rem;
+    line-height: 1.4;
+  }
+  .panel .body {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    opacity: 0.85;
+    margin-bottom: 1.5rem;
+    font-style: italic;
+  }
+  .panel .meta {
+    font-size: 0.8rem;
+    letter-spacing: 0.18em;
+    opacity: 0.5;
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+  }
+  .btn {
+    pointer-events: auto;
+    display: inline-block;
+    padding: 0.7rem 1.6rem;
+    background: transparent;
+    border: 1px solid rgba(232,212,176,0.4);
+    color: #e8d4b0;
+    font-family: inherit;
+    font-size: 1rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .btn:hover, .btn:active {
+    background: rgba(232,212,176,0.1);
+    border-color: rgba(232,212,176,0.7);
+  }
+  .hidden { display: none !important; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    pointer-events: none;
+    padding: 0.6rem 1rem 0.6rem 5rem;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 5;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(232,212,176,0.55);
+  }
+
+  /* Eye indicator at bottom */
+  #eye-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 80px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.0));
+    z-index: 5;
+    pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  #eye-status {
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    transition: color 0.3s;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: inherit;
+    letter-spacing: 0.05em;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .flash-caught {
+    animation: flash-red 0.5s ease-out;
+  }
+  @keyframes flash-red {
+    0% { background: rgba(120,20,10,0.6); }
+    100% { background: transparent; }
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <span id="painting-name">I.</span>
+  <span id="painting-counter">1 / 3</span>
+</div>
+
+<div id="eye-bar" class="hidden">
+  <canvas id="eye-canvas" width="200" height="50"></canvas>
+  <div id="eye-status">a viewer approaches</div>
+</div>
+
+<div id="ui">
+  <div id="title-screen" class="panel">
+    <h1>STILL<br>LIFE</h1>
+    <div class="subtitle">you are not part<br>of the painting</div>
+    <button class="btn" id="start-btn">Begin</button>
+    <div style="font-size:0.78rem; opacity:0.45; margin-top:1.6rem; letter-spacing:0.04em; line-height:1.5;">
+      Drag the beetle. Move only when<br>the viewer is looking elsewhere.
+    </div>
+  </div>
+
+  <div id="caught-screen" class="panel hidden">
+    <div class="meta">A viewer notices</div>
+    <h1 style="font-size:2.4rem; margin-bottom:1rem;">caught</h1>
+    <div class="body" id="caught-text">"Did that just move?"</div>
+    <button class="btn" id="retry-btn">Try again</button>
+  </div>
+
+  <div id="next-screen" class="panel hidden">
+    <div class="meta" id="next-painting-num">painting II</div>
+    <h1 style="font-size:2.6rem; margin-bottom:0.6rem;" id="next-title">Memento Mori</h1>
+    <div class="subtitle" id="next-flavor">— oil on canvas, c. 1648</div>
+    <button class="btn" id="next-btn">Enter</button>
+  </div>
+
+  <div id="win-screen" class="panel hidden">
+    <h1 style="font-size:2.6rem;">escaped</h1>
+    <div class="subtitle">you slip into the gallery wall<br>and are gone before morning</div>
+    <button class="btn" id="restart-btn">Begin again</button>
+  </div>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) {}
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// =====================================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const eyeCanvas = document.getElementById('eye-canvas');
+const eyeCtx = eyeCanvas.getContext('2d');
+
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  eyeCanvas.width = 200 * DPR;
+  eyeCanvas.height = 50 * DPR;
+  eyeCanvas.style.width = '200px';
+  eyeCanvas.style.height = '50px';
+  eyeCtx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ----- Painting frame (computed each frame from W/H) -----
+function getFrame() {
+  const margin = 24;
+  const top = 56;
+  const bottom = 100;
+  const x = margin;
+  const y = top;
+  const w = W - margin * 2;
+  const h = H - top - bottom;
+  return { x, y, w, h, cx: x + w/2, cy: y + h/2 };
+}
+
+// ----- Paintings (procedural) -----
+
+const PAINTINGS = [
+  {
+    name: 'I.',
+    title: 'Still Life with Pomegranate',
+    flavor: '— oil on canvas, c. 1612',
+    palette: { bg: '#2a1408', warm: '#8c4a1f', accent: '#c44d2a' },
+    bugStart: { fx: 0.16, fy: 0.84 },
+    crackPos: { fx: 0.92, fy: 0.18 },
+    watchers: [
+      { awayMs: 3200, warnMs: 700, watchMs: 2500, blinkMs: 500, phase: 0 }
+    ],
+    timeLimit: 60000,
+    paint: paintPainting1,
+  },
+  {
+    name: 'II.',
+    title: 'Memento Mori',
+    flavor: '— oil on canvas, c. 1648',
+    palette: { bg: '#1c1612', warm: '#665039', accent: '#d8c08a' },
+    bugStart: { fx: 0.5, fy: 0.92 },
+    crackPos: { fx: 0.08, fy: 0.08 },
+    watchers: [
+      { awayMs: 2400, warnMs: 600, watchMs: 2200, blinkMs: 400, phase: 0 },
+      { awayMs: 2800, warnMs: 600, watchMs: 1800, blinkMs: 400, phase: 0.55 }
+    ],
+    timeLimit: 75000,
+    paint: paintPainting2,
+  },
+  {
+    name: 'III.',
+    title: 'Banquet After Hours',
+    flavor: '— oil on canvas, c. 1683',
+    palette: { bg: '#180c0a', warm: '#7a2a18', accent: '#e6b54a' },
+    bugStart: { fx: 0.08, fy: 0.5 },
+    crackPos: { fx: 0.92, fy: 0.92 },
+    watchers: [
+      { awayMs: 2000, warnMs: 500, watchMs: 2000, blinkMs: 300, phase: 0 },
+      { awayMs: 2200, warnMs: 500, watchMs: 1700, blinkMs: 300, phase: 0.4 },
+      { awayMs: 1800, warnMs: 400, watchMs: 1500, blinkMs: 300, phase: 0.75 }
+    ],
+    timeLimit: 90000,
+    paint: paintPainting3,
+  },
+];
+
+// ----- Game state -----
+let state = 'TITLE'; // TITLE, PLAY, CAUGHT, NEXT, WIN
+let levelIndex = 0;
+let bug = { x: 0, y: 0, vx: 0, vy: 0, dragging: false, lastMoveTime: 0, leg: 0 };
+let watcherStates = []; // per watcher: 'AWAY','WARN','WATCH','BLINK' + tStart
+let levelStartTime = 0;
+let lastFrameTime = 0;
+let caughtFlash = 0;
+
+// ----- Watcher logic -----
+function initWatchers(painting) {
+  const now = performance.now();
+  watcherStates = painting.watchers.map(w => {
+    const cycle = w.awayMs + w.warnMs + w.watchMs + w.blinkMs;
+    const offset = (w.phase || 0) * cycle;
+    return { ...w, cycleStart: now - offset };
+  });
+}
+
+function getWatcherState(w, now) {
+  const elapsed = now - w.cycleStart;
+  const cycle = w.awayMs + w.warnMs + w.watchMs + w.blinkMs;
+  let t = elapsed % cycle;
+  if (t < w.awayMs) return { state: 'AWAY', t: t / w.awayMs };
+  t -= w.awayMs;
+  if (t < w.warnMs) return { state: 'WARN', t: t / w.warnMs };
+  t -= w.warnMs;
+  if (t < w.watchMs) return { state: 'WATCH', t: t / w.watchMs };
+  t -= w.watchMs;
+  return { state: 'BLINK', t: t / w.blinkMs };
+}
+
+function isAnyoneWatching(now) {
+  for (const w of watcherStates) {
+    const s = getWatcherState(w, now);
+    if (s.state === 'WATCH') return true;
+  }
+  return false;
+}
+
+function isAnyoneWarning(now) {
+  for (const w of watcherStates) {
+    const s = getWatcherState(w, now);
+    if (s.state === 'WARN') return true;
+  }
+  return false;
+}
+
+// ----- Paintings (procedural drawings) -----
+
+function paintBackdrop(p, frame) {
+  // Canvas weave texture & vignette
+  const g = ctx.createRadialGradient(
+    frame.cx, frame.cy + frame.h*0.1, frame.w*0.1,
+    frame.cx, frame.cy, frame.w*0.9
+  );
+  g.addColorStop(0, p.palette.warm);
+  g.addColorStop(0.5, p.palette.bg);
+  g.addColorStop(1, '#0a0503');
+  ctx.fillStyle = g;
+  ctx.fillRect(frame.x, frame.y, frame.w, frame.h);
+
+  // Subtle canvas weave noise
+  ctx.save();
+  ctx.globalAlpha = 0.04;
+  ctx.fillStyle = '#000';
+  for (let i = 0; i < frame.w; i += 3) {
+    ctx.fillRect(frame.x + i, frame.y, 1, frame.h);
+  }
+  for (let j = 0; j < frame.h; j += 3) {
+    ctx.fillRect(frame.x, frame.y + j, frame.w, 1);
+  }
+  ctx.restore();
+}
+
+function paintFrame(frame) {
+  // Gold frame
+  ctx.save();
+  const fw = 12;
+  // Outer dark
+  ctx.strokeStyle = '#1a0d05';
+  ctx.lineWidth = fw + 6;
+  ctx.strokeRect(frame.x - fw/2, frame.y - fw/2, frame.w + fw, frame.h + fw);
+  // Gold
+  const gradFrame = ctx.createLinearGradient(frame.x, frame.y, frame.x + frame.w, frame.y + frame.h);
+  gradFrame.addColorStop(0, '#a8823a');
+  gradFrame.addColorStop(0.4, '#d4a85a');
+  gradFrame.addColorStop(0.5, '#f4e4a0');
+  gradFrame.addColorStop(0.6, '#d4a85a');
+  gradFrame.addColorStop(1, '#704418');
+  ctx.strokeStyle = gradFrame;
+  ctx.lineWidth = fw;
+  ctx.strokeRect(frame.x - fw/2, frame.y - fw/2, frame.w + fw, frame.h + fw);
+  // Inner shadow
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(frame.x, frame.y, frame.w, frame.h);
+  ctx.restore();
+}
+
+function paintCrack(frame) {
+  const p = PAINTINGS[levelIndex];
+  const cx = frame.x + p.crackPos.fx * frame.w;
+  const cy = frame.y + p.crackPos.fy * frame.h;
+  const t = performance.now() / 1000;
+  const pulse = 0.6 + 0.4 * Math.sin(t * 2);
+
+  ctx.save();
+  // Glow
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 36);
+  glow.addColorStop(0, `rgba(255,240,200,${0.5 * pulse})`);
+  glow.addColorStop(0.4, `rgba(255,200,140,${0.2 * pulse})`);
+  glow.addColorStop(1, 'rgba(255,200,140,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - 40, cy - 40, 80, 80);
+
+  // Crack itself - jagged line
+  ctx.strokeStyle = `rgba(255,235,190,${0.85})`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const segs = 6;
+  let lx = cx - 14, ly = cy - 6;
+  ctx.moveTo(lx, ly);
+  for (let i = 1; i <= segs; i++) {
+    const fr = i / segs;
+    const tx = cx - 14 + 28 * fr + (Math.sin(i*9.7) * 4);
+    const ty = cy - 6 + 12 * fr + (Math.cos(i*7.3) * 4);
+    ctx.lineTo(tx, ty);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Drawing helpers
+function ellipse(x, y, rx, ry, fill, stroke) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI*2);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+
+function shadowEllipse(x, y, rx, ry) {
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(x + 4, y + 4, rx, ry*0.6, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function paintPainting1(frame) {
+  // Still Life with Pomegranate — bowl, fruit, draped cloth, bottle
+  const p = PAINTINGS[0];
+  paintBackdrop(p, frame);
+
+  // Stone table edge
+  ctx.fillStyle = '#1a0d04';
+  ctx.fillRect(frame.x, frame.y + frame.h * 0.62, frame.w, frame.h * 0.38);
+  ctx.fillStyle = 'rgba(80,50,25,0.4)';
+  ctx.fillRect(frame.x, frame.y + frame.h * 0.62, frame.w, 4);
+
+  // Cloth (white drape)
+  ctx.save();
+  ctx.fillStyle = '#d8c8a4';
+  ctx.beginPath();
+  const ty = frame.y + frame.h * 0.62;
+  ctx.moveTo(frame.x + frame.w * 0.05, ty);
+  ctx.lineTo(frame.x + frame.w * 0.85, ty);
+  ctx.bezierCurveTo(
+    frame.x + frame.w * 0.9, ty + 30,
+    frame.x + frame.w * 0.7, ty + 60,
+    frame.x + frame.w * 0.55, ty + 90
+  );
+  ctx.lineTo(frame.x + frame.w * 0.05, ty + 90);
+  ctx.closePath();
+  ctx.fill();
+  // shadow folds
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  for (let i = 0; i < 4; i++) {
+    const fx = frame.x + frame.w * (0.15 + i * 0.18);
+    ctx.beginPath();
+    ctx.moveTo(fx, ty);
+    ctx.bezierCurveTo(fx - 2, ty + 30, fx - 6, ty + 60, fx - 8, ty + 90);
+    ctx.lineTo(fx + 6, ty + 90);
+    ctx.bezierCurveTo(fx + 4, ty + 60, fx + 2, ty + 30, fx + 4, ty);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Wooden bowl
+  const bowlX = frame.x + frame.w * 0.5;
+  const bowlY = ty - 8;
+  shadowEllipse(bowlX, bowlY + 8, 90, 24);
+  ctx.fillStyle = '#3a1d0a';
+  ctx.beginPath();
+  ctx.ellipse(bowlX, bowlY + 6, 90, 22, 0, 0, Math.PI);
+  ctx.lineTo(bowlX - 78, bowlY - 18);
+  ctx.bezierCurveTo(bowlX - 90, bowlY - 24, bowlX - 90, bowlY, bowlX - 78, bowlY + 6);
+  ctx.fill();
+  ellipse(bowlX, bowlY - 14, 80, 14, '#1a0a04');
+  ellipse(bowlX, bowlY - 14, 75, 11, '#2a1408');
+
+  // Pomegranates
+  const poms = [
+    { x: bowlX - 32, y: bowlY - 24, r: 24 },
+    { x: bowlX + 18, y: bowlY - 30, r: 26 },
+    { x: bowlX + 50, y: bowlY - 18, r: 20 },
+    { x: bowlX - 60, y: bowlY - 12, r: 18 },
+  ];
+  for (const pom of poms) {
+    // shadow
+    ellipse(pom.x + 2, pom.y + 4, pom.r, pom.r * 0.95, 'rgba(0,0,0,0.5)');
+    // body
+    const grad = ctx.createRadialGradient(pom.x - pom.r*0.3, pom.y - pom.r*0.3, 2, pom.x, pom.y, pom.r);
+    grad.addColorStop(0, '#e85a30');
+    grad.addColorStop(0.6, '#a8311a');
+    grad.addColorStop(1, '#3a0a04');
+    ellipse(pom.x, pom.y, pom.r, pom.r * 0.95, grad);
+    // crown
+    ctx.fillStyle = '#5a1a0a';
+    ctx.beginPath();
+    ctx.moveTo(pom.x, pom.y - pom.r * 0.85);
+    ctx.lineTo(pom.x - 4, pom.y - pom.r * 1.05);
+    ctx.lineTo(pom.x + 1, pom.y - pom.r * 0.95);
+    ctx.lineTo(pom.x + 5, pom.y - pom.r * 1.1);
+    ctx.lineTo(pom.x + 3, pom.y - pom.r * 0.85);
+    ctx.fill();
+  }
+
+  // Cut pomegranate showing seeds
+  const cpx = frame.x + frame.w * 0.18;
+  const cpy = ty - 18;
+  shadowEllipse(cpx, cpy, 28, 26);
+  ellipse(cpx, cpy, 28, 26, '#4a0e08');
+  ellipse(cpx, cpy, 24, 22, '#d4a880');
+  // seeds
+  for (let i = 0; i < 18; i++) {
+    const ang = (i / 18) * Math.PI * 2;
+    const rr = 8 + Math.random() * 8;
+    const sx = cpx + Math.cos(ang) * rr * 0.7;
+    const sy = cpy + Math.sin(ang) * rr * 0.7;
+    ellipse(sx, sy, 2.5, 3, '#c4361a');
+  }
+  ellipse(cpx + 3, cpy - 8, 2, 2.5, '#e8584a');
+
+  // Wine bottle (left)
+  const blx = frame.x + frame.w * 0.78;
+  const bly = ty - 60;
+  ctx.fillStyle = '#1a0a06';
+  ctx.fillRect(blx - 14, bly - 50, 28, 60);
+  ctx.fillStyle = '#0a0503';
+  ctx.fillRect(blx - 6, bly - 90, 12, 42);
+  ellipse(blx, bly - 90, 6, 4, '#4a3520');
+  // highlight
+  ctx.fillStyle = 'rgba(180,80,40,0.3)';
+  ctx.fillRect(blx - 12, bly - 48, 4, 56);
+
+  // Pewter cup
+  const pcx = frame.x + frame.w * 0.34;
+  const pcy = ty - 36;
+  shadowEllipse(pcx, pcy + 18, 22, 8);
+  ctx.fillStyle = '#5a5448';
+  ctx.beginPath();
+  ctx.moveTo(pcx - 18, pcy - 24);
+  ctx.lineTo(pcx + 18, pcy - 24);
+  ctx.lineTo(pcx + 22, pcy + 18);
+  ctx.lineTo(pcx - 22, pcy + 18);
+  ctx.closePath();
+  ctx.fill();
+  ellipse(pcx, pcy - 24, 18, 5, '#2a2620');
+  ctx.fillStyle = 'rgba(220,200,170,0.3)';
+  ctx.fillRect(pcx - 14, pcy - 20, 4, 36);
+
+  // Walnut shells scattered
+  const walnuts = [
+    { x: frame.x + frame.w * 0.62, y: ty + 16 },
+    { x: frame.x + frame.w * 0.7, y: ty + 30 },
+    { x: frame.x + frame.w * 0.4, y: ty + 22 },
+  ];
+  for (const w of walnuts) {
+    ellipse(w.x + 1, w.y + 2, 9, 7, 'rgba(0,0,0,0.5)');
+    ellipse(w.x, w.y, 9, 7, '#5a3a20');
+    ctx.strokeStyle = '#2a1808';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(w.x - 7, w.y); ctx.lineTo(w.x + 7, w.y);
+    ctx.stroke();
+  }
+}
+
+function paintPainting2(frame) {
+  // Memento Mori — skull, candle, hourglass, book
+  const p = PAINTINGS[1];
+  paintBackdrop(p, frame);
+
+  // Stone table
+  ctx.fillStyle = '#0e0a07';
+  ctx.fillRect(frame.x, frame.y + frame.h * 0.65, frame.w, frame.h * 0.35);
+
+  // Book (open)
+  const bx = frame.x + frame.w * 0.18;
+  const by = frame.y + frame.h * 0.7;
+  shadowEllipse(bx + 30, by + 20, 70, 14);
+  ctx.fillStyle = '#3a2010';
+  ctx.fillRect(bx, by, 110, 8);
+  ctx.fillStyle = '#d4c08a';
+  ctx.beginPath();
+  ctx.moveTo(bx + 5, by);
+  ctx.lineTo(bx + 105, by);
+  ctx.lineTo(bx + 100, by - 30);
+  ctx.lineTo(bx + 10, by - 30);
+  ctx.closePath();
+  ctx.fill();
+  // page lines
+  ctx.strokeStyle = 'rgba(60,40,20,0.5)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i < 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(bx + 14, by - 4 - i*4);
+    ctx.lineTo(bx + 100, by - 4 - i*4);
+    ctx.stroke();
+  }
+  // spine line
+  ctx.strokeStyle = 'rgba(40,20,10,0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(bx + 55, by); ctx.lineTo(bx + 55, by - 30);
+  ctx.stroke();
+
+  // Skull
+  const sx = frame.x + frame.w * 0.5;
+  const sy = frame.y + frame.h * 0.55;
+  shadowEllipse(sx, sy + 50, 60, 16);
+
+  // Cranium
+  const skullGrad = ctx.createRadialGradient(sx - 15, sy - 20, 5, sx, sy, 65);
+  skullGrad.addColorStop(0, '#f4e4c0');
+  skullGrad.addColorStop(0.6, '#a89570');
+  skullGrad.addColorStop(1, '#3a2a18');
+  ctx.fillStyle = skullGrad;
+  ctx.beginPath();
+  ctx.ellipse(sx, sy - 8, 50, 48, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // jaw area
+  ctx.beginPath();
+  ctx.ellipse(sx, sy + 28, 38, 22, 0, 0, Math.PI);
+  ctx.fill();
+  // eye sockets
+  ctx.fillStyle = '#0a0604';
+  ellipse(sx - 18, sy - 8, 11, 13, '#0a0604');
+  ellipse(sx + 18, sy - 8, 11, 13, '#0a0604');
+  // shine in sockets
+  ellipse(sx - 22, sy - 12, 2, 2, 'rgba(180,160,120,0.4)');
+  // nose
+  ctx.fillStyle = '#0a0604';
+  ctx.beginPath();
+  ctx.moveTo(sx, sy + 4);
+  ctx.lineTo(sx - 5, sy + 18);
+  ctx.lineTo(sx + 5, sy + 18);
+  ctx.closePath();
+  ctx.fill();
+  // teeth
+  ctx.fillStyle = '#d4c0a0';
+  for (let i = -3; i <= 3; i++) {
+    ctx.fillRect(sx + i*5 - 2, sy + 28, 4, 8);
+  }
+  ctx.fillStyle = '#0a0604';
+  for (let i = -3; i <= 4; i++) {
+    ctx.fillRect(sx + i*5 - 2.5, sy + 28, 1, 8);
+  }
+
+  // Candle
+  const cx = frame.x + frame.w * 0.78;
+  const cy = frame.y + frame.h * 0.72;
+  shadowEllipse(cx, cy + 18, 20, 6);
+  // holder
+  ctx.fillStyle = '#5a4838';
+  ctx.beginPath();
+  ctx.moveTo(cx - 18, cy + 16);
+  ctx.lineTo(cx + 18, cy + 16);
+  ctx.lineTo(cx + 12, cy + 6);
+  ctx.lineTo(cx - 12, cy + 6);
+  ctx.closePath();
+  ctx.fill();
+  // candle body
+  ctx.fillStyle = '#d4c8a8';
+  ctx.fillRect(cx - 6, cy - 50, 12, 56);
+  // wax drip
+  ctx.fillStyle = '#e8dcb8';
+  ctx.beginPath();
+  ctx.moveTo(cx - 6, cy - 30);
+  ctx.lineTo(cx - 9, cy - 10);
+  ctx.lineTo(cx - 6, cy - 5);
+  ctx.fill();
+  // wick
+  ctx.strokeStyle = '#1a0a04';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 50); ctx.lineTo(cx, cy - 56);
+  ctx.stroke();
+  // flame
+  const flameFlick = Math.sin(performance.now() / 200) * 1.2;
+  const flameGrad = ctx.createRadialGradient(cx + flameFlick, cy - 64, 0, cx + flameFlick, cy - 64, 14);
+  flameGrad.addColorStop(0, '#fff8d0');
+  flameGrad.addColorStop(0.4, '#ffaa30');
+  flameGrad.addColorStop(1, 'rgba(200,80,20,0)');
+  ctx.fillStyle = flameGrad;
+  ctx.beginPath();
+  ctx.ellipse(cx + flameFlick, cy - 64, 6, 10, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Hourglass (small, in upper right)
+  const hx = frame.x + frame.w * 0.88;
+  const hy = frame.y + frame.h * 0.32;
+  ctx.fillStyle = '#3a2010';
+  ctx.fillRect(hx - 14, hy - 26, 28, 4);
+  ctx.fillRect(hx - 14, hy + 22, 28, 4);
+  // glass
+  ctx.strokeStyle = 'rgba(220,200,170,0.5)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(hx - 12, hy - 22);
+  ctx.lineTo(hx - 2, hy);
+  ctx.lineTo(hx - 12, hy + 22);
+  ctx.moveTo(hx + 12, hy - 22);
+  ctx.lineTo(hx + 2, hy);
+  ctx.lineTo(hx + 12, hy + 22);
+  ctx.stroke();
+  // sand top (depleting)
+  ctx.fillStyle = '#d4a868';
+  ctx.beginPath();
+  ctx.moveTo(hx - 8, hy - 4);
+  ctx.lineTo(hx + 8, hy - 4);
+  ctx.lineTo(hx + 2, hy);
+  ctx.lineTo(hx - 2, hy);
+  ctx.closePath();
+  ctx.fill();
+  // sand bottom (filling)
+  ctx.fillStyle = '#d4a868';
+  ctx.beginPath();
+  ctx.moveTo(hx - 10, hy + 22);
+  ctx.lineTo(hx + 10, hy + 22);
+  ctx.lineTo(hx + 7, hy + 14);
+  ctx.lineTo(hx - 7, hy + 14);
+  ctx.closePath();
+  ctx.fill();
+
+  // Wilted rose (lower left)
+  const rx = frame.x + frame.w * 0.32;
+  const ry = frame.y + frame.h * 0.84;
+  ctx.strokeStyle = '#3a4020';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(rx, ry);
+  ctx.bezierCurveTo(rx + 5, ry - 20, rx - 8, ry - 35, rx + 6, ry - 50);
+  ctx.stroke();
+  // petals
+  for (let i = 0; i < 5; i++) {
+    const ang = (i / 5) * Math.PI * 2;
+    const px = rx + 6 + Math.cos(ang) * 6;
+    const py = ry - 50 + Math.sin(ang) * 6;
+    ellipse(px, py, 5, 4, '#7a2818');
+  }
+  ellipse(rx + 6, ry - 50, 5, 4, '#a83828');
+  // fallen petal
+  ellipse(rx - 8, ry, 6, 4, '#5a1810');
+}
+
+function paintPainting3(frame) {
+  // Banquet After Hours — chaos: spilled wine, oysters, peeled lemon, knife
+  const p = PAINTINGS[2];
+  paintBackdrop(p, frame);
+
+  // Tablecloth
+  ctx.fillStyle = '#3a1810';
+  ctx.fillRect(frame.x, frame.y + frame.h * 0.55, frame.w, frame.h * 0.45);
+  ctx.fillStyle = '#4a2218';
+  ctx.fillRect(frame.x, frame.y + frame.h * 0.55, frame.w, 4);
+
+  // Spilled wine puddle
+  const wx = frame.x + frame.w * 0.35;
+  const wy = frame.y + frame.h * 0.7;
+  const wineGrad = ctx.createRadialGradient(wx, wy, 5, wx, wy, 70);
+  wineGrad.addColorStop(0, '#5a0a0a');
+  wineGrad.addColorStop(0.6, '#2a0404');
+  wineGrad.addColorStop(1, 'rgba(20,0,0,0)');
+  ctx.fillStyle = wineGrad;
+  ctx.beginPath();
+  ctx.ellipse(wx, wy, 70, 38, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // dribbles
+  ctx.fillStyle = '#3a0808';
+  ellipse(wx - 60, wy + 10, 6, 4, '#3a0808');
+  ellipse(wx + 50, wy + 22, 4, 3, '#3a0808');
+
+  // Tipped wine glass
+  const tgx = frame.x + frame.w * 0.45;
+  const tgy = frame.y + frame.h * 0.62;
+  ctx.save();
+  ctx.translate(tgx, tgy);
+  ctx.rotate(-0.7);
+  // bowl
+  ctx.fillStyle = 'rgba(200,180,160,0.25)';
+  ctx.strokeStyle = 'rgba(220,200,180,0.6)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 18, 22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // residue
+  ctx.fillStyle = 'rgba(80,10,10,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(0, 8, 14, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // stem
+  ctx.fillStyle = 'rgba(200,180,160,0.4)';
+  ctx.fillRect(-2, 22, 4, 30);
+  // base
+  ellipse(0, 54, 14, 4, 'rgba(200,180,160,0.3)');
+  ctx.restore();
+
+  // Plate with oysters
+  const px = frame.x + frame.w * 0.7;
+  const py = frame.y + frame.h * 0.68;
+  shadowEllipse(px, py + 10, 50, 12);
+  ellipse(px, py, 50, 18, '#d8c4a4');
+  ellipse(px, py, 44, 14, '#a89478');
+  // oysters
+  for (let i = 0; i < 4; i++) {
+    const ox = px - 24 + i * 14;
+    const oy = py - 4 + (i % 2) * 4;
+    ellipse(ox, oy, 8, 6, '#3a3025');
+    ellipse(ox - 1, oy - 1, 6, 4, '#a8907a');
+    ellipse(ox - 1, oy - 1, 4, 2, '#605040');
+  }
+
+  // Peeled lemon (with curling rind)
+  const lx = frame.x + frame.w * 0.18;
+  const ly = frame.y + frame.h * 0.62;
+  shadowEllipse(lx, ly + 8, 22, 8);
+  ellipse(lx, ly, 20, 22, '#e8c860');
+  ellipse(lx - 4, ly - 4, 12, 14, '#f4dc80');
+  // curled rind
+  ctx.strokeStyle = '#c4a440';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(lx + 10, ly - 18);
+  ctx.bezierCurveTo(lx + 35, ly - 30, lx + 50, ly - 10, lx + 38, ly + 8);
+  ctx.bezierCurveTo(lx + 30, ly + 16, lx + 45, ly + 24, lx + 60, ly + 18);
+  ctx.stroke();
+  ctx.strokeStyle = '#f4dc80';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Knife
+  const kx = frame.x + frame.w * 0.55;
+  const ky = frame.y + frame.h * 0.78;
+  ctx.save();
+  ctx.translate(kx, ky);
+  ctx.rotate(-0.3);
+  // blade
+  ctx.fillStyle = '#a8a09a';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(50, -3);
+  ctx.lineTo(60, 0);
+  ctx.lineTo(50, 3);
+  ctx.closePath();
+  ctx.fill();
+  // edge highlight
+  ctx.fillStyle = '#e0d8d0';
+  ctx.fillRect(2, -1, 50, 1);
+  // handle
+  ctx.fillStyle = '#3a1808';
+  ctx.fillRect(-22, -4, 22, 8);
+  ctx.restore();
+
+  // Bread crust
+  const brx = frame.x + frame.w * 0.85;
+  const bry = frame.y + frame.h * 0.85;
+  ellipse(brx + 1, bry + 2, 22, 10, 'rgba(0,0,0,0.5)');
+  ellipse(brx, bry, 22, 12, '#8c6038');
+  ellipse(brx - 4, bry - 3, 14, 7, '#c4945c');
+  // crumbs
+  for (let i = 0; i < 6; i++) {
+    ellipse(brx - 30 + i*4, bry + 10 + (i%2)*3, 1.5, 1.2, '#6a4828');
+  }
+
+  // Grapes (upper area, hanging)
+  const grx = frame.x + frame.w * 0.5;
+  const gry = frame.y + frame.h * 0.28;
+  ctx.strokeStyle = '#3a2010';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(grx, frame.y + frame.h * 0.08);
+  ctx.lineTo(grx, gry - 10);
+  ctx.stroke();
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col <= row; col++) {
+      const ggx = grx - row*5 + col*10;
+      const ggy = gry + row * 8;
+      ellipse(ggx + 1, ggy + 1, 6, 7, 'rgba(0,0,0,0.4)');
+      const gg = ctx.createRadialGradient(ggx - 2, ggy - 2, 1, ggx, ggy, 7);
+      gg.addColorStop(0, '#704890');
+      gg.addColorStop(0.7, '#3a1850');
+      gg.addColorStop(1, '#1a0a28');
+      ellipse(ggx, ggy, 6, 7, gg);
+    }
+  }
+}
+
+// ----- Bug rendering -----
+function drawBug(x, y, frozenLook) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Calculate motion direction for facing
+  const t = performance.now() / 1000;
+  let angle = bug.facing || 0;
+
+  ctx.rotate(angle);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.ellipse(2, 3, 9, 5, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Legs (animated when not frozen)
+  const legPhase = frozenLook ? 0 : Math.sin(bug.leg) * 4;
+  ctx.strokeStyle = '#0a0604';
+  ctx.lineWidth = 1.2;
+  for (let s = -1; s <= 1; s += 2) {
+    for (let i = 0; i < 3; i++) {
+      const lx = -4 + i * 4;
+      const ly = s * 4;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.lineTo(lx + s * 2 + (i === 1 ? legPhase * s : 0),
+                 ly + s * 6 + (i !== 1 ? legPhase * 0.5 : 0));
+      ctx.stroke();
+    }
+  }
+
+  // Body (carapace - dark with iridescence)
+  const bodyGrad = ctx.createRadialGradient(-2, -2, 0, 0, 0, 9);
+  bodyGrad.addColorStop(0, '#3a4030');
+  bodyGrad.addColorStop(0.3, '#1a2018');
+  bodyGrad.addColorStop(1, '#050805');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 9, 6, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Wing case line
+  ctx.strokeStyle = '#0a0a05';
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(-2, -5); ctx.lineTo(-2, 5);
+  ctx.stroke();
+
+  // Head
+  ctx.fillStyle = '#0a0a05';
+  ctx.beginPath();
+  ctx.ellipse(-7, 0, 3, 3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Iridescence shine
+  ctx.fillStyle = 'rgba(120,140,90,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(-1, -2, 5, 2, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Heartbeat ring when caught looking
+function drawHeartbeatRing(x, y, intensity) {
+  const t = performance.now() / 600;
+  const pulse = (Math.sin(t * Math.PI * 2) + 1) / 2;
+  ctx.save();
+  ctx.strokeStyle = `rgba(200,40,30,${0.3 + 0.5 * pulse * intensity})`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(x, y, 14 + 4 * pulse, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ----- Eye indicator -----
+function drawEyeIndicator(now) {
+  eyeCtx.clearRect(0, 0, 200, 50);
+
+  // Aggregate state — most threatening wins
+  let displayState = 'AWAY';
+  let displayT = 0;
+  let watchersInfo = [];
+  for (const w of watcherStates) {
+    const s = getWatcherState(w, now);
+    watchersInfo.push(s.state);
+    if (s.state === 'WATCH') { displayState = 'WATCH'; displayT = s.t; }
+    else if (s.state === 'WARN' && displayState !== 'WATCH') { displayState = 'WARN'; displayT = s.t; }
+    else if (s.state === 'BLINK' && displayState === 'AWAY') { displayState = 'BLINK'; displayT = s.t; }
+  }
+
+  // Draw eyes (one per watcher) horizontally
+  const n = watcherStates.length;
+  const spacing = 50;
+  const totalW = (n - 1) * spacing;
+  const startX = 100 - totalW / 2;
+
+  for (let i = 0; i < n; i++) {
+    const ex = startX + i * spacing;
+    const ey = 25;
+    const s = getWatcherState(watcherStates[i], now);
+
+    // outer
+    eyeCtx.strokeStyle = 'rgba(232,212,176,0.5)';
+    eyeCtx.lineWidth = 1.2;
+
+    // Open / closed depending on state
+    let openFactor = 1;
+    if (s.state === 'AWAY') openFactor = 0.15;
+    else if (s.state === 'WARN') openFactor = 0.15 + 0.85 * s.t;
+    else if (s.state === 'WATCH') openFactor = 1;
+    else if (s.state === 'BLINK') openFactor = 1 - 0.85 * s.t;
+
+    // eye shape
+    eyeCtx.beginPath();
+    eyeCtx.ellipse(ex, ey, 14, 8 * openFactor, 0, 0, Math.PI * 2);
+    eyeCtx.stroke();
+
+    if (openFactor > 0.3) {
+      // sclera
+      eyeCtx.fillStyle = 'rgba(244,228,196,0.85)';
+      eyeCtx.beginPath();
+      eyeCtx.ellipse(ex, ey, 13, 7 * openFactor, 0, 0, Math.PI * 2);
+      eyeCtx.fill();
+
+      // iris/pupil
+      const iris = s.state === 'WATCH' ? '#a82010' : '#5a4030';
+      eyeCtx.fillStyle = iris;
+      eyeCtx.beginPath();
+      eyeCtx.ellipse(ex, ey, 5, 5 * openFactor, 0, 0, Math.PI * 2);
+      eyeCtx.fill();
+      eyeCtx.fillStyle = '#0a0604';
+      eyeCtx.beginPath();
+      eyeCtx.ellipse(ex, ey, 2.5, 2.5 * openFactor, 0, 0, Math.PI * 2);
+      eyeCtx.fill();
+    } else {
+      // closed lash line
+      eyeCtx.strokeStyle = 'rgba(232,212,176,0.7)';
+      eyeCtx.lineWidth = 1.5;
+      eyeCtx.beginPath();
+      eyeCtx.moveTo(ex - 12, ey);
+      eyeCtx.lineTo(ex + 12, ey);
+      eyeCtx.stroke();
+    }
+  }
+
+  // Update status text
+  const statusEl = document.getElementById('eye-status');
+  if (displayState === 'WATCH') {
+    statusEl.textContent = 'a viewer is watching — freeze';
+    statusEl.style.color = '#e85a30';
+  } else if (displayState === 'WARN') {
+    statusEl.textContent = 'eyes turning toward the painting';
+    statusEl.style.color = '#e8c870';
+  } else if (displayState === 'BLINK') {
+    statusEl.textContent = 'they look away';
+    statusEl.style.color = '#a8d488';
+  } else {
+    statusEl.textContent = 'no one is looking';
+    statusEl.style.color = '#a8d488';
+  }
+}
+
+// ----- Game loop -----
+let prevWatchingFrame = false;
+function update(dt) {
+  if (state !== 'PLAY') return;
+  const now = performance.now();
+  const watching = isAnyoneWatching(now);
+
+  // Reset move flag on transition into watching
+  if (watching && !prevWatchingFrame) {
+    bug.movedSinceWatchStart = false;
+  }
+  prevWatchingFrame = watching;
+
+  // Catch logic: bug movement during watch
+  if (bug.dragging && watching && bug.movedSinceWatchStart) {
+    triggerCaught();
+    return;
+  }
+
+  // Animate legs when moving
+  if (bug.dragging && !watching) {
+    bug.leg += dt * 12;
+  }
+
+  // Time limit
+  const elapsed = now - levelStartTime;
+  if (elapsed > PAINTINGS[levelIndex].timeLimit) {
+    triggerCaught('Time runs out. The gallery closes.');
+    return;
+  }
+
+  // Check crack reached
+  const frame = getFrame();
+  const p = PAINTINGS[levelIndex];
+  const crackX = frame.x + p.crackPos.fx * frame.w;
+  const crackY = frame.y + p.crackPos.fy * frame.h;
+  const dx = bug.x - crackX, dy = bug.y - crackY;
+  if (dx*dx + dy*dy < 30*30) {
+    advanceLevel();
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  const frame = getFrame();
+
+  // Wall behind painting (warm ambient)
+  // (background gradient already on canvas)
+
+  if (state !== 'TITLE') {
+    const p = PAINTINGS[levelIndex];
+    if (p) {
+      p.paint(frame);
+      paintCrack(frame);
+      paintFrame(frame);
+
+      // Bug
+      const watching = isAnyoneWatching(performance.now());
+      if (state === 'PLAY' || state === 'CAUGHT') {
+        if (watching && bug.dragging) {
+          drawHeartbeatRing(bug.x, bug.y, 1);
+        } else if (watching) {
+          drawHeartbeatRing(bug.x, bug.y, 0.4);
+        }
+        drawBug(bug.x, bug.y, watching);
+      }
+
+      // Time bar
+      if (state === 'PLAY') {
+        const elapsed = performance.now() - levelStartTime;
+        const frac = Math.min(1, elapsed / p.timeLimit);
+        ctx.fillStyle = 'rgba(232,212,176,0.15)';
+        ctx.fillRect(frame.x, frame.y - 10, frame.w, 2);
+        ctx.fillStyle = `rgba(${200 + frac*55},${180 - frac*100},${120 - frac*100},0.8)`;
+        ctx.fillRect(frame.x, frame.y - 10, frame.w * (1 - frac), 2);
+      }
+    }
+
+    // Eye indicator (in DOM canvas)
+    drawEyeIndicator(performance.now());
+  }
+
+  // Caught flash
+  if (caughtFlash > 0) {
+    ctx.fillStyle = `rgba(120,20,10,${caughtFlash * 0.5})`;
+    ctx.fillRect(0, 0, W, H);
+    caughtFlash -= 0.04;
+  }
+}
+
+function loop(now) {
+  if (!lastFrameTime) lastFrameTime = now;
+  const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ----- Input -----
+let activePointerId = null;
+
+canvas.addEventListener('pointerdown', e => {
+  if (state !== 'PLAY') return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const dx = x - bug.x, dy = y - bug.y;
+  if (dx*dx + dy*dy < 36*36) {
+    bug.dragging = true;
+    activePointerId = e.pointerId;
+    bug.dragOffsetX = bug.x - x;
+    bug.dragOffsetY = bug.y - y;
+    bug.movedSinceWatchStart = false;
+    bug.lastDragX = x;
+    bug.lastDragY = y;
+    canvas.setPointerCapture(e.pointerId);
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (state !== 'PLAY' || !bug.dragging || e.pointerId !== activePointerId) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const newX = x + bug.dragOffsetX;
+  const newY = y + bug.dragOffsetY;
+
+  const dxMove = newX - bug.x;
+  const dyMove = newY - bug.y;
+
+  // Update facing direction based on motion
+  const dist = Math.hypot(dxMove, dyMove);
+  if (dist > 0.5) {
+    bug.facing = Math.atan2(dyMove, dxMove);
+    bug.movedSinceWatchStart = true;
+  }
+
+  // Constrain to painting frame
+  const frame = getFrame();
+  const pad = 14;
+  bug.x = Math.max(frame.x + pad, Math.min(frame.x + frame.w - pad, newX));
+  bug.y = Math.max(frame.y + pad, Math.min(frame.y + frame.h - pad, newY));
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (e.pointerId === activePointerId) {
+    bug.dragging = false;
+    activePointerId = null;
+    bug.movedSinceWatchStart = false;
+  }
+});
+canvas.addEventListener('pointercancel', e => {
+  if (e.pointerId === activePointerId) {
+    bug.dragging = false;
+    activePointerId = null;
+    bug.movedSinceWatchStart = false;
+  }
+});
+
+// ----- State transitions -----
+function startLevel(idx) {
+  levelIndex = idx;
+  const p = PAINTINGS[idx];
+  const frame = getFrame();
+  bug.x = frame.x + p.bugStart.fx * frame.w;
+  bug.y = frame.y + p.bugStart.fy * frame.h;
+  bug.dragging = false;
+  bug.movedSinceWatchStart = false;
+  bug.facing = 0;
+  bug.leg = 0;
+  initWatchers(p);
+  levelStartTime = performance.now();
+  state = 'PLAY';
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('eye-bar').classList.remove('hidden');
+  document.getElementById('painting-name').textContent = p.name + ' ' + p.title;
+  document.getElementById('painting-counter').textContent = (idx + 1) + ' / ' + PAINTINGS.length;
+  hideAllPanels();
+}
+
+function triggerCaught(reason) {
+  state = 'CAUGHT';
+  caughtFlash = 1;
+  bug.dragging = false;
+  document.getElementById('eye-bar').classList.add('hidden');
+  document.getElementById('hud').classList.add('hidden');
+  const lines = [
+    '"Did that just move?"',
+    '"What was that?"',
+    '"Look — there, on the canvas..."',
+    '"Excuse me, I think there\'s something on this painting."',
+    '"Did anyone else see that?"'
+  ];
+  document.getElementById('caught-text').textContent = reason || lines[Math.floor(Math.random() * lines.length)];
+  setTimeout(() => {
+    document.getElementById('caught-screen').classList.remove('hidden');
+  }, 600);
+}
+
+function advanceLevel() {
+  document.getElementById('eye-bar').classList.add('hidden');
+  document.getElementById('hud').classList.add('hidden');
+  if (levelIndex + 1 >= PAINTINGS.length) {
+    state = 'WIN';
+    hideAllPanels();
+    document.getElementById('win-screen').classList.remove('hidden');
+  } else {
+    state = 'NEXT';
+    const next = PAINTINGS[levelIndex + 1];
+    document.getElementById('next-painting-num').textContent = 'painting ' + next.name.replace('.', '');
+    document.getElementById('next-title').textContent = next.title;
+    document.getElementById('next-flavor').textContent = next.flavor;
+    hideAllPanels();
+    document.getElementById('next-screen').classList.remove('hidden');
+  }
+}
+
+function hideAllPanels() {
+  ['title-screen','caught-screen','next-screen','win-screen'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  startLevel(0);
+});
+document.getElementById('retry-btn').addEventListener('click', () => {
+  startLevel(levelIndex);
+});
+document.getElementById('next-btn').addEventListener('click', () => {
+  startLevel(levelIndex + 1);
+});
+document.getElementById('restart-btn').addEventListener('click', () => {
+  startLevel(0);
+});
+
+</script>
+</body>
+</html>
