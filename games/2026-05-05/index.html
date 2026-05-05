@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Catching</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #07090d;
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #e8c46d;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  canvas { display: block; }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'Inter', sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="game"></canvas>
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// =========================================================================
+// CATCHING — a yawn moves through a quiet room
+// =========================================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  checkOrientation();
+  if (npcs.length) layoutNPCs();
+}
+window.addEventListener('resize', resize);
+
+// ---- State ----
+let state = 'title'; // title | playing | won | lost
+let loseReason = '';
+let npcs = [];
+let hostId = 0;
+let suspicion = 0;
+let timeLeft = 75;
+let lastTime = 0;
+let yawnRipple = null;       // {x, y, t}
+let yawnCooldownUntil = 0;
+let startedAt = 0;
+
+// ---- Input ----
+let pointer = null;          // {id, x, y, downAt, tappedId}
+let yawnTriggered = false;
+const HOLD_TO_YAWN = 700;    // ms
+const YAWN_DURATION = 650;   // ms
+const YAWN_COOLDOWN = 1100;  // ms
+
+function newGame() {
+  npcs = [];
+  const N = 8;
+  for (let i = 0; i < N; i++) {
+    const slow = Math.random() < 0.5;
+    npcs.push({
+      id: i,
+      x: 0, y: 0, r: 18,
+      visionBase: Math.random() * Math.PI * 2,
+      visionAmp: 0.55 + Math.random() * 0.55,
+      visionFreq: slow ? 0.45 + Math.random() * 0.4 : 1.0 + Math.random() * 0.6,
+      visionPhase: Math.random() * Math.PI * 2,
+      visionAngle: 0,
+      visionFan: Math.PI * (0.40 + Math.random() * 0.22), // ~72°–112°
+      visionRange: 0,
+      infected: false,
+      infectedAt: 0,
+      colorPulse: 0,
+      bob: Math.random() * Math.PI * 2,
+    });
+  }
+  layoutNPCs();
+  hostId = Math.floor(Math.random() * N);
+  npcs[hostId].infected = true;
+  npcs[hostId].infectedAt = performance.now();
+  npcs[hostId].colorPulse = 1;
+  suspicion = 0;
+  timeLeft = 75;
+  yawnRipple = null;
+  yawnCooldownUntil = 0;
+  startedAt = performance.now();
+  state = 'playing';
+}
+
+function layoutNPCs() {
+  const cols = 2;
+  const rows = 4;
+  const padTop = Math.max(80, H * 0.10);
+  const padBottom = Math.max(70, H * 0.08);
+  const padSide = Math.max(36, W * 0.08);
+  const cellW = (W - padSide * 2) / cols;
+  const cellH = (H - padTop - padBottom) / rows;
+  let i = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (i >= npcs.length) break;
+      const cx = padSide + cellW * (c + 0.5) + (Math.sin(i * 7.13) * cellW * 0.18);
+      const cy = padTop + cellH * (r + 0.5) + (Math.cos(i * 5.31) * cellH * 0.16);
+      npcs[i].x = cx;
+      npcs[i].y = cy;
+      npcs[i].r = Math.max(15, Math.min(W, H) * 0.045);
+      npcs[i].visionRange = Math.min(W, H) * 0.46;
+      i++;
+    }
+  }
+}
+
+// ---- Update ----
+function update(dt, now) {
+  if (state !== 'playing') return;
+
+  for (const npc of npcs) {
+    npc.visionPhase += npc.visionFreq * dt;
+    npc.visionAngle = npc.visionBase + Math.sin(npc.visionPhase) * npc.visionAmp;
+    if (npc.colorPulse > 0) npc.colorPulse = Math.max(0, npc.colorPulse - dt * 1.4);
+    npc.bob += dt * 0.6;
+  }
+
+  // Yawn buildup
+  if (pointer && !yawnTriggered && now > yawnCooldownUntil) {
+    const held = now - pointer.downAt;
+    if (held >= HOLD_TO_YAWN) {
+      doYawn(now);
+      yawnTriggered = true;
+    }
+  }
+
+  // Suspicion decays
+  suspicion = Math.max(0, suspicion - dt * 1.4);
+
+  // Timer
+  timeLeft -= dt;
+  if (timeLeft <= 0) {
+    state = 'lost';
+    loseReason = 'time';
+  }
+  if (suspicion >= 100) {
+    state = 'lost';
+    loseReason = 'caught';
+  }
+  if (npcs.every(n => n.infected) && state === 'playing') {
+    state = 'won';
+  }
+}
+
+function doYawn(now) {
+  const host = npcs[hostId];
+  let count = 0;
+  for (const npc of npcs) {
+    if (npc.infected) continue;
+    if (sees(npc, host)) {
+      npc.infected = true;
+      npc.infectedAt = now;
+      npc.colorPulse = 1;
+      count++;
+    }
+  }
+  yawnRipple = { x: host.x, y: host.y, t: now };
+  yawnCooldownUntil = now + YAWN_COOLDOWN;
+  if (count === 0) {
+    suspicion += 26;
+  } else {
+    // small relief on success
+    suspicion = Math.max(0, suspicion - 6);
+  }
+}
+
+function sees(viewer, target) {
+  const dx = target.x - viewer.x;
+  const dy = target.y - viewer.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < viewer.r + target.r + 4) return true;
+  if (dist > viewer.visionRange) return false;
+  const ang = Math.atan2(dy, dx);
+  let diff = ang - viewer.visionAngle;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  return Math.abs(diff) < viewer.visionFan / 2;
+}
+
+// ---- Render ----
+function render(now) {
+  // Background — warm dim room
+  const grad = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.5, Math.max(W, H));
+  grad.addColorStop(0, '#1c2630');
+  grad.addColorStop(0.55, '#101820');
+  grad.addColorStop(1, '#05080c');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grain
+  ctx.fillStyle = 'rgba(255,255,255,0.018)';
+  for (let i = 0; i < 90; i++) {
+    const x = (i * 79) % W;
+    const y = (i * 137 + (i % 7) * 11) % H;
+    ctx.fillRect(x, y, 1, 1);
+  }
+
+  if (npcs.length) {
+    // Vision cones first (under everything)
+    for (const npc of npcs) drawCone(npc);
+    // Bodies + heads
+    for (const npc of npcs) drawNPC(npc, now);
+    // Host highlight
+    if (state === 'playing' || state === 'won' || state === 'lost') {
+      drawHostRing(npcs[hostId], now);
+    }
+    // Yawn ripple
+    if (yawnRipple) {
+      const elapsed = (now - yawnRipple.t) / 1000;
+      if (elapsed < 1.5) {
+        const r = elapsed * 240;
+        const a = Math.max(0, 1 - elapsed / 1.5);
+        ctx.strokeStyle = `rgba(232,196,109,${a * 0.55})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(yawnRipple.x, yawnRipple.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(232,196,109,${a * 0.28})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(yawnRipple.x, yawnRipple.y, r * 0.65, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        yawnRipple = null;
+      }
+    }
+    // Yawn buildup arc on host
+    if (pointer && !yawnTriggered && state === 'playing' && now > yawnCooldownUntil) {
+      const held = Math.min(HOLD_TO_YAWN, now - pointer.downAt);
+      const pct = held / HOLD_TO_YAWN;
+      const host = npcs[hostId];
+      ctx.strokeStyle = `rgba(232,196,109,${0.35 + pct * 0.55})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(host.x, host.y, host.r + 11, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  if (state === 'playing') {
+    drawHUD(now);
+  }
+
+  // Suspicion vignette (always, as long as suspicion > 0)
+  if (suspicion > 0 && state !== 'title') {
+    const v = Math.min(1, suspicion / 100);
+    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vg.addColorStop(0, 'rgba(170,30,30,0)');
+    vg.addColorStop(1, `rgba(170,30,30,${v * 0.45})`);
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  if (state === 'title') drawTitle(now);
+  if (state === 'won') drawEnd(now, true);
+  if (state === 'lost') drawEnd(now, false);
+}
+
+function drawCone(npc) {
+  const a = npc.visionAngle;
+  const fan = npc.visionFan;
+  const range = npc.visionRange;
+  const grad = ctx.createRadialGradient(npc.x, npc.y, npc.r * 0.5, npc.x, npc.y, range);
+  if (npc.infected) {
+    grad.addColorStop(0, 'rgba(232,196,109,0.13)');
+    grad.addColorStop(1, 'rgba(232,196,109,0)');
+  } else {
+    grad.addColorStop(0, 'rgba(180,200,220,0.10)');
+    grad.addColorStop(1, 'rgba(180,200,220,0)');
+  }
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(npc.x, npc.y);
+  ctx.arc(npc.x, npc.y, range, a - fan / 2, a + fan / 2);
+  ctx.closePath();
+  ctx.fill();
+
+  // Faint cone edges
+  ctx.strokeStyle = npc.infected
+    ? 'rgba(232,196,109,0.18)'
+    : 'rgba(190,210,230,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(npc.x + Math.cos(a - fan / 2) * (npc.r * 0.6), npc.y + Math.sin(a - fan / 2) * (npc.r * 0.6));
+  ctx.lineTo(npc.x + Math.cos(a - fan / 2) * range, npc.y + Math.sin(a - fan / 2) * range);
+  ctx.moveTo(npc.x + Math.cos(a + fan / 2) * (npc.r * 0.6), npc.y + Math.sin(a + fan / 2) * (npc.r * 0.6));
+  ctx.lineTo(npc.x + Math.cos(a + fan / 2) * range, npc.y + Math.sin(a + fan / 2) * range);
+  ctx.stroke();
+}
+
+function drawNPC(npc, now) {
+  const a = npc.visionAngle;
+  const bobOffset = Math.sin(npc.bob) * 0.6;
+
+  // Body (rotated so local x-axis is gaze direction)
+  ctx.save();
+  ctx.translate(npc.x, npc.y + bobOffset);
+  ctx.rotate(a);
+  ctx.fillStyle = npc.infected ? '#5d4326' : '#243340';
+  ctx.beginPath();
+  // rx along gaze, ry perpendicular (shoulders wider than depth)
+  ctx.ellipse(-3, 0, 11, 17, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Head shadow under
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath();
+  ctx.arc(npc.x + 1, npc.y + 2 + bobOffset, npc.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  const isHost = npc.id === hostId;
+  let headColor;
+  if (npc.infected) {
+    const pulse = npc.colorPulse > 0 ? 0.7 + Math.sin(npc.colorPulse * 10) * 0.3 : 1;
+    headColor = `rgb(${Math.floor(232 * pulse + 50 * (1 - pulse))},${Math.floor(196 * pulse + 70 * (1 - pulse))},${Math.floor(109 * pulse + 50 * (1 - pulse))})`;
+  } else {
+    headColor = '#5e7a8a';
+  }
+  ctx.fillStyle = headColor;
+  if (npc.infected) {
+    ctx.shadowColor = 'rgba(232,196,109,0.35)';
+    ctx.shadowBlur = 10;
+  }
+  ctx.beginPath();
+  ctx.arc(npc.x, npc.y + bobOffset, npc.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Mouth — closed dot, or open during yawn
+  const yawning = isHost && yawnRipple && (now - yawnRipple.t) < YAWN_DURATION;
+  if (yawning) {
+    const t = (now - yawnRipple.t) / YAWN_DURATION;
+    const openAmt = Math.sin(t * Math.PI);
+    ctx.fillStyle = '#1a0d05';
+    ctx.beginPath();
+    ctx.ellipse(
+      npc.x + Math.cos(a) * 6,
+      npc.y + bobOffset + Math.sin(a) * 6,
+      5.5 * openAmt, 4.2 * openAmt, 0, 0, Math.PI * 2
+    );
+    ctx.fill();
+  } else {
+    // Tiny "face front" dot
+    ctx.fillStyle = npc.infected ? 'rgba(40,20,5,0.55)' : 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(
+      npc.x + Math.cos(a) * (npc.r * 0.55),
+      npc.y + bobOffset + Math.sin(a) * (npc.r * 0.55),
+      2, 0, Math.PI * 2
+    );
+    ctx.fill();
+  }
+}
+
+function drawHostRing(host, now) {
+  const t = now / 600;
+  const pulse = Math.sin(t) * 0.5 + 0.5;
+  ctx.strokeStyle = `rgba(255,255,255,${0.45 + pulse * 0.4})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(host.x, host.y, host.r + 5 + pulse * 2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(232,196,109,${0.18 + pulse * 0.32})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(host.x, host.y, host.r + 12 + pulse * 4, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawHUD(now) {
+  const infected = npcs.filter(n => n.infected).length;
+  const total = npcs.length;
+
+  // Top-right: caught count
+  ctx.fillStyle = '#e8c46d';
+  ctx.font = '400 13px Inter, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`${infected} / ${total} caught`, W - 16, 28);
+
+  // Top-center: time
+  ctx.textAlign = 'center';
+  ctx.font = '300 13px Inter, sans-serif';
+  ctx.fillStyle = timeLeft < 15 ? '#e8a06d' : 'rgba(255,255,255,0.55)';
+  ctx.fillText(`${Math.ceil(timeLeft)}s`, W / 2, 28);
+
+  // Bottom hint
+  ctx.fillStyle = 'rgba(255,255,255,0.32)';
+  ctx.font = '300 11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('hold to yawn  ·  tap others to spread', W / 2, H - 22);
+}
+
+function drawTitle(now) {
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, W, H);
+
+  const t = now / 1000;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#e8c46d';
+  ctx.font = `300 ${Math.min(82, W * 0.20)}px 'Cormorant Garamond', serif`;
+  ctx.fillText('catching', W / 2, H * 0.36);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.font = '300 14px Inter, sans-serif';
+  ctx.fillText('a yawn moves through a quiet room', W / 2, H * 0.43);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.font = '300 12px Inter, sans-serif';
+  const lines = [
+    'you inhabit one body — hold to yawn',
+    'anyone watching you mid-yawn catches it',
+    'tap a yawning body to leap inside',
+    'a yawn into empty air looks suspicious',
+  ];
+  lines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, H * 0.55 + i * 20);
+  });
+
+  ctx.fillStyle = `rgba(232,196,109,${0.5 + Math.sin(t * 2) * 0.35})`;
+  ctx.font = '400 16px Inter, sans-serif';
+  ctx.fillText('tap to begin', W / 2, H * 0.78);
+}
+
+function drawEnd(now, won) {
+  ctx.fillStyle = 'rgba(0,0,0,0.62)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'center';
+
+  if (won) {
+    ctx.fillStyle = '#e8c46d';
+    ctx.font = `300 ${Math.min(54, W * 0.13)}px 'Cormorant Garamond', serif`;
+    ctx.fillText('the room yawns', W / 2, H * 0.40);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '300 14px Inter, sans-serif';
+    ctx.fillText('you spread, then dissolved', W / 2, H * 0.48);
+
+    const elapsed = Math.max(1, Math.round((performance.now() - startedAt) / 1000));
+    ctx.fillStyle = 'rgba(232,196,109,0.6)';
+    ctx.font = '300 13px Inter, sans-serif';
+    ctx.fillText(`${elapsed}s · ${npcs.length} bodies`, W / 2, H * 0.55);
+  } else {
+    ctx.fillStyle = '#c46d6d';
+    ctx.font = `300 ${Math.min(54, W * 0.13)}px 'Cormorant Garamond', serif`;
+    if (loseReason === 'caught') {
+      ctx.fillText('they noticed', W / 2, H * 0.40);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '300 13px Inter, sans-serif';
+      ctx.fillText('a yawn into a room without eyes is suspicious', W / 2, H * 0.48);
+    } else {
+      ctx.fillText('the moment passed', W / 2, H * 0.40);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '300 13px Inter, sans-serif';
+      const infected = npcs.filter(n => n.infected).length;
+      ctx.fillText(`${infected} of ${npcs.length} caught it`, W / 2, H * 0.48);
+    }
+  }
+
+  ctx.fillStyle = `rgba(232,196,109,${0.5 + Math.sin(now / 500) * 0.35})`;
+  ctx.font = '400 16px Inter, sans-serif';
+  ctx.fillText('tap to begin again', W / 2, H * 0.7);
+}
+
+// ---- Input ----
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const x = e.clientX, y = e.clientY;
+  const now = performance.now();
+
+  if (state === 'title') {
+    newGame();
+    return;
+  }
+  if (state === 'won' || state === 'lost') {
+    state = 'title';
+    return;
+  }
+
+  // Find an infected NPC under the touch (other than current host) for potential switch
+  let tappedId = null;
+  for (let i = 0; i < npcs.length; i++) {
+    const npc = npcs[i];
+    if (npc.infected && i !== hostId &&
+        Math.hypot(x - npc.x, y - npc.y) < npc.r + 14) {
+      tappedId = i;
+      break;
+    }
+  }
+
+  pointer = { id: e.pointerId, x, y, downAt: now, tappedId };
+  yawnTriggered = false;
+}, { passive: false });
+
+canvas.addEventListener('pointermove', (e) => {
+  if (pointer && pointer.id === e.pointerId) {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  if (!pointer || pointer.id !== e.pointerId) return;
+  const held = performance.now() - pointer.downAt;
+  // Short tap on infected NPC = switch host
+  if (held < HOLD_TO_YAWN && pointer.tappedId !== null) {
+    hostId = pointer.tappedId;
+  }
+  pointer = null;
+  yawnTriggered = false;
+}, { passive: false });
+
+canvas.addEventListener('pointercancel', () => {
+  pointer = null;
+  yawnTriggered = false;
+});
+
+// Prevent gesture-based scrolling/zooming
+['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => {
+  document.addEventListener(ev, e => e.preventDefault());
+});
+
+// ---- Loop ----
+function loop(t) {
+  if (!lastTime) lastTime = t;
+  const dt = Math.min(0.05, (t - lastTime) / 1000);
+  lastTime = t;
+  update(dt, t);
+  render(t);
+  requestAnimationFrame(loop);
+}
+
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
