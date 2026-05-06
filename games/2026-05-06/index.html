@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Sic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+    color: #1d1611;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at 30% 15%, #f6ecd0 0%, #ede0c0 55%, #e2d0a8 100%);
+    background-attachment: fixed;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+  .screen.active { display: flex; }
+
+  /* ---------- TITLE ---------- */
+  #title-screen h1 {
+    font-size: clamp(6rem, 26vw, 11rem);
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.04em;
+    font-style: italic;
+    text-decoration: underline wavy #b3322a;
+    text-decoration-thickness: 4px;
+    text-underline-offset: 14px;
+    line-height: 0.95;
+  }
+  #title-screen .subtitle {
+    font-size: 1.1rem;
+    margin: 1.6rem 0 0.4rem;
+    font-style: italic;
+    opacity: 0.85;
+    line-height: 1.5;
+    max-width: 280px;
+  }
+  #title-screen .instructions {
+    font-size: 0.9rem;
+    opacity: 0.55;
+    line-height: 1.7;
+    max-width: 280px;
+    margin: 1.5rem 0 2rem;
+  }
+  .btn {
+    background: #1d1611;
+    color: #f4ebd0;
+    border: none;
+    padding: 0.85rem 2.4rem;
+    font-family: inherit;
+    font-size: 1.15rem;
+    font-style: italic;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-radius: 1px;
+    transition: transform 0.1s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  /* ---------- GAME ---------- */
+  #game-screen {
+    padding: 4rem 1.25rem 1.5rem;
+    justify-content: flex-start;
+    align-items: stretch;
+    text-align: left;
+  }
+  #passage-wrap {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+  }
+  #passage {
+    font-size: clamp(1.05rem, 4.6vw, 1.35rem);
+    line-height: 1.7;
+    text-align: justify;
+    text-justify: inter-word;
+    width: 100%;
+    padding: 0 0.25rem;
+  }
+
+  .word {
+    display: inline-block;
+    padding: 0.04em 0.16em;
+    margin: 0 -0.04em;
+    border-radius: 3px;
+    transition: background 0.13s ease, color 0.13s ease;
+    cursor: pointer;
+    position: relative;
+    will-change: transform, background;
+  }
+  .word.cursor {
+    background: rgba(196, 142, 48, 0.42);
+  }
+  .word.player {
+    text-decoration: underline wavy #b3322a;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 4px;
+  }
+  .word.just-jumped {
+    animation: pulse 0.32s ease;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  .word .error {
+    color: #b3322a;
+    font-style: italic;
+  }
+  .word.caught {
+    background: rgba(179, 50, 42, 0.55) !important;
+    color: #1d1611 !important;
+    text-decoration: line-through #1d1611 !important;
+    animation: shake 0.45s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+  }
+
+  #hud {
+    position: fixed;
+    top: 0.85rem;
+    right: 1rem;
+    z-index: 100;
+    font-size: 0.78rem;
+    color: rgba(29, 22, 17, 0.55);
+    text-align: right;
+    font-style: italic;
+    line-height: 1.1;
+    pointer-events: none;
+  }
+  #hud .num {
+    font-size: 1.45rem;
+    font-style: normal;
+    font-weight: 600;
+    color: #b3322a;
+    display: block;
+    line-height: 1;
+    margin-bottom: 0.15rem;
+  }
+
+  /* ---------- GAME OVER ---------- */
+  #gameover-screen {
+    background: rgba(241, 230, 200, 0.98);
+    justify-content: flex-start;
+    padding-top: 4rem;
+  }
+  #gameover-screen h2 {
+    font-size: 2.8rem;
+    margin: 0 0 0.3rem;
+    font-style: italic;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  #gameover-screen .score-block {
+    margin-bottom: 1.2rem;
+    font-style: italic;
+    opacity: 0.7;
+    font-size: 0.95rem;
+  }
+  #gameover-screen .score-block .num {
+    display: block;
+    font-size: 2.2rem;
+    color: #b3322a;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+  #final-passage {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    max-height: 42vh;
+    overflow-y: auto;
+    text-align: justify;
+    text-justify: inter-word;
+    margin: 0 0.5rem 1.6rem;
+    opacity: 0.78;
+    -webkit-overflow-scrolling: touch;
+  }
+  #gameover-screen #final-passage .word {
+    cursor: default;
+  }
+  #gameover-screen #final-passage .word.caught {
+    animation: none;
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="title-screen" class="screen active">
+  <h1>Sic</h1>
+  <div class="subtitle">the reader is looking.<br>don't be there.</div>
+  <div class="instructions">
+    you are a typo.<br>
+    tap any word to jump.<br>
+    every word you leave stays wrong.
+  </div>
+  <button class="btn" id="start-btn">begin</button>
+</div>
+
+<div id="game-screen" class="screen">
+  <div id="hud">
+    <span class="num" id="score">0</span>
+    corrupted
+  </div>
+  <div id="passage-wrap">
+    <div id="passage"></div>
+  </div>
+</div>
+
+<div id="gameover-screen" class="screen">
+  <h2>caught.</h2>
+  <div class="score-block">
+    <span class="num" id="final-num">0</span>
+    words corrupted
+  </div>
+  <div id="final-passage"></div>
+  <button class="btn" id="restart-btn">read again</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ===================== GAME =====================
+
+const PASSAGE_TEXT = `There is no greater virtue than precision. A careful writer chooses every word with intent. Every letter, every comma, every breath of punctuation, must serve the meaning. The reader notices everything. The reader is patient. The reader is hungry. The reader wants nothing but the truth, served plainly. The page must be perfect, immaculate, reverent. Nothing must escape correction. The smallest blot is an insult to the eye. Be careful, dear writer. Be perfect. The reader is here.`;
+
+const WORDS = PASSAGE_TEXT.split(/\s+/).filter(Boolean);
+
+let state = null;
+let cursorTimer = null;
+let audioCtx = null;
+
+// ---------- audio ----------
+function ensureAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (_) {}
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+}
+
+function tone(freq, dur, type, gainVal, freqEnd) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if (freqEnd != null) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+  g.gain.setValueAtTime(gainVal, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+
+const playTick   = () => tone(1700, 0.04, 'square', 0.018);
+const playJump   = () => tone(680, 0.10, 'triangle', 0.07, 280);
+const playCaught = () => {
+  tone(180, 0.55, 'sawtooth', 0.18, 50);
+  tone(90, 0.6, 'sine', 0.1, 35);
+};
+
+// ---------- typo engine ----------
+function makeTypo(word) {
+  const letters = [...word];
+  const alpha = [];
+  letters.forEach((c, i) => { if (/[a-zA-Z]/.test(c)) alpha.push(i); });
+
+  const adjacent = [];
+  for (let i = 0; i < alpha.length - 1; i++) {
+    if (alpha[i+1] === alpha[i] + 1) adjacent.push([alpha[i], alpha[i+1]]);
+  }
+  if (adjacent.length === 0) return null;
+
+  const distinct = adjacent.filter(p =>
+    letters[p[0]].toLowerCase() !== letters[p[1]].toLowerCase()
+  );
+  const usable = distinct.length ? distinct : adjacent;
+  const [a, b] = usable[Math.floor(Math.random() * usable.length)];
+  if (letters[a].toLowerCase() === letters[b].toLowerCase()) return null;
+
+  const newLetters = [...letters];
+  [newLetters[a], newLetters[b]] = [newLetters[b], newLetters[a]];
+  return { letters: newLetters, swap: [a, b] };
+}
+
+function escapeHtml(s) {
+  return s.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]);
+}
+
+function corruptedHTML(idx) {
+  const result = makeTypo(WORDS[idx]);
+  if (!result) return null;
+  let html = '';
+  result.letters.forEach((c, i) => {
+    if (result.swap.includes(i)) {
+      html += `<span class="error">${escapeHtml(c)}</span>`;
+    } else {
+      html += escapeHtml(c);
+    }
+  });
+  return html;
+}
+
+function corruptWordAt(idx) {
+  if (state.corrupted.has(idx)) return;
+  const span = document.querySelector(`#passage .word[data-i="${idx}"]`);
+  if (!span) return;
+  const html = corruptedHTML(idx);
+  if (!html) return;
+  span.innerHTML = html;
+  state.corrupted.add(idx);
+  state.corruptedHTML[idx] = html;
+  state.score++;
+  document.getElementById('score').textContent = state.score;
+}
+
+// ---------- rendering ----------
+function renderPassage() {
+  const passage = document.getElementById('passage');
+  passage.innerHTML = '';
+  WORDS.forEach((w, i) => {
+    const span = document.createElement('span');
+    span.className = 'word';
+    span.dataset.i = i;
+    span.textContent = w;
+    passage.appendChild(span);
+    passage.appendChild(document.createTextNode(' '));
+  });
+  passage.querySelectorAll('.word').forEach(span => {
+    span.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const idx = parseInt(span.dataset.i);
+      tryJump(idx);
+    });
+  });
+}
+
+// ---------- game loop ----------
+function startGame() {
+  ensureAudio();
+
+  state = {
+    cursorIdx: 0,
+    playerIdx: Math.floor(WORDS.length * 0.55),
+    corrupted: new Set(),
+    corruptedHTML: {},
+    score: 0,
+    speed: 760,
+    minSpeed: 210,
+    speedDecay: 11,
+    running: true,
+    loops: 0,
+  };
+
+  document.getElementById('score').textContent = '0';
+  document.getElementById('title-screen').classList.remove('active');
+  document.getElementById('gameover-screen').classList.remove('active');
+  document.getElementById('game-screen').classList.add('active');
+
+  renderPassage();
+
+  // initial cursor highlight at word 0
+  const firstSpan = document.querySelector(`#passage .word[data-i="0"]`);
+  if (firstSpan) firstSpan.classList.add('cursor');
+
+  // initial player position
+  const playerSpan = document.querySelector(`#passage .word[data-i="${state.playerIdx}"]`);
+  if (playerSpan) playerSpan.classList.add('player');
+
+  scheduleCursorTick(state.speed * 1.1); // slight grace before first move
+}
+
+function scheduleCursorTick(overrideDelay) {
+  if (!state || !state.running) return;
+  const currentWord = WORDS[state.cursorIdx] || '';
+  let delay = overrideDelay != null ? overrideDelay : state.speed;
+  if (/[.!?][")]?$/.test(currentWord)) delay *= 1.45;
+  else if (/[,;:][")]?$/.test(currentWord)) delay *= 1.18;
+  cursorTimer = setTimeout(advanceCursor, delay);
+}
+
+function advanceCursor() {
+  if (!state || !state.running) return;
+
+  const oldSpan = document.querySelector(`#passage .word[data-i="${state.cursorIdx}"]`);
+  if (oldSpan) oldSpan.classList.remove('cursor');
+
+  state.cursorIdx++;
+
+  if (state.cursorIdx >= WORDS.length) {
+    state.cursorIdx = 0;
+    state.loops++;
+    state.speed = Math.max(state.minSpeed, state.speed - 60);
+  }
+
+  // gentle continuous speedup
+  state.speed = Math.max(state.minSpeed, state.speed - state.speedDecay * 0.18);
+
+  const newSpan = document.querySelector(`#passage .word[data-i="${state.cursorIdx}"]`);
+  if (newSpan) newSpan.classList.add('cursor');
+
+  playTick();
+
+  if (state.cursorIdx === state.playerIdx) {
+    gameOver();
+    return;
+  }
+
+  scheduleCursorTick();
+}
+
+function tryJump(targetIdx) {
+  if (!state || !state.running) return;
+  if (targetIdx === state.playerIdx) return;
+  if (targetIdx === state.cursorIdx) return;
+
+  const oldIdx = state.playerIdx;
+
+  const oldSpan = document.querySelector(`#passage .word[data-i="${oldIdx}"]`);
+  if (oldSpan) {
+    oldSpan.classList.remove('player');
+    oldSpan.classList.remove('just-jumped');
+  }
+
+  // corrupt the word we abandoned
+  corruptWordAt(oldIdx);
+
+  state.playerIdx = targetIdx;
+  const newSpan = document.querySelector(`#passage .word[data-i="${targetIdx}"]`);
+  if (newSpan) {
+    newSpan.classList.add('player');
+    newSpan.classList.add('just-jumped');
+    setTimeout(() => newSpan.classList.remove('just-jumped'), 320);
+  }
+
+  // each jump tightens the screws a touch
+  state.speed = Math.max(state.minSpeed, state.speed - state.speedDecay);
+
+  playJump();
+}
+
+function gameOver() {
+  state.running = false;
+  clearTimeout(cursorTimer);
+
+  const caughtSpan = document.querySelector(`#passage .word[data-i="${state.playerIdx}"]`);
+  if (caughtSpan) {
+    caughtSpan.classList.remove('player');
+    caughtSpan.classList.remove('cursor');
+    caughtSpan.classList.add('caught');
+  }
+
+  playCaught();
+
+  setTimeout(() => {
+    document.getElementById('final-num').textContent = state.score;
+
+    // Build the final corrupted passage
+    const finalPassage = document.getElementById('final-passage');
+    finalPassage.innerHTML = '';
+    WORDS.forEach((w, i) => {
+      const span = document.createElement('span');
+      span.className = 'word';
+      span.dataset.i = i;
+      if (state.corruptedHTML[i]) {
+        span.innerHTML = state.corruptedHTML[i];
+      } else {
+        span.textContent = w;
+      }
+      if (i === state.playerIdx) span.classList.add('caught');
+      finalPassage.appendChild(span);
+      finalPassage.appendChild(document.createTextNode(' '));
+    });
+
+    document.getElementById('game-screen').classList.remove('active');
+    document.getElementById('gameover-screen').classList.add('active');
+  }, 950);
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Prevent double-tap zoom on iOS
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+</script>
+
+</body>
+</html>
