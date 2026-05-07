@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0620">
+<title>Hush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0620;
+    font-family: 'Cormorant', Georgia, serif;
+    color: #fce8d0;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: inherit;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .screen {
+    position: fixed; inset: 0; z-index: 9000;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 2rem;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(80, 40, 100, 0.35) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 80%, rgba(120, 60, 80, 0.25) 0%, transparent 60%),
+      linear-gradient(180deg, #0a0620 0%, #1a0d35 100%);
+    transition: opacity 0.7s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .title-mark {
+    font-size: clamp(3rem, 14vw, 6rem);
+    font-weight: 300;
+    letter-spacing: 0.4em;
+    margin-bottom: 1.5rem;
+    text-indent: 0.4em;
+    color: #fce8d0;
+    text-shadow: 0 0 40px rgba(252, 232, 208, 0.25);
+    font-family: 'Cormorant', Georgia, serif;
+  }
+  .subtitle {
+    font-size: clamp(1rem, 3.5vw, 1.2rem);
+    opacity: 0.8;
+    max-width: 22rem;
+    line-height: 1.6;
+    margin-bottom: 3rem;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .btn {
+    background: rgba(252, 232, 208, 0.06);
+    border: 1px solid rgba(252, 232, 208, 0.45);
+    color: #fce8d0;
+    padding: 0.95rem 2.5rem;
+    font-size: 1.05rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.3em;
+    text-transform: lowercase;
+    transition: background 0.3s, transform 0.2s, letter-spacing 0.3s;
+    min-width: 10rem;
+  }
+  .btn:hover, .btn:active {
+    background: rgba(252, 232, 208, 0.18);
+    transform: scale(1.03);
+    letter-spacing: 0.4em;
+  }
+
+  .end-title {
+    font-size: clamp(2rem, 9vw, 3.5rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    margin-bottom: 0.5rem;
+    color: #fce8d0;
+    text-indent: 0.3em;
+  }
+  .end-stats {
+    font-size: 1rem;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+    opacity: 0.92;
+  }
+  .end-stats .num {
+    font-size: 2.6rem;
+    color: #ffd9a8;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+  .end-stats .label {
+    opacity: 0.6;
+    font-size: 0.95rem;
+    letter-spacing: 0.15em;
+    text-transform: lowercase;
+    font-style: italic;
+  }
+  .end-stats .gap { height: 1.2rem; }
+  .end-stats .quip {
+    font-style: italic;
+    opacity: 0.75;
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    max-width: 22rem;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 1.5rem; left: 0; right: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    opacity: 0;
+    color: rgba(252, 232, 208, 0.7);
+    font-style: italic;
+    pointer-events: none;
+    z-index: 100;
+    transition: opacity 0.6s;
+    letter-spacing: 0.05em;
+  }
+  .hint.show { opacity: 1; }
+
+  #score {
+    position: fixed;
+    top: 0.95rem; right: 0.95rem;
+    z-index: 100;
+    font-size: 0.95rem;
+    color: rgba(252, 232, 208, 0.65);
+    font-style: italic;
+    pointer-events: none;
+    letter-spacing: 0.05em;
+    text-align: right;
+  }
+  #score .big { font-size: 1.5rem; font-style: normal; color: #ffd9a8; }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="game">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="score" style="display:none;"></div>
+<div class="hint" id="hint">drag softly across the windows</div>
+
+<div class="screen" id="title-screen">
+  <div class="title-mark">HUSH</div>
+  <div class="subtitle">A kaiju watches over the sleepless city.<br>Coax each window into darkness — but breathe gently. Linger and the walls will crack.</div>
+  <button class="btn" id="start-btn">begin</button>
+</div>
+
+<div class="screen hidden" id="end-screen">
+  <div class="end-title" id="end-title">DAWN</div>
+  <div class="end-stats" id="end-stats"></div>
+  <button class="btn" id="restart-btn">again</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ------------------------------------------------------------------
+// HUSH — game
+// ------------------------------------------------------------------
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+let state = 'title'; // 'title' | 'playing' | 'end'
+let buildings = [];
+let stars = [];
+let particles = [];
+let glints = []; // little sparkles when window sleeps
+let kaiju = { eyeBlinkT: 0, breathT: 0 };
+let pointer = { x: 0, y: 0, active: false };
+let trailLast = null;
+let lastSpawnT = 0;
+let nightStart = 0;
+let lastFrame = 0;
+let buildingsLost = 0;
+let windowsSlept = 0;
+let totalWindowsAtStart = 0;
+const NIGHT_DURATION = 70000; // 70 seconds of night
+
+// Audio (gentle chimes)
+let audioCtx = null;
+let masterGain = null;
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.18;
+    masterGain.connect(audioCtx.destination);
+  } catch (e) { audioCtx = null; }
+}
+function chime(freq) {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(0.6, t0 + 0.04);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
+  osc.connect(g).connect(masterGain);
+  osc.start(t0);
+  osc.stop(t0 + 1.5);
+  // gentle harmonic
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.value = freq * 2;
+  g2.gain.setValueAtTime(0, t0);
+  g2.gain.linearRampToValueAtTime(0.18, t0 + 0.05);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9);
+  osc2.connect(g2).connect(masterGain);
+  osc2.start(t0);
+  osc2.stop(t0 + 1);
+}
+function rumble() {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(80, t0);
+  osc.frequency.exponentialRampToValueAtTime(30, t0 + 1.2);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(0.4, t0 + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3);
+  osc.connect(g).connect(masterGain);
+  osc.start(t0);
+  osc.stop(t0 + 1.4);
+}
+
+// Layout & build
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (state !== 'playing') {
+    buildCity();
+  } else {
+    // rebuild city scaled — for simplicity, restart layout
+    buildCity();
+    totalWindowsAtStart = countWindows();
+  }
+}
+window.addEventListener('resize', () => { resize(); });
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+function ri(a, b) { return Math.floor(rand(a, b + 1)); }
+
+function buildCity() {
+  buildings = [];
+  stars = [];
+  glints = [];
+
+  for (let i = 0; i < 110; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H * 0.55,
+      r: Math.random() * 1.3 + 0.3,
+      tw: Math.random() * Math.PI * 2,
+      sp: 0.4 + Math.random() * 1.4,
+      hue: Math.random() < 0.15 ? 'warm' : 'cool'
+    });
+  }
+
+  // city band
+  const cityTop = H * 0.50;
+  const cityBottom = H * 0.96;
+
+  // Number of buildings based on width
+  const desired = Math.max(5, Math.min(8, Math.round(W / 75)));
+  const lanes = desired;
+  const laneW = W / lanes;
+
+  for (let i = 0; i < lanes; i++) {
+    const heightFrac = rand(0.50, 1.0);
+    const top = cityBottom - (cityBottom - cityTop) * heightFrac;
+    const buildingW = laneW * rand(0.72, 0.92);
+    const buildingX = i * laneW + (laneW - buildingW) / 2;
+
+    // Window grid
+    const targetCol = ri(2, 4);
+    const winSize = Math.max(7, Math.min(18, buildingW / (targetCol + 1.4)));
+    const winGap = winSize * 0.55;
+    const cols = Math.max(2, Math.floor(buildingW / (winSize + winGap)));
+    const totalGridW = cols * (winSize + winGap) - winGap;
+    const startX = buildingX + (buildingW - totalGridW) / 2;
+    const rows = Math.max(2, Math.floor((cityBottom - top - winGap * 1.5) / (winSize + winGap)));
+
+    const winList = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const wx = startX + c * (winSize + winGap);
+        const wy = top + winGap + r * (winSize + winGap);
+        if (wy + winSize > cityBottom - winGap * 0.5) continue;
+        // Some windows already dark (occupied flats)
+        const startsLit = Math.random() > 0.06;
+        winList.push({
+          x: wx, y: wy, w: winSize, h: winSize,
+          brightness: startsLit ? 1 : 0,
+          slept: !startsLit, // already-dark counted as slept
+          flicker: Math.random() * Math.PI * 2,
+          hueShift: rand(-15, 15)
+        });
+      }
+    }
+
+    // Roof shapes
+    const roofType = Math.random() < 0.3 ? 'antenna' : Math.random() < 0.5 ? 'tank' : 'flat';
+
+    buildings.push({
+      x: buildingX, y: top, w: buildingW, h: cityBottom - top,
+      heat: 0,
+      cracking: false,
+      crumbleT: 0,
+      destroyed: false,
+      windows: winList,
+      shake: 0,
+      roofType,
+      tone: rand(0.85, 1.15)
+    });
+  }
+}
+
+function countWindows() {
+  let n = 0;
+  for (const b of buildings) for (const w of b.windows) if (!w.slept) n++;
+  return n;
+}
+
+function startGame() {
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  buildCity();
+  // Pre-count windows that started slept; they are NOT counted as player accomplishments
+  state = 'playing';
+  windowsSlept = 0;
+  buildingsLost = 0;
+  particles = [];
+  glints = [];
+  totalWindowsAtStart = countWindows();
+  nightStart = performance.now();
+  lastFrame = nightStart;
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('end-screen').classList.add('hidden');
+  document.getElementById('score').style.display = 'block';
+  // hint
+  const hint = document.getElementById('hint');
+  hint.classList.add('show');
+  setTimeout(() => hint.classList.remove('show'), 3500);
+}
+
+function endGame(reason) {
+  state = 'end';
+  document.getElementById('score').style.display = 'none';
+  const total = totalWindowsAtStart;
+  const pct = total ? Math.round((windowsSlept / total) * 100) : 0;
+  let title = 'DAWN';
+  let quip;
+  if (reason === 'destroyed') {
+    title = 'WAKING';
+    quip = "Sirens. Footfalls. The kaiju steps back into the bay.";
+  } else if (pct >= 95) {
+    quip = "The whole city dreams. The kaiju exhales, satisfied, into the sea.";
+  } else if (pct >= 70) {
+    quip = "Most are dreaming now. Tomorrow night, perhaps the rest.";
+  } else if (pct >= 40) {
+    quip = "A handful of yellow squares remain. The city stirs, but kindly.";
+  } else if (pct >= 15) {
+    quip = "The night was too short. The kaiju sinks back, regretful.";
+  } else {
+    quip = "The kaiju hides its face beneath the waves. There will be other nights.";
+  }
+
+  document.getElementById('end-title').textContent = title;
+  document.getElementById('end-stats').innerHTML = `
+    <div><span class="num">${windowsSlept}</span></div>
+    <div class="label">children dreaming</div>
+    <div class="gap"></div>
+    <div><span class="num">${buildingsLost}</span></div>
+    <div class="label">${buildingsLost === 1 ? 'building cracked' : 'buildings cracked'}</div>
+    <div class="quip">${quip}</div>
+  `;
+  document.getElementById('end-screen').classList.remove('hidden');
+}
+
+// Pointer
+function getPos(e) {
+  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+function onDown(e) {
+  if (state !== 'playing') return;
+  const p = getPos(e);
+  pointer.x = p.x; pointer.y = p.y;
+  pointer.active = true;
+  trailLast = { x: p.x, y: p.y };
+  e.preventDefault();
+}
+function onMove(e) {
+  if (state !== 'playing') return;
+  const p = getPos(e);
+  pointer.x = p.x; pointer.y = p.y;
+  e.preventDefault();
+}
+function onUp(e) {
+  pointer.active = false;
+  trailLast = null;
+}
+canvas.addEventListener('pointerdown', onDown, { passive: false });
+canvas.addEventListener('pointermove', onMove, { passive: false });
+window.addEventListener('pointerup', onUp);
+window.addEventListener('pointercancel', onUp);
+canvas.addEventListener('touchstart', onDown, { passive: false });
+canvas.addEventListener('touchmove', onMove, { passive: false });
+canvas.addEventListener('touchend', onUp);
+
+// Spawn breath particles
+function spawnBreath(now) {
+  if (!pointer.active) return;
+  const last = trailLast || pointer;
+  const dx = pointer.x - last.x;
+  const dy = pointer.y - last.y;
+  const dist = Math.hypot(dx, dy);
+  const sizeBase = Math.min(W, H) * 0.075;
+  if (dist > 2) {
+    const steps = Math.max(1, Math.ceil(dist / 8));
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      particles.push({
+        x: last.x + dx * t + rand(-3, 3),
+        y: last.y + dy * t + rand(-3, 3),
+        vx: rand(-0.05, 0.05),
+        vy: rand(-0.15, -0.05),
+        life: 1,
+        r: sizeBase * rand(0.7, 1.0)
+      });
+    }
+    trailLast = { x: pointer.x, y: pointer.y };
+  } else {
+    // continuous slow spawn when held still
+    if (now - lastSpawnT > 30) {
+      particles.push({
+        x: pointer.x + rand(-6, 6),
+        y: pointer.y + rand(-6, 6),
+        vx: rand(-0.05, 0.05),
+        vy: rand(-0.18, -0.05),
+        life: 1,
+        r: sizeBase * rand(0.7, 1.0)
+      });
+      lastSpawnT = now;
+    }
+  }
+  // cap particles
+  if (particles.length > 240) particles.splice(0, particles.length - 240);
+}
+
+function update(dt, now) {
+  spawnBreath(now);
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt / 1400;
+    p.r += dt * 0.018;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Apply breath to windows + accumulate building heat
+  // For efficiency, gather active particle bounds per building.
+  for (const b of buildings) {
+    if (b.destroyed) continue;
+    let buildingTouched = false;
+    let touchIntensity = 0;
+    for (const p of particles) {
+      if (p.life < 0.15) continue;
+      // AABB test particle vs building
+      if (p.x + p.r < b.x || p.x - p.r > b.x + b.w) continue;
+      if (p.y + p.r < b.y || p.y - p.r > b.y + b.h) continue;
+      const intensity = p.life * (dt / 1000);
+      let touchedAny = false;
+      for (const win of b.windows) {
+        if (win.slept) continue;
+        const cx = win.x + win.w / 2;
+        const cy = win.y + win.h / 2;
+        const ddx = p.x - cx, ddy = p.y - cy;
+        const d2 = ddx * ddx + ddy * ddy;
+        const r2 = p.r * p.r;
+        if (d2 < r2) {
+          const fall = 1 - Math.sqrt(d2) / p.r;
+          win.brightness -= fall * intensity * 1.45;
+          if (win.brightness <= 0) {
+            win.brightness = 0;
+            win.slept = true;
+            windowsSlept++;
+            // Glint
+            glints.push({
+              x: cx, y: cy,
+              t: 0, life: 700,
+              size: win.w * 1.5
+            });
+            // Tone — pitch by y position (higher = higher pitch)
+            const base = 280 + (1 - cy / H) * 320;
+            const scale = [0, 2, 4, 7, 9]; // pentatonic
+            const note = scale[Math.floor(Math.random() * scale.length)];
+            chime(base * Math.pow(2, note / 12));
+          }
+          touchedAny = true;
+        }
+      }
+      if (touchedAny) {
+        buildingTouched = true;
+        touchIntensity += intensity;
+      }
+    }
+    if (buildingTouched) {
+      // Heat rises slower than dim; ~3s of constant breath cracks a building
+      b.heat += touchIntensity * 0.55;
+    }
+    b.heat -= dt / 1500;
+    if (b.heat < 0) b.heat = 0;
+    if (b.heat > 1.0 && !b.cracking) {
+      b.cracking = true;
+      b.crumbleT = 0;
+      buildingsLost++;
+      rumble();
+    }
+    if (b.cracking) {
+      b.crumbleT += dt;
+      b.shake = Math.sin(b.crumbleT * 0.04) * Math.min(8, b.crumbleT / 100);
+      if (b.crumbleT > 1600) {
+        b.destroyed = true;
+        // remaining lit windows in this building are lost (not slept)
+      }
+    }
+  }
+
+  // Glints
+  for (let i = glints.length - 1; i >= 0; i--) {
+    glints[i].t += dt;
+    if (glints[i].t > glints[i].life) glints.splice(i, 1);
+  }
+
+  // Kaiju anim
+  kaiju.eyeBlinkT += dt;
+  kaiju.breathT += dt;
+
+  // Time
+  const t = now - nightStart;
+  if (t > NIGHT_DURATION) {
+    endGame('dawn');
+    return;
+  }
+  // Loss condition: too many cracked
+  if (buildingsLost >= 4 && state === 'playing') {
+    endGame('destroyed');
+    return;
+  }
+
+  // Star twinkle
+  for (const s of stars) s.tw += dt * 0.001 * s.sp;
+
+  // Score readout
+  const pct = totalWindowsAtStart ? (windowsSlept / totalWindowsAtStart) : 0;
+  const remaining = Math.max(0, NIGHT_DURATION - t);
+  document.getElementById('score').innerHTML =
+    `<span class="big">${windowsSlept}</span><br><span style="opacity:0.6">dreaming</span>`;
+}
+
+function render(now) {
+  // Sky gradient (shifts toward dawn near end)
+  const t = state === 'playing' ? (now - nightStart) / NIGHT_DURATION : 0;
+  const dawnA = Math.max(0, (t - 0.75) * 4);
+
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  // Mix midnight + a hint of warm at the bottom of sky as dawn approaches
+  g.addColorStop(0, `rgb(${10 + dawnA * 30}, ${6 + dawnA * 10}, ${32 + dawnA * 10})`);
+  g.addColorStop(0.55, `rgb(${28 + dawnA * 70}, ${18 + dawnA * 30}, ${66 + dawnA * 10})`);
+  g.addColorStop(1, `rgb(${18 + dawnA * 40}, ${10 + dawnA * 10}, ${48 + dawnA * 10})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  for (const s of stars) {
+    const a = (0.4 + 0.5 * Math.sin(s.tw)) * (1 - dawnA * 0.9);
+    if (a <= 0) continue;
+    if (s.hue === 'warm') {
+      ctx.fillStyle = `rgba(255, 220, 170, ${a})`;
+    } else {
+      ctx.fillStyle = `rgba(220, 230, 255, ${a})`;
+    }
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Moon (acts as night-timer)
+  const moonProgress = state === 'playing' ? t : 0;
+  const moonX = W * 0.12 + W * 0.76 * moonProgress;
+  const moonY = H * 0.16 - Math.sin(moonProgress * Math.PI) * H * 0.05;
+  const moonR = Math.min(W, H) * 0.045;
+  // glow
+  const mGrad = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR * 3);
+  mGrad.addColorStop(0, `rgba(255, 245, 220, ${0.35 - dawnA * 0.2})`);
+  mGrad.addColorStop(1, 'rgba(255, 245, 220, 0)');
+  ctx.fillStyle = mGrad;
+  ctx.fillRect(moonX - moonR * 3, moonY - moonR * 3, moonR * 6, moonR * 6);
+  // moon body
+  ctx.fillStyle = '#fff5dc';
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+  ctx.fill();
+  // craters
+  ctx.fillStyle = 'rgba(170, 150, 110, 0.35)';
+  ctx.beginPath();
+  ctx.arc(moonX - moonR * 0.3, moonY - moonR * 0.25, moonR * 0.15, 0, Math.PI * 2);
+  ctx.arc(moonX + moonR * 0.25, moonY + moonR * 0.3, moonR * 0.1, 0, Math.PI * 2);
+  ctx.arc(moonX + moonR * 0.05, moonY - moonR * 0.05, moonR * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Kaiju silhouette behind buildings
+  drawKaiju(now);
+
+  // Buildings
+  for (const b of buildings) drawBuilding(b, now);
+
+  // Glints
+  for (const gl of glints) {
+    const k = gl.t / gl.life;
+    const a = (1 - k) * 0.7;
+    const r = gl.size * (0.4 + k * 1.3);
+    const grd = ctx.createRadialGradient(gl.x, gl.y, 0, gl.x, gl.y, r);
+    grd.addColorStop(0, `rgba(255, 240, 200, ${a})`);
+    grd.addColorStop(0.5, `rgba(255, 220, 170, ${a * 0.4})`);
+    grd.addColorStop(1, 'rgba(255, 220, 170, 0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(gl.x, gl.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Breath particles (rendered last so they overlay buildings)
+  ctx.globalCompositeOperation = 'screen';
+  for (const p of particles) {
+    if (p.life <= 0) continue;
+    const a = Math.min(1, p.life) * 0.32;
+    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    grd.addColorStop(0, `rgba(255, 220, 200, ${a})`);
+    grd.addColorStop(0.55, `rgba(255, 195, 175, ${a * 0.5})`);
+    grd.addColorStop(1, 'rgba(255, 200, 180, 0)');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Dawn light overlay near end
+  if (dawnA > 0 && state === 'playing') {
+    const dg = ctx.createLinearGradient(0, 0, 0, H);
+    dg.addColorStop(0, `rgba(255, 170, 130, ${dawnA * 0.22})`);
+    dg.addColorStop(1, `rgba(255, 170, 130, 0)`);
+    ctx.fillStyle = dg;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawKaiju(now) {
+  // Two glowing eyes just above the city skyline, between sky and buildings
+  // Eyes positioned at H * 0.42, slightly off-center
+  const eyeY = H * 0.40;
+  const eyeR = Math.min(W, H) * 0.022;
+  const offsetX = W * 0.13;
+
+  // Subtle horn/head silhouette
+  ctx.save();
+  ctx.fillStyle = 'rgba(8, 4, 22, 0.85)';
+  ctx.beginPath();
+  // big rounded head shape behind buildings
+  const cx = W / 2;
+  const cy = H * 0.50;
+  // Just hint at horns peeking
+  ctx.beginPath();
+  ctx.moveTo(cx - W * 0.32, eyeY + eyeR * 1.5);
+  ctx.quadraticCurveTo(cx - W * 0.35, eyeY - H * 0.07, cx - W * 0.20, eyeY - H * 0.04);
+  ctx.quadraticCurveTo(cx - W * 0.10, eyeY + eyeR * 0.5, cx - W * 0.03, eyeY - H * 0.025);
+  ctx.quadraticCurveTo(cx + W * 0.05, eyeY - H * 0.07, cx + W * 0.13, eyeY - H * 0.03);
+  ctx.quadraticCurveTo(cx + W * 0.27, eyeY - H * 0.075, cx + W * 0.34, eyeY + eyeR * 1.2);
+  ctx.lineTo(cx + W * 0.40, eyeY + eyeR * 3);
+  ctx.lineTo(cx - W * 0.40, eyeY + eyeR * 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Subtle breath puff from kaiju (slow, ambient — does nothing mechanically)
+  const breathA = 0.08 + 0.06 * Math.sin(now * 0.0008);
+  const bg = ctx.createRadialGradient(cx, eyeY + H * 0.04, 0, cx, eyeY + H * 0.04, W * 0.25);
+  bg.addColorStop(0, `rgba(255, 200, 180, ${breathA})`);
+  bg.addColorStop(1, 'rgba(255, 200, 180, 0)');
+  ctx.fillStyle = bg;
+  ctx.fillRect(cx - W * 0.3, eyeY - H * 0.05, W * 0.6, H * 0.3);
+
+  // Blink occasionally
+  const blinkCycle = (kaiju.eyeBlinkT % 5200);
+  let blink = 0;
+  if (blinkCycle > 4900) blink = (blinkCycle - 4900) / 300;
+  if (blinkCycle > 5050) blink = 1 - (blinkCycle - 5050) / 150;
+  blink = Math.max(0, Math.min(1, blink));
+  const eyeOpenY = 1 - blink;
+
+  drawEye(cx - offsetX, eyeY, eyeR, eyeOpenY);
+  drawEye(cx + offsetX, eyeY, eyeR, eyeOpenY);
+}
+
+function drawEye(x, y, r, openY) {
+  // glow
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
+  g.addColorStop(0, 'rgba(220, 240, 200, 0.45)');
+  g.addColorStop(0.5, 'rgba(180, 220, 170, 0.18)');
+  g.addColorStop(1, 'rgba(180, 220, 170, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eye body (an ellipse, narrowed by openY)
+  ctx.fillStyle = '#e8f4c8';
+  ctx.beginPath();
+  ctx.ellipse(x, y, r, r * 0.7 * openY + 0.001, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (openY < 0.15) return;
+
+  // pupil — vertical slit
+  ctx.fillStyle = '#0a0820';
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * 0.28, r * 0.55 * openY, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.arc(x - r * 0.2, y - r * 0.25 * openY, r * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBuilding(b, now) {
+  if (b.destroyed) {
+    // Rubble pile
+    ctx.fillStyle = 'rgba(20, 12, 35, 0.95)';
+    const ry = b.y + b.h - Math.min(40, b.h * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y + b.h);
+    ctx.lineTo(b.x, ry);
+    ctx.lineTo(b.x + b.w * 0.2, ry - 8);
+    ctx.lineTo(b.x + b.w * 0.4, ry);
+    ctx.lineTo(b.x + b.w * 0.55, ry - 12);
+    ctx.lineTo(b.x + b.w * 0.7, ry - 4);
+    ctx.lineTo(b.x + b.w * 0.85, ry - 9);
+    ctx.lineTo(b.x + b.w, ry);
+    ctx.lineTo(b.x + b.w, b.y + b.h);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
+  ctx.save();
+  const sy = b.cracking ? Math.sin(b.crumbleT * 0.045) * 4 : 0;
+  ctx.translate(b.shake, sy);
+
+  const cracking = b.cracking;
+  // Building silhouette
+  ctx.fillStyle = cracking
+    ? `rgb(${50 + Math.min(40, b.crumbleT / 25)}, ${18}, ${28})`
+    : '#0e0826';
+  ctx.fillRect(b.x, b.y, b.w, b.h);
+
+  // Side highlight (subtle)
+  const sg = ctx.createLinearGradient(b.x, 0, b.x + b.w, 0);
+  sg.addColorStop(0, 'rgba(255,255,255,0.04)');
+  sg.addColorStop(0.5, 'rgba(255,255,255,0)');
+  sg.addColorStop(1, 'rgba(0,0,0,0.18)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(b.x, b.y, b.w, b.h);
+
+  // Roof detail
+  if (b.roofType === 'antenna') {
+    ctx.strokeStyle = '#181030';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(b.x + b.w * 0.5, b.y);
+    ctx.lineTo(b.x + b.w * 0.5, b.y - b.h * 0.12);
+    ctx.stroke();
+    ctx.fillStyle = '#1a1238';
+    ctx.beginPath();
+    ctx.arc(b.x + b.w * 0.5, b.y - b.h * 0.12, 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (b.roofType === 'tank') {
+    ctx.fillStyle = '#0e0826';
+    ctx.fillRect(b.x + b.w * 0.25, b.y - b.h * 0.04, b.w * 0.3, b.h * 0.04);
+    ctx.fillStyle = '#181030';
+    ctx.fillRect(b.x + b.w * 0.6, b.y - b.h * 0.025, b.w * 0.18, b.h * 0.025);
+  }
+
+  // Heat indicator (subtle red glow as heat builds)
+  if (b.heat > 0.4) {
+    const hg = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+    const ha = (b.heat - 0.4) * 0.8;
+    hg.addColorStop(0, `rgba(255, 80, 60, 0)`);
+    hg.addColorStop(1, `rgba(255, 90, 70, ${ha * 0.45})`);
+    ctx.fillStyle = hg;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+  }
+
+  // Cracks
+  if (cracking) {
+    const ca = Math.min(1, b.crumbleT / 600);
+    ctx.strokeStyle = `rgba(220, 80, 60, ${ca})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(b.x + b.w * 0.3, b.y);
+    ctx.lineTo(b.x + b.w * 0.45, b.y + b.h * 0.4);
+    ctx.lineTo(b.x + b.w * 0.35, b.y + b.h * 0.7);
+    ctx.lineTo(b.x + b.w * 0.5, b.y + b.h);
+    ctx.moveTo(b.x + b.w * 0.7, b.y + b.h * 0.15);
+    ctx.lineTo(b.x + b.w * 0.6, b.y + b.h * 0.5);
+    ctx.lineTo(b.x + b.w * 0.75, b.y + b.h * 0.8);
+    ctx.stroke();
+  }
+
+  // Windows
+  for (const win of b.windows) {
+    const br = win.brightness;
+    const flick = 0.92 + 0.08 * Math.sin(win.flicker + now * 0.003);
+
+    if (br > 0.04) {
+      // outer warm glow
+      const ga = br * 0.55 * flick;
+      const gr = win.w * 1.6;
+      const gd = ctx.createRadialGradient(
+        win.x + win.w / 2, win.y + win.h / 2, 0,
+        win.x + win.w / 2, win.y + win.h / 2, gr
+      );
+      gd.addColorStop(0, `rgba(255, 215, 130, ${ga * 0.55})`);
+      gd.addColorStop(0.5, `rgba(255, 200, 130, ${ga * 0.18})`);
+      gd.addColorStop(1, 'rgba(255, 200, 130, 0)');
+      ctx.fillStyle = gd;
+      ctx.beginPath();
+      ctx.arc(win.x + win.w / 2, win.y + win.h / 2, gr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (br > 0.04) {
+      // window pane
+      const r = 255;
+      const g = Math.round(190 + 50 * br);
+      const bl = Math.round(90 + 50 * br);
+      ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${(0.55 + br * 0.45) * flick})`;
+      ctx.fillRect(win.x, win.y, win.w, win.h);
+      // mullion cross
+      ctx.fillStyle = `rgba(0,0,0,${0.20 + br * 0.15})`;
+      ctx.fillRect(win.x + win.w / 2 - 0.5, win.y, 1, win.h);
+      ctx.fillRect(win.x, win.y + win.h / 2 - 0.5, win.w, 1);
+    } else {
+      // dark window
+      ctx.fillStyle = 'rgba(28, 18, 50, 0.85)';
+      ctx.fillRect(win.x, win.y, win.w, win.h);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(win.x + win.w / 2 - 0.5, win.y, 1, win.h);
+      ctx.fillRect(win.x, win.y + win.h / 2 - 0.5, win.w, 1);
+    }
+  }
+
+  ctx.restore();
+}
+
+// Main loop
+function loop(now) {
+  if (!lastFrame) lastFrame = now;
+  const dt = Math.min(50, now - lastFrame);
+  lastFrame = now;
+  if (state === 'playing') {
+    update(dt, now);
+  } else {
+    // gentle ambient star twinkle on title
+    for (const s of stars) s.tw += dt * 0.001 * s.sp;
+    kaiju.eyeBlinkT += dt;
+  }
+  render(now);
+  requestAnimationFrame(loop);
+}
+
+// Wire up UI
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Boot
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
