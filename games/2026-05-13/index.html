@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Cusp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    width: 100%;
+    background: #0a0a14;
+    color: #e8e0c8;
+    font-family: 'EB Garamond', Georgia, serif;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body {
+    position: relative;
+    background: radial-gradient(ellipse at center, #131325 0%, #06060c 100%);
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: system-ui, sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4rem 1.5rem 2rem;
+    transition: opacity 0.6s ease;
+  }
+  .screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Title */
+  #screen-title { justify-content: center; }
+  #screen-title h1 {
+    font-size: 5rem;
+    font-weight: 500;
+    font-style: italic;
+    letter-spacing: 0.08em;
+    color: #d4af37;
+    margin-bottom: 1.2rem;
+    text-shadow: 0 0 40px rgba(212, 175, 55, 0.25);
+  }
+  #screen-title .sub {
+    text-align: center;
+    color: #a89878;
+    font-style: italic;
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+    max-width: 280px;
+    font-size: 1.05rem;
+  }
+  #screen-title .hint {
+    text-align: center;
+    color: #5a5040;
+    margin-bottom: 3rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+    text-transform: lowercase;
+    font-family: system-ui, sans-serif;
+  }
+
+  .btn {
+    background: transparent;
+    color: #d4af37;
+    border: 1px solid #d4af37;
+    padding: 0.85rem 2.5rem;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 1.05rem;
+    letter-spacing: 0.25em;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    border-radius: 0;
+    min-width: 200px;
+    text-transform: uppercase;
+  }
+  .btn:active { background: rgba(212, 175, 55, 0.18); }
+  .btn:focus { outline: none; }
+
+  /* Play */
+  #screen-play {
+    justify-content: flex-start;
+  }
+  #question {
+    font-style: italic;
+    font-size: 1.35rem;
+    text-align: center;
+    color: #d8c898;
+    line-height: 1.4;
+    max-width: 340px;
+    min-height: 5rem;
+    margin: 0.5rem 0 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #coin-area {
+    flex: 1;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-height: 60vh;
+  }
+  #coin-canvas {
+    display: block;
+  }
+  #status {
+    position: absolute;
+    bottom: 6%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #a89878;
+    font-style: italic;
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+    letter-spacing: 0.05em;
+  }
+  #status.visible { opacity: 0.9; }
+  #catch-btn {
+    margin: 0.4rem 0 0.6rem;
+  }
+  #round-indicator {
+    color: #4a4030;
+    font-size: 0.75rem;
+    letter-spacing: 0.4em;
+    margin-bottom: 0.6rem;
+    font-family: system-ui, sans-serif;
+  }
+  #time-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: rgba(212, 175, 55, 0.35);
+    transform-origin: left center;
+    transform: scaleX(1);
+  }
+
+  /* Reveal */
+  #screen-reveal { justify-content: center; }
+  #reveal-face {
+    color: #d4af37;
+    font-size: 0.8rem;
+    letter-spacing: 0.5em;
+    margin-bottom: 2.2rem;
+    text-transform: uppercase;
+    font-family: system-ui, sans-serif;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.2s forwards;
+  }
+  #reveal-q {
+    color: #5a5040;
+    font-style: italic;
+    font-size: 0.95rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    max-width: 320px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.4s forwards;
+  }
+  #reveal-text {
+    font-style: italic;
+    font-size: 1.85rem;
+    text-align: center;
+    color: #f0e8d0;
+    line-height: 1.35;
+    max-width: 340px;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 1.2s 0.9s forwards;
+  }
+  #next-btn {
+    opacity: 0;
+    animation: fadeUp 0.6s 2.2s forwards;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* End */
+  #screen-end { justify-content: flex-start; padding-top: 4rem; }
+  #screen-end h2 {
+    font-style: italic;
+    font-weight: 400;
+    color: #d4af37;
+    font-size: 1.7rem;
+    letter-spacing: 0.1em;
+    margin-bottom: 1.5rem;
+  }
+  #end-list {
+    max-width: 340px;
+    width: 100%;
+    margin-bottom: 2rem;
+    overflow-y: auto;
+    flex: 1;
+    padding: 0 0.5rem;
+  }
+  .end-entry {
+    margin-bottom: 1.1rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  }
+  .end-entry:last-child { border-bottom: none; }
+  .end-q {
+    font-size: 0.78rem;
+    color: #5a5040;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.35rem;
+    font-family: system-ui, sans-serif;
+    text-transform: lowercase;
+  }
+  .end-fate {
+    font-style: italic;
+    color: #e0d4a8;
+    font-size: 1.05rem;
+    line-height: 1.4;
+  }
+  .end-face {
+    color: #8a7438;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    margin-top: 0.3rem;
+    font-family: system-ui, sans-serif;
+  }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="screen-title" class="screen">
+  <h1>Cusp</h1>
+  <div class="sub">the moment a coin spends in the air</div>
+  <div class="hint">hold to slow · catch when you know</div>
+  <button id="begin-btn" class="btn">Begin</button>
+</div>
+
+<div id="screen-play" class="screen hidden">
+  <div id="round-indicator"></div>
+  <div id="question"></div>
+  <div id="coin-area">
+    <canvas id="coin-canvas"></canvas>
+  </div>
+  <div id="status">…considering…</div>
+  <button id="catch-btn" class="btn">Catch</button>
+  <div id="time-bar"></div>
+</div>
+
+<div id="screen-reveal" class="screen hidden">
+  <div id="reveal-face"></div>
+  <div id="reveal-q"></div>
+  <div id="reveal-text"></div>
+  <button id="next-btn" class="btn">Next</button>
+</div>
+
+<div id="screen-end" class="screen hidden">
+  <h2>Your fortune</h2>
+  <div id="end-list"></div>
+  <button id="restart-btn" class="btn">Again</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ============================================================
+// CUSP — you decide each coin's face mid-flight.
+// ============================================================
+
+const QUESTIONS = [
+  { q: "Will the bus come on time?",
+    h: "It comes. The driver nods.",
+    t: "You wait fifteen minutes." },
+  { q: "Does it rain on the walk home?",
+    h: "The sky holds itself.",
+    t: "A sudden shower." },
+  { q: "Does the cat greet you?",
+    h: "She purrs against your ankle.",
+    t: "She watches you, silent." },
+  { q: "Does the letter ever arrive?",
+    h: "Thursday morning. Sooner than expected.",
+    t: "It is lost in transit." },
+  { q: "Did you say it out loud?",
+    h: "You said it. The words were heard.",
+    t: "You held it in." },
+  { q: "Did she forgive you?",
+    h: "She forgave you long ago.",
+    t: "She never knew there was anything to forgive." },
+  { q: "Will you be remembered?",
+    h: "Yes. By someone you have not yet met.",
+    t: "No. And it will not have mattered." }
+];
+
+// ---------- Audio ----------
+const audio = (() => {
+  let ctx;
+  function ensure() {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {}
+    }
+    return ctx;
+  }
+  return {
+    tone(freq=440, dur=0.2, vol=0.05, type='sine', glide=null) {
+      const c = ensure();
+      if (!c) return;
+      try {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.frequency.value = freq;
+        o.type = type;
+        if (glide != null) {
+          o.frequency.exponentialRampToValueAtTime(Math.max(20, glide), c.currentTime + dur);
+        }
+        g.gain.setValueAtTime(0, c.currentTime);
+        g.gain.linearRampToValueAtTime(vol, c.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + dur);
+        o.connect(g).connect(c.destination);
+        o.start();
+        o.stop(c.currentTime + dur + 0.05);
+      } catch(_) {}
+    },
+    chime() { this.tone(660, 0.25, 0.04, 'sine'); setTimeout(() => this.tone(990, 0.25, 0.025, 'sine'), 60); },
+    thunk() { this.tone(180, 0.45, 0.08, 'sine', 70); },
+    settle() { this.tone(440, 0.4, 0.045, 'triangle'); setTimeout(() => this.tone(550, 0.5, 0.035, 'triangle'), 90); }
+  };
+})();
+
+// ---------- State ----------
+const state = {
+  stage: 'title',
+  round: 0,
+  results: [],
+  current: null,
+  angle: 0,
+  speed: 0.04,
+  baseSpeed: 0.04,
+  slowed: false,
+  fallProgress: 0,
+  fallDuration: 14,
+  caught: false,
+  caughtFace: 'heads'
+};
+
+const $ = id => document.getElementById(id);
+const canvas = $('coin-canvas');
+const cctx = canvas.getContext('2d');
+let cssW = 0, cssH = 0;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const area = $('coin-area');
+  const w = area.clientWidth;
+  const h = area.clientHeight;
+  if (w === 0 || h === 0) return;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cssW = w;
+  cssH = h;
+}
+window.addEventListener('resize', resize);
+
+// ---------- Drawing ----------
+function drawCoin() {
+  cctx.clearRect(0, 0, cssW, cssH);
+  if (!state.current) return;
+
+  const size = Math.min(cssW * 0.78, cssH * 0.75, 320);
+  const x = cssW / 2;
+  const yStart = cssH * 0.42;
+  const yEnd = cssH * 0.58;
+  const fallNorm = state.caught ? state.fallProgress / state.fallDuration : Math.min(1, state.fallProgress / state.fallDuration);
+  const y = yStart + (yEnd - yStart) * Math.min(1, fallNorm);
+
+  const cosA = Math.cos(state.angle);
+  const absCos = Math.abs(cosA);
+  const radius = size / 2;
+
+  // Shadow
+  cctx.save();
+  cctx.translate(x, cssH * 0.66);
+  cctx.scale(absCos * 0.5 + 0.5, 0.16);
+  cctx.beginPath();
+  cctx.arc(0, 0, radius * 0.85, 0, Math.PI * 2);
+  cctx.fillStyle = 'rgba(0,0,0,0.45)';
+  cctx.fill();
+  cctx.restore();
+
+  // Halo while slowed
+  if (state.slowed && !state.caught) {
+    cctx.save();
+    cctx.translate(x, y);
+    const halo = cctx.createRadialGradient(0, 0, radius * 0.9, 0, 0, radius * 1.5);
+    halo.addColorStop(0, 'rgba(212, 175, 55, 0.32)');
+    halo.addColorStop(0.6, 'rgba(212, 175, 55, 0.08)');
+    halo.addColorStop(1, 'rgba(212, 175, 55, 0)');
+    cctx.fillStyle = halo;
+    cctx.beginPath();
+    cctx.arc(0, 0, radius * 1.5, 0, Math.PI * 2);
+    cctx.fill();
+    cctx.restore();
+  }
+
+  cctx.save();
+  cctx.translate(x, y);
+
+  if (absCos < 0.05) {
+    // Edge view
+    cctx.fillStyle = '#a47914';
+    cctx.fillRect(-2, -radius, 4, size);
+    cctx.fillStyle = 'rgba(255,235,180,0.4)';
+    cctx.fillRect(-1, -radius, 1, size);
+  } else {
+    cctx.scale(absCos, 1);
+
+    // Coin face
+    const grad = cctx.createRadialGradient(-radius * 0.25, -radius * 0.35, 0, 0, 0, radius);
+    grad.addColorStop(0, '#fde6a3');
+    grad.addColorStop(0.45, '#e8c54f');
+    grad.addColorStop(0.85, '#a87f1c');
+    grad.addColorStop(1, '#5a410a');
+    cctx.fillStyle = grad;
+    cctx.beginPath();
+    cctx.arc(0, 0, radius, 0, Math.PI * 2);
+    cctx.fill();
+
+    // Inner rim
+    cctx.strokeStyle = 'rgba(58, 38, 6, 0.55)';
+    cctx.lineWidth = 2;
+    cctx.beginPath();
+    cctx.arc(0, 0, radius - 10, 0, Math.PI * 2);
+    cctx.stroke();
+
+    // Outer edge
+    cctx.strokeStyle = 'rgba(30, 18, 0, 0.7)';
+    cctx.lineWidth = 1.5;
+    cctx.beginPath();
+    cctx.arc(0, 0, radius - 1, 0, Math.PI * 2);
+    cctx.stroke();
+
+    // Subtle highlight arc
+    cctx.strokeStyle = 'rgba(255, 245, 200, 0.35)';
+    cctx.lineWidth = 1.5;
+    cctx.beginPath();
+    cctx.arc(0, 0, radius - 4, Math.PI * 1.1, Math.PI * 1.55);
+    cctx.stroke();
+
+    // Text
+    const face = cosA > 0 ? 'h' : 't';
+    const text = state.current[face];
+
+    cctx.fillStyle = '#2a1d05';
+    const fontSize = Math.max(13, size * 0.078);
+    cctx.font = `italic 500 ${fontSize}px 'EB Garamond', Georgia, serif`;
+    cctx.textAlign = 'center';
+    cctx.textBaseline = 'middle';
+    wrapText(text, 0, fontSize * 0.15, radius * 1.55, fontSize * 1.22);
+
+    // Face label
+    cctx.font = `${fontSize * 0.5}px system-ui, sans-serif`;
+    cctx.fillStyle = 'rgba(42, 29, 5, 0.55)';
+    const label = face === 'h' ? '— heads —' : '— tails —';
+    cctx.fillText(label, 0, -radius * 0.72);
+  }
+  cctx.restore();
+}
+
+function wrapText(text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (cctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  const startY = y - ((lines.length - 1) * lineHeight) / 2;
+  for (let i = 0; i < lines.length; i++) {
+    cctx.fillText(lines[i], x, startY + i * lineHeight);
+  }
+}
+
+// ---------- Loop ----------
+let lastT = performance.now();
+function step(t) {
+  const dt = Math.min(0.05, (t - lastT) / 1000);
+  lastT = t;
+
+  if (state.stage === 'play') {
+    if (!state.caught) {
+      const slowTarget = 0.005 + state.round * 0.005;
+      const target = state.slowed ? slowTarget : state.baseSpeed;
+      state.speed += (target - state.speed) * 0.1;
+      state.angle += state.speed * dt * 60;
+
+      state.fallProgress += dt;
+      if (state.fallProgress >= state.fallDuration) {
+        catchCoin(true);
+      }
+
+      const remaining = Math.max(0, 1 - state.fallProgress / state.fallDuration);
+      $('time-bar').style.transform = `scaleX(${remaining})`;
+    } else {
+      // Settle to the chosen face
+      const targetAngle = state.caughtFace === 'heads' ? 0 : Math.PI;
+      let diff = normalizeAngle(targetAngle - state.angle);
+      state.angle += diff * 0.18;
+      state.speed *= 0.85;
+    }
+    drawCoin();
+  }
+
+  requestAnimationFrame(step);
+}
+
+function normalizeAngle(a) {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
+}
+
+// ---------- Game flow ----------
+function show(screenId) {
+  for (const s of document.querySelectorAll('.screen')) {
+    s.classList.toggle('hidden', s.id !== screenId);
+  }
+}
+
+function startGame() {
+  state.round = 0;
+  state.results = [];
+  nextRound();
+}
+
+function nextRound() {
+  if (state.round >= QUESTIONS.length) {
+    showEnd();
+    return;
+  }
+  state.current = QUESTIONS[state.round];
+  state.angle = Math.random() * Math.PI * 0.4 - Math.PI * 0.2;
+  state.baseSpeed = 0.045 + state.round * 0.006;
+  state.speed = state.baseSpeed;
+  state.slowed = false;
+  state.fallProgress = 0;
+  state.fallDuration = 13 + state.round * 0.6;
+  state.caught = false;
+  state.stage = 'play';
+
+  $('question').textContent = state.current.q;
+  $('round-indicator').textContent = `· ${state.round + 1} / ${QUESTIONS.length} ·`;
+  $('status').classList.remove('visible');
+  $('time-bar').style.transform = 'scaleX(1)';
+  show('screen-play');
+
+  // Wait one frame for layout, then size canvas
+  requestAnimationFrame(() => requestAnimationFrame(resize));
+}
+
+function setSlowed(on) {
+  if (state.stage !== 'play' || state.caught) return;
+  if (state.slowed === on) return;
+  state.slowed = on;
+  $('status').classList.toggle('visible', on);
+}
+
+function catchCoin(autoLand = false) {
+  if (state.stage !== 'play' || state.caught) return;
+  state.caught = true;
+  state.slowed = false;
+  $('status').classList.remove('visible');
+
+  const cosA = Math.cos(state.angle);
+  state.caughtFace = cosA >= 0 ? 'heads' : 'tails';
+  audio.thunk();
+  setTimeout(() => audio.settle(), 380);
+
+  setTimeout(showReveal, 1300);
+}
+
+function showReveal() {
+  state.stage = 'reveal';
+  const text = state.caughtFace === 'heads' ? state.current.h : state.current.t;
+  state.results.push({ q: state.current.q, face: state.caughtFace, text });
+
+  // Force restart of animations
+  const elems = ['reveal-face', 'reveal-q', 'reveal-text', 'next-btn'];
+  for (const id of elems) {
+    const el = $(id);
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+  }
+  $('reveal-face').textContent = state.caughtFace;
+  $('reveal-q').textContent = state.current.q;
+  $('reveal-text').textContent = text;
+  show('screen-reveal');
+}
+
+function nextFromReveal() {
+  state.round++;
+  nextRound();
+}
+
+function showEnd() {
+  state.stage = 'end';
+  const list = $('end-list');
+  list.innerHTML = '';
+  for (const r of state.results) {
+    const div = document.createElement('div');
+    div.className = 'end-entry';
+    const q = document.createElement('div');
+    q.className = 'end-q';
+    q.textContent = r.q;
+    const fate = document.createElement('div');
+    fate.className = 'end-fate';
+    fate.textContent = r.text;
+    const face = document.createElement('div');
+    face.className = 'end-face';
+    face.textContent = r.face;
+    div.appendChild(q);
+    div.appendChild(fate);
+    div.appendChild(face);
+    list.appendChild(div);
+  }
+  show('screen-end');
+}
+
+// ---------- Events ----------
+$('begin-btn').addEventListener('click', () => { audio.chime(); startGame(); });
+$('next-btn').addEventListener('click', () => { audio.chime(); nextFromReveal(); });
+$('restart-btn').addEventListener('click', () => { audio.chime(); startGame(); });
+$('catch-btn').addEventListener('click', () => catchCoin(false));
+
+function isInteractive(target) {
+  return target && (target.closest('button') || target.closest('a'));
+}
+document.addEventListener('pointerdown', e => {
+  if (state.stage !== 'play' || state.caught) return;
+  if (isInteractive(e.target)) return;
+  setSlowed(true);
+});
+document.addEventListener('pointerup',     () => setSlowed(false));
+document.addEventListener('pointercancel', () => setSlowed(false));
+document.addEventListener('pointerleave',  () => setSlowed(false));
+window.addEventListener('blur',            () => setSlowed(false));
+
+// Kick everything off
+resize();
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
