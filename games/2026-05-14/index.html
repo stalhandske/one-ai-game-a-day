@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+<title>Wick</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  background: #050507;
+  overflow: hidden;
+  font-family: 'Cormorant Garamond', serif;
+  color: #e8e2d0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  touch-action: none;
+}
+#back-btn {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 9998;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  font-family: 'Cormorant Garamond', serif;
+}
+#back-btn:hover { background: rgba(0,0,0,0.75); }
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(8,8,15,0.94), rgba(0,0,0,0.98));
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: opacity 0.7s ease;
+  gap: 0.55rem;
+}
+.overlay.hidden { opacity: 0; pointer-events: none; }
+.title {
+  font-size: 4.5rem;
+  font-weight: 300;
+  letter-spacing: 0.4em;
+  color: #f0e8d0;
+  text-shadow: 0 0 32px rgba(255, 220, 150, 0.18);
+  margin-bottom: 0.6rem;
+  padding-left: 0.4em; /* compensate letter-spacing */
+}
+.tagline {
+  font-style: italic;
+  font-size: 1.05rem;
+  opacity: 0.78;
+  max-width: 19rem;
+  line-height: 1.55;
+}
+.flavor {
+  font-style: italic;
+  font-size: 1.25rem;
+  max-width: 22rem;
+  line-height: 1.5;
+  margin-top: 0.5rem;
+  opacity: 0.9;
+}
+.flavor .quoted {
+  font-style: normal;
+  color: #ffe7c0;
+  font-size: 1.1em;
+}
+.start-hint {
+  margin-top: 2.5rem;
+  font-size: 0.95rem;
+  opacity: 0.55;
+  letter-spacing: 0.22em;
+  text-transform: lowercase;
+  animation: pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+.btn {
+  margin-top: 1.6rem;
+  border: 1px solid rgba(240, 232, 208, 0.4);
+  background: transparent;
+  color: #f0e8d0;
+  padding: 0.7rem 2rem;
+  font-family: inherit;
+  font-size: 1.05rem;
+  letter-spacing: 0.22em;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.3s;
+  text-transform: lowercase;
+}
+.btn:hover, .btn:active {
+  background: rgba(240, 232, 208, 0.08);
+  border-color: rgba(240, 232, 208, 0.7);
+}
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="game"></canvas>
+
+<div id="title-screen" class="overlay">
+  <div class="title">WICK</div>
+  <div class="tagline">A moth has just learned all light is fire.</div>
+  <div class="tagline" style="opacity:0.55;">Tap where you wish to be — never where it glows.</div>
+  <div class="tagline" style="opacity:0.55;">Last until dawn.</div>
+  <div class="start-hint">tap to begin</div>
+</div>
+
+<div id="end-screen" class="overlay hidden">
+  <div id="end-title" class="title" style="font-size:2.5rem; letter-spacing: 0.32em;"></div>
+  <div id="end-flavor" class="flavor"></div>
+  <button class="btn" id="restart-btn">again</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ============ GAME ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const FLAVORS = [
+  "a porch light, left on by accident",
+  "a candle in a sickroom",
+  "the television in an empty hotel",
+  "a phone, face-up, charging",
+  "fireflies kept in a jar",
+  "a child's night-light",
+  "headlights on a road no one took",
+  "the kitchen at three in the morning",
+  "a passing match",
+  "a lighter clicked once and pocketed",
+  "the warm rectangle of an open fridge",
+  "the last ember in a hearth",
+  "a green dot beside an old name",
+  "the moon, doubled in glass",
+  "a streetlamp humming to itself",
+  "a screen of someone scrolling alone",
+  "a votive lit for someone forgotten",
+  "a neon sign for a closed diner"
+];
+
+const LIGHT_COLORS = [
+  { core: '#fff3b0', glow: 'rgba(255, 220, 130,' },
+  { core: '#ffd286', glow: 'rgba(255, 180, 100,' },
+  { core: '#ffb774', glow: 'rgba(255, 150, 90,' },
+  { core: '#fce8d4', glow: 'rgba(250, 230, 200,' },
+  { core: '#a8c8f0', glow: 'rgba(160, 200, 240,' },
+  { core: '#c8b8f5', glow: 'rgba(180, 160, 230,' },
+];
+
+let state = 'title';
+let moth, lights, stars, ripples, embers, startTime, lightTimer, dawn;
+const SURVIVAL_TIME = 75;
+const DAWN_BEGIN = 55;
+
+// Audio
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (_) {}
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function flapSound() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 380;
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(140 + Math.random() * 40, t);
+  o.frequency.exponentialRampToValueAtTime(55, t + 0.13);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.045, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  o.connect(filter).connect(g).connect(audioCtx.destination);
+  o.start(t);
+  o.stop(t + 0.22);
+}
+function caughtSound() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.7, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    const env = Math.exp(-i / (audioCtx.sampleRate * 0.22));
+    data[i] = (Math.random() - 0.5) * env * 0.45;
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 1100;
+  filter.Q.value = 0.6;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.16;
+  src.connect(filter).connect(g).connect(audioCtx.destination);
+  src.start(t);
+}
+function dawnSound() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const freqs = [220, 277, 330, 440];
+  for (let i = 0; i < freqs.length; i++) {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freqs[i];
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.025, t + 0.4 + i * 0.15);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t);
+    o.stop(t + 3.2);
+  }
+}
+
+function newMoth() {
+  return {
+    x: W / 2,
+    y: H / 2,
+    vx: 0, vy: 0,
+    angle: -Math.PI / 2,
+    flapPhase: 0,
+    radius: 10,
+    alive: true
+  };
+}
+
+function newStars() {
+  const arr = [];
+  const count = Math.floor((W * H) / 16000);
+  for (let i = 0; i < count; i++) {
+    arr.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 0.9 + 0.2,
+      a: Math.random() * 0.5 + 0.2,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+  return arr;
+}
+
+function spawnLight() {
+  const margin = 75;
+  const color = LIGHT_COLORS[Math.floor(Math.random() * LIGHT_COLORS.length)];
+  const flavor = FLAVORS[Math.floor(Math.random() * FLAVORS.length)];
+  const radius = 26 + Math.random() * 16;
+  const pull = 900 + Math.random() * 700;
+  let x, y, tries = 0;
+  do {
+    x = margin + Math.random() * (W - margin * 2);
+    y = margin + Math.random() * (H - margin * 2);
+    tries++;
+  } while (
+    tries < 25 &&
+    (Math.hypot(x - moth.x, y - moth.y) < 180 ||
+     lights.some(l => Math.hypot(x - l.x, y - l.y) < 140))
+  );
+  lights.push({
+    x, y, radius, pull,
+    color, flavor,
+    life: 0,
+    maxLife: 10 + Math.random() * 7,
+    fadeIn: 1.4,
+    fadeOut: 2.0,
+    drift: { x: (Math.random() - 0.5) * 7, y: (Math.random() - 0.5) * 7 },
+    pulsePhase: Math.random() * Math.PI * 2,
+  });
+}
+
+function startGame() {
+  resize();
+  moth = newMoth();
+  lights = [];
+  stars = newStars();
+  ripples = [];
+  embers = [];
+  startTime = performance.now();
+  lightTimer = 0.4;
+  dawn = 0;
+  state = 'playing';
+  document.getElementById('title-screen').classList.add('hidden');
+  document.getElementById('end-screen').classList.add('hidden');
+}
+
+function showEnd(won, flavor) {
+  state = won ? 'won' : 'lost';
+  const titleEl = document.getElementById('end-title');
+  const flavorEl = document.getElementById('end-flavor');
+  if (won) {
+    titleEl.textContent = 'DAWN';
+    flavorEl.innerHTML = "You unlearned the only thing you knew.<br><span style='opacity:0.7;font-size:0.9em'>The sky is grey now. The lights mean nothing.</span>";
+    dawnSound();
+  } else {
+    titleEl.textContent = 'CAUGHT';
+    flavorEl.innerHTML = `You went into<br><span class="quoted">${flavor}</span>.`;
+    caughtSound();
+    // spawn embers where the moth was
+    for (let i = 0; i < 16; i++) {
+      embers.push({
+        x: moth.x, y: moth.y,
+        vx: (Math.random() - 0.5) * 60,
+        vy: (Math.random() - 0.5) * 60 - 20,
+        life: 1,
+        size: 0.8 + Math.random() * 1.6
+      });
+    }
+  }
+  setTimeout(() => {
+    document.getElementById('end-screen').classList.remove('hidden');
+  }, won ? 1200 : 900);
+}
+
+// Input
+function onCanvasPointerDown(e) {
+  e.preventDefault();
+  ensureAudio();
+  if (state !== 'playing') return;
+  const tx = e.clientX;
+  const ty = e.clientY;
+  const dx = tx - moth.x;
+  const dy = ty - moth.y;
+  const d = Math.hypot(dx, dy);
+  if (d > 0.5) {
+    const impulse = 235;
+    moth.vx += (dx / d) * impulse;
+    moth.vy += (dy / d) * impulse;
+    moth.angle = Math.atan2(dy, dx);
+    moth.flapPhase = 0;
+  }
+  ripples.push({ x: tx, y: ty, r: 0, life: 1 });
+  flapSound();
+}
+canvas.addEventListener('pointerdown', onCanvasPointerDown);
+
+document.getElementById('title-screen').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  ensureAudio();
+  if (state === 'title') startGame();
+});
+
+document.getElementById('end-screen').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (state === 'won' || state === 'lost') startGame();
+});
+
+document.getElementById('restart-btn').addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  startGame();
+});
+
+let lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+  if (state === 'playing') update(dt);
+  else if (state === 'lost' || state === 'won') updateEffects(dt);
+  draw(now / 1000);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function updateEffects(dt) {
+  // continue ripples/embers physics for the post-state moment
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += dt * 180;
+    r.life -= dt * 1.5;
+    if (r.life <= 0) ripples.splice(i, 1);
+  }
+  for (let i = embers.length - 1; i >= 0; i--) {
+    const em = embers[i];
+    em.vy += 30 * dt;
+    em.x += em.vx * dt;
+    em.y += em.vy * dt;
+    em.life -= dt * 0.8;
+    if (em.life <= 0) embers.splice(i, 1);
+  }
+  // lights keep drifting a bit so the scene doesn't freeze
+  for (const l of lights) {
+    l.life += dt * 0.4;
+    l.x += l.drift.x * dt * 0.3;
+    l.y += l.drift.y * dt * 0.3;
+  }
+}
+
+function update(dt) {
+  const elapsed = (performance.now() - startTime) / 1000;
+
+  // Dawn factor
+  dawn = elapsed > DAWN_BEGIN
+    ? Math.min(1, (elapsed - DAWN_BEGIN) / (SURVIVAL_TIME - DAWN_BEGIN))
+    : 0;
+
+  // Spawn lights — escalating challenge, easing during dawn
+  let targetCount;
+  if (elapsed < 9) targetCount = 1;
+  else if (elapsed < 26) targetCount = 2;
+  else if (elapsed < 50) targetCount = 3;
+  else targetCount = 2;
+  if (dawn > 0.4) targetCount = 1;
+  if (dawn > 0.85) targetCount = 0;
+
+  lightTimer -= dt;
+  if (lights.length < targetCount && lightTimer <= 0) {
+    spawnLight();
+    lightTimer = 1.3 + Math.random() * 2.0;
+  }
+
+  // Light life + drift
+  for (let i = lights.length - 1; i >= 0; i--) {
+    const l = lights[i];
+    l.life += dt;
+    l.x += l.drift.x * dt;
+    l.y += l.drift.y * dt;
+    if (l.x < l.radius + 20 || l.x > W - l.radius - 20) l.drift.x *= -1;
+    if (l.y < l.radius + 20 || l.y > H - l.radius - 20) l.drift.y *= -1;
+    if (l.life > l.maxLife) lights.splice(i, 1);
+  }
+
+  // Physics on moth
+  let ax = 0, ay = 0;
+  let caught = null;
+  for (const l of lights) {
+    const dx = l.x - moth.x;
+    const dy = l.y - moth.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.5) continue;
+    const a = lightAlpha(l);
+    const force = (l.pull * a) / Math.max(d, 45);
+    ax += (dx / d) * force;
+    ay += (dy / d) * force;
+    if (d < l.radius * 0.45 + moth.radius * 0.4) caught = l;
+  }
+
+  if (caught) {
+    showEnd(false, caught.flavor);
+    return;
+  }
+
+  moth.vx += ax * dt;
+  moth.vy += ay * dt;
+  const drag = Math.exp(-1.05 * dt);
+  moth.vx *= drag;
+  moth.vy *= drag;
+  moth.x += moth.vx * dt;
+  moth.y += moth.vy * dt;
+
+  // Soft walls
+  const m = 24;
+  if (moth.x < m) { moth.x = m; moth.vx = Math.abs(moth.vx) * 0.4; }
+  if (moth.x > W - m) { moth.x = W - m; moth.vx = -Math.abs(moth.vx) * 0.4; }
+  if (moth.y < m) { moth.y = m; moth.vy = Math.abs(moth.vy) * 0.4; }
+  if (moth.y > H - m) { moth.y = H - m; moth.vy = -Math.abs(moth.vy) * 0.4; }
+
+  // Wing flap and orientation
+  const speed = Math.hypot(moth.vx, moth.vy);
+  moth.flapPhase += dt * (9 + speed * 0.04);
+  if (speed > 5) {
+    const target = Math.atan2(moth.vy, moth.vx);
+    let da = target - moth.angle;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    while (da < -Math.PI) da += 2 * Math.PI;
+    moth.angle += da * Math.min(1, dt * 5);
+  }
+
+  // Ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += dt * 180;
+    r.life -= dt * 1.5;
+    if (r.life <= 0) ripples.splice(i, 1);
+  }
+
+  if (elapsed >= SURVIVAL_TIME) {
+    showEnd(true);
+  }
+}
+
+function lightAlpha(l) {
+  if (l.life < l.fadeIn) return Math.max(0, l.life / l.fadeIn);
+  if (l.life > l.maxLife - l.fadeOut) return Math.max(0, (l.maxLife - l.life) / l.fadeOut);
+  return 1;
+}
+
+function draw(t) {
+  // Background gradient (night -> dawn)
+  const top = lerpColor([6, 6, 14], [70, 45, 75], dawn);
+  const bot = lerpColor([16, 14, 28], [225, 165, 135], dawn);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, rgb(top));
+  g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars (fading at dawn)
+  const starOpacity = 1 - dawn * 0.95;
+  if (starOpacity > 0.02) {
+    for (const s of stars) {
+      const tw = 0.7 + 0.3 * Math.sin(t * 0.8 + s.phase);
+      ctx.fillStyle = `rgba(255, 250, 230, ${s.a * tw * starOpacity})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Horizon glow during dawn
+  if (dawn > 0) {
+    const horG = ctx.createLinearGradient(0, H * 0.55, 0, H);
+    horG.addColorStop(0, `rgba(255, 180, 120, 0)`);
+    horG.addColorStop(1, `rgba(255, 205, 145, ${dawn * 0.4})`);
+    ctx.fillStyle = horG;
+    ctx.fillRect(0, H * 0.55, W, H * 0.45);
+  }
+
+  // Lights
+  for (const l of lights) {
+    const a = lightAlpha(l) * (1 - dawn * 0.6);
+    if (a < 0.01) continue;
+    const pulse = 1 + 0.08 * Math.sin(t * 2.5 + l.pulsePhase);
+    drawLight(l, a, pulse);
+  }
+
+  // Ripples
+  for (const r of ripples) {
+    ctx.strokeStyle = `rgba(240, 232, 208, ${Math.max(0, r.life) * 0.35})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Embers (when caught)
+  for (const em of embers) {
+    ctx.fillStyle = `rgba(255, ${160 + Math.random() * 60}, 80, ${Math.max(0, em.life) * 0.85})`;
+    ctx.beginPath();
+    ctx.arc(em.x, em.y, em.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Moth
+  if (state === 'playing' || state === 'won') {
+    drawMoth(moth, t);
+  }
+
+  // Subtle HUD
+  if (state === 'playing') drawHUD();
+}
+
+function drawHUD() {
+  const elapsed = (performance.now() - startTime) / 1000;
+  const progress = Math.min(1, elapsed / SURVIVAL_TIME);
+  ctx.fillStyle = 'rgba(240, 232, 208, 0.12)';
+  ctx.fillRect(W * 0.28, H - 26, W * 0.44, 1.2);
+  ctx.fillStyle = `rgba(255, 220, 160, ${0.3 + dawn * 0.45})`;
+  ctx.fillRect(W * 0.28, H - 26, W * 0.44 * progress, 1.2);
+}
+
+function drawLight(l, a, pulse) {
+  const cx = l.x, cy = l.y;
+  const r = l.radius * pulse;
+  // bloom layers
+  for (let i = 5; i > 0; i--) {
+    const rad = r * (1 + i * 1.45);
+    const alpha = (a * 0.13) / i;
+    ctx.fillStyle = l.color.glow + alpha + ')';
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // core
+  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  grd.addColorStop(0, hexToRgba(l.color.core, a));
+  grd.addColorStop(0.5, l.color.glow + (a * 0.7) + ')');
+  grd.addColorStop(1, l.color.glow + '0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // flavor caption during fade-in/early life
+  const flavorAlpha = Math.min(1, l.life / 1.2) * Math.min(1, (4.5 - l.life) / 1.6);
+  if (flavorAlpha > 0.01) {
+    ctx.font = 'italic 14px "Cormorant Garamond", serif';
+    ctx.fillStyle = `rgba(240, 232, 208, ${Math.max(0, flavorAlpha) * 0.78 * a})`;
+    ctx.textAlign = 'center';
+    const ty = (cy + r + 28) > (H - 40) ? (cy - r - 14) : (cy + r + 24);
+    ctx.fillText(l.flavor, cx, ty);
+  }
+}
+
+function drawMoth(m, t) {
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  const flap = 0.42 + 0.58 * Math.abs(Math.cos(m.flapPhase));
+  ctx.rotate(m.angle + Math.PI / 2);
+
+  // soft shadow under wings
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(0, 1, 14 * flap, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // wings (mirror left/right)
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.scale(side, 1);
+    ctx.scale(flap, 1);
+
+    // upper wing
+    ctx.fillStyle = 'rgba(212, 200, 168, 0.94)';
+    ctx.beginPath();
+    ctx.moveTo(0, -3);
+    ctx.bezierCurveTo(7, -13, 19, -10, 17, 0);
+    ctx.bezierCurveTo(15, 6, 7, 4, 0, 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // wing margin (darker edge)
+    ctx.strokeStyle = 'rgba(60, 45, 30, 0.35)';
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+
+    // wing eyespot
+    ctx.fillStyle = 'rgba(70, 50, 32, 0.55)';
+    ctx.beginPath();
+    ctx.arc(11, -3, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(245, 230, 200, 0.6)';
+    ctx.beginPath();
+    ctx.arc(11.5, -3.5, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // lower wing
+    ctx.fillStyle = 'rgba(195, 180, 150, 0.86)';
+    ctx.beginPath();
+    ctx.moveTo(0, 2);
+    ctx.bezierCurveTo(5, 6, 12, 7, 11, 4);
+    ctx.bezierCurveTo(11, 1, 6, 1, 0, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60, 45, 30, 0.28)';
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // body
+  ctx.fillStyle = '#3a2f24';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 1.7, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // head
+  ctx.fillStyle = '#2a2018';
+  ctx.beginPath();
+  ctx.arc(0, -7, 2.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // antennae
+  ctx.strokeStyle = '#2a2018';
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(0, -8);
+  ctx.quadraticCurveTo(-3.2, -11, -2, -14);
+  ctx.moveTo(0, -8);
+  ctx.quadraticCurveTo(3.2, -11, 2, -14);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function hexToRgba(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function lerpColor(a, b, t) {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ];
+}
+function rgb(c) {
+  return `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+}
+</script>
+</body>
+</html>
