@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Wishbone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none; -webkit-touch-callout: none;
+  }
+  body {
+    background: #0c0603;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: #f4e9d4;
+    position: fixed; inset: 0;
+  }
+  canvas {
+    display: block;
+    width: 100vw; height: 100vh;
+    touch-action: none;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .overlay {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 2rem;
+    z-index: 100;
+    pointer-events: none;
+    text-align: center;
+  }
+  .overlay.active {
+    display: flex;
+    pointer-events: auto;
+  }
+  .overlay h1 {
+    font-size: 4.2rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    font-style: italic;
+    color: #f4e9d4;
+    text-shadow: 0 0 24px rgba(255, 140, 66, 0.35), 0 0 60px rgba(255, 100, 40, 0.15);
+    margin-bottom: 1.2rem;
+    line-height: 1;
+  }
+  .overlay p {
+    font-size: 1.25rem;
+    line-height: 1.55;
+    color: #d4c4a0;
+    max-width: 22rem;
+    font-style: italic;
+    font-weight: 400;
+  }
+  .overlay .hint {
+    margin-top: 2.2rem;
+    font-size: 0.9rem;
+    color: #a08c66;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-style: normal;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.95; }
+  }
+
+  #round-indicator {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.85rem;
+    color: #a08c66;
+    z-index: 30;
+    letter-spacing: 0.25em;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    pointer-events: none;
+  }
+
+  #wish-card {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    pointer-events: none;
+    text-align: center;
+    width: min(90vw, 26rem);
+    opacity: 0;
+    transition: opacity 1.4s ease-out;
+  }
+  #wish-card.visible { opacity: 1; }
+  #wish-card .verdict {
+    font-size: 0.8rem;
+    letter-spacing: 0.4em;
+    margin-bottom: 1.1rem;
+    text-transform: uppercase;
+    font-style: normal;
+  }
+  #wish-card .verdict.granted { color: #ffb86c; }
+  #wish-card .verdict.lost { color: #8a7a5e; }
+  #wish-card .wish-text {
+    font-size: 1.7rem;
+    font-style: italic;
+    color: #f4e9d4;
+    line-height: 1.4;
+    text-shadow: 0 0 18px rgba(255, 140, 66, 0.5);
+  }
+  #wish-card .wish-text::before { content: '“'; opacity: 0.6; }
+  #wish-card .wish-text::after { content: '”'; opacity: 0.6; }
+
+  .restart-btn {
+    margin-top: 2.4rem;
+    background: transparent;
+    border: 1px solid #a08c66;
+    color: #f4e9d4;
+    padding: 0.85rem 2.2rem;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    border-radius: 0;
+    transition: background 0.2s;
+  }
+  .restart-btn:hover, .restart-btn:active { background: rgba(255, 140, 66, 0.12); }
+
+  #end-summary {
+    margin-top: 1.6rem;
+    font-size: 0.95rem;
+    color: #8a7a5e;
+    font-style: italic;
+    max-width: 22rem;
+    line-height: 1.55;
+  }
+
+  #flash {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-out;
+  }
+  #flash.active { opacity: 0.9; transition: none; }
+</style>
+</head>
+<body>
+  <a id="back-btn" href="../../index.html">← Games</a>
+  <canvas id="canvas"></canvas>
+  <div id="round-indicator"></div>
+  <div id="flash"></div>
+  <div id="wish-card">
+    <div class="verdict" id="wish-verdict">·</div>
+    <div class="wish-text" id="wish-text">·</div>
+  </div>
+
+  <div id="title-screen" class="overlay active">
+    <h1>Wishbone</h1>
+    <p>Someone on the other side<br>is pulling against you.<br>You will not know the wish<br>until it has broken.</p>
+    <div class="hint">tap to pull</div>
+  </div>
+
+  <div id="end-screen" class="overlay">
+    <h1 id="end-count">·</h1>
+    <p id="end-line">·</p>
+    <div id="end-summary"></div>
+    <button class="restart-btn" id="restart-btn">again</button>
+  </div>
+
+  <script>
+    const ORIENTATION = 'PORTRAIT';
+
+    function checkOrientation() {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                    (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+      let overlay = document.getElementById('orientation-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'orientation-overlay';
+        overlay.style.cssText = `
+          display:none; position:fixed; inset:0; z-index:9999;
+          background:#000; color:#fff; flex-direction:column;
+          align-items:center; justify-content:center;
+          font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+        `;
+        overlay.innerHTML = `
+          <div style="font-size:3rem">📱</div>
+          <div>Please rotate your device</div>
+          <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      overlay.style.display = wrong ? 'flex' : 'none';
+    }
+
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
+
+    async function tryLockOrientation() {
+      try {
+        await document.documentElement.requestFullscreen?.();
+        await screen.orientation?.lock?.(
+          ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+        );
+      } catch (_) { /* not supported — overlay handles it */ }
+    }
+    document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+    // ===== GAME =====
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0, DPR = 1;
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', () => { resize(); checkOrientation(); });
+    window.addEventListener('orientationchange', () => { setTimeout(() => { resize(); checkOrientation(); }, 100); });
+
+    const WISHES = [
+      "she remembers my name when she wakes",
+      "the rent does not go up this year",
+      "no one asks how the funeral was",
+      "the dog comes inside before the storm",
+      "he calls, just once, to check",
+      "the bus is empty this morning",
+      "the test comes back clean",
+      "she laughs at my joke at dinner",
+      "the cake does not sink in the middle",
+      "i do not hear my own name today",
+      "the rain holds off until i am home",
+      "i wake without the dream",
+      "they finally use my real name",
+      "no one notices i have been crying",
+      "the chair across from me is filled",
+      "he does not ask why i left",
+      "the kettle whistles before i forget it",
+      "the door is unlocked when i arrive",
+      "the song i cannot remember plays on the radio",
+      "i lose the bet, gracefully",
+      "the elevator doesn't stop on the third floor",
+      "the package arrives wrapped as i imagined",
+      "i taste salt again",
+      "she does not say his name in her sleep",
+      "the light stays on the porch all night",
+    ];
+
+    const state = {
+      phase: 'title',           // title | pulling | snapping | wish | end
+      round: 0,
+      maxRounds: 5,
+      results: [],              // {wish, granted, playerFrac}
+      tension: 0,
+      playerTension: 0,
+      opponentTension: 0,
+      snapThreshold: 0,
+      opponentInterval: 700,
+      opponentPullSize: 1.6,
+      opponentNextAt: 0,
+      pulseLeft: 0,             // opponent side pulse
+      pulseRight: 0,            // player side pulse
+      cracks: [],
+      shake: 0,
+      snapStartedAt: 0,
+      snapDuration: 1500,
+      wishStartedAt: 0,
+      wishDuration: 3600,
+      particles: [],
+      currentWish: '',
+      breakPoint: 0.5,          // 0 = far left, 1 = far right
+      playerFrac: 0.5,
+      tapRipples: [],
+      lastFrameTime: 0,
+      pulledThisRound: false,
+      roundStartedAt: 0,
+    };
+
+    function startGame() {
+      state.round = 0;
+      state.results = [];
+      hideOverlay('title-screen');
+      hideOverlay('end-screen');
+      hideWish();
+      beginRound();
+    }
+
+    function beginRound() {
+      state.round++;
+      state.tension = 0;
+      state.playerTension = 0;
+      state.opponentTension = 0;
+      // snap threshold grows slightly per round for arc
+      state.snapThreshold = 22 + state.round * 3 + Math.random() * 10;
+      // Opponent pulls faster + slightly harder each round
+      const difficulty = (state.round - 1) / Math.max(1, state.maxRounds - 1); // 0..1
+      state.opponentInterval = 820 - difficulty * 360 + (Math.random() * 200 - 100);
+      state.opponentPullSize = 1.2 + difficulty * 1.0 + Math.random() * 0.4;
+      state.opponentNextAt = performance.now() + 1100; // grace period
+      state.pulseLeft = 0;
+      state.pulseRight = 0;
+      state.cracks = [];
+      state.shake = 0;
+      state.particles = [];
+      state.tapRipples = [];
+      state.currentWish = pickWish();
+      state.phase = 'pulling';
+      state.pulledThisRound = false;
+      state.roundStartedAt = performance.now();
+      updateRoundIndicator();
+    }
+
+    function pickWish() {
+      const used = new Set(state.results.map(r => r.wish));
+      const pool = WISHES.filter(w => !used.has(w));
+      if (pool.length === 0) return WISHES[Math.floor(Math.random() * WISHES.length)];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function updateRoundIndicator() {
+      const el = document.getElementById('round-indicator');
+      if (state.phase === 'title' || state.phase === 'end') {
+        el.textContent = '';
+      } else {
+        el.textContent = `${state.round} · ${state.maxRounds}`;
+      }
+    }
+
+    function playerPull(x, y) {
+      if (state.phase !== 'pulling') return;
+      // Cooldown so spam doesn't dominate; encourages rhythm
+      const now = performance.now();
+      if (now - (state._lastPlayerPullAt || 0) < 60) return;
+      state._lastPlayerPullAt = now;
+
+      const strength = 1.5;
+      state.playerTension += strength;
+      state.pulseRight = Math.min(1.4, state.pulseRight + 0.55);
+      state.pulledThisRound = true;
+
+      if (x !== undefined && y !== undefined) {
+        state.tapRipples.push({ x, y, age: 0, max: 0.5 });
+      }
+    }
+
+    function opponentPull() {
+      const s = state.opponentPullSize * (0.75 + Math.random() * 0.5);
+      state.opponentTension += s;
+      state.pulseLeft = Math.min(1.4, state.pulseLeft + 0.45 + s * 0.08);
+    }
+
+    function update(dt, now) {
+      // Decay pulses
+      const decay = Math.exp(-dt * 4);
+      state.pulseLeft *= decay;
+      state.pulseRight *= decay;
+
+      // Ripples
+      for (const r of state.tapRipples) r.age += dt;
+      state.tapRipples = state.tapRipples.filter(r => r.age < r.max);
+
+      if (state.phase === 'pulling') {
+        // Opponent rhythm
+        if (now >= state.opponentNextAt) {
+          opponentPull();
+          state.opponentNextAt = now + state.opponentInterval * (0.6 + Math.random() * 0.8);
+        }
+
+        state.tension = state.playerTension + state.opponentTension;
+
+        // Grow cracks based on tension
+        const targetCracks = Math.min(8, Math.floor(state.tension / Math.max(8, state.snapThreshold / 7)));
+        while (state.cracks.length < targetCracks) addCrack();
+
+        if (state.tension >= state.snapThreshold) {
+          triggerSnap(now);
+        }
+      } else if (state.phase === 'snapping') {
+        state.shake = Math.max(0, state.shake - dt * 3.5);
+        updateParticles(dt);
+        if (now - state.snapStartedAt > state.snapDuration) {
+          showWish(now);
+        }
+      } else if (state.phase === 'wish') {
+        updateParticles(dt);
+        if (now - state.wishStartedAt > state.wishDuration) {
+          hideWish();
+          if (state.round >= state.maxRounds) {
+            showEndScreen();
+          } else {
+            beginRound();
+          }
+        }
+      }
+    }
+
+    function addCrack() {
+      // Bias toward the weaker side — the bone breaks where it's been pulled less effectively
+      const total = state.playerTension + state.opponentTension || 1;
+      const lean = (state.playerTension - state.opponentTension) / total; // -1..1
+      // If player is stronger (lean > 0), cracks appear on player's side (right, t > 0.5)
+      // because the right side is being yanked more
+      let t = 0.5 + lean * 0.35 + (Math.random() - 0.5) * 0.5;
+      t = Math.max(0.05, Math.min(0.95, t));
+      state.cracks.push({
+        t,
+        depth: 0.4 + Math.random() * 0.6,
+        wiggle: (Math.random() - 0.5) * 0.6,
+      });
+    }
+
+    function triggerSnap(now) {
+      const total = state.playerTension + state.opponentTension || 1;
+      state.playerFrac = state.playerTension / total;
+
+      // Break point: opposite the stronger puller (they keep the longer piece)
+      // If player is stronger (playerFrac > 0.5), the bone breaks toward the LEFT side (smaller piece for opponent)
+      // breakPoint is the t along the bone (0=left tip, 1=right tip)
+      state.breakPoint = 1 - state.playerFrac + (Math.random() - 0.5) * 0.08;
+      state.breakPoint = Math.max(0.12, Math.min(0.88, state.breakPoint));
+
+      const granted = state.playerFrac > 0.5;
+      state.results.push({
+        wish: state.currentWish,
+        granted,
+        playerFrac: state.playerFrac,
+      });
+
+      state.shake = 1;
+      state.phase = 'snapping';
+      state.snapStartedAt = now;
+      spawnSnapParticles();
+      flash();
+    }
+
+    function flash() {
+      const el = document.getElementById('flash');
+      el.classList.add('active');
+      setTimeout(() => {
+        el.classList.remove('active');
+      }, 50);
+    }
+
+    function spawnSnapParticles() {
+      const cx = W / 2;
+      const cy = H * 0.5;
+      for (let i = 0; i < 36; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 280;
+        state.particles.push({
+          x: cx + (Math.random() - 0.5) * 80,
+          y: cy + (Math.random() - 0.5) * 30,
+          vx: Math.cos(a) * speed,
+          vy: Math.sin(a) * speed - 80,
+          life: 1,
+          decay: 0.6 + Math.random() * 0.7,
+          size: 1 + Math.random() * 2.5,
+          warm: Math.random() < 0.5,
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      for (const p of state.particles) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 360 * dt;
+        p.vx *= Math.pow(0.4, dt);
+        p.life -= dt * p.decay;
+      }
+      state.particles = state.particles.filter(p => p.life > 0);
+    }
+
+    function showWish(now) {
+      state.phase = 'wish';
+      state.wishStartedAt = now;
+      const card = document.getElementById('wish-card');
+      const verdict = document.getElementById('wish-verdict');
+      const text = document.getElementById('wish-text');
+      const granted = state.results[state.results.length - 1].granted;
+      verdict.textContent = granted ? 'GRANTED' : 'LOST';
+      verdict.className = 'verdict ' + (granted ? 'granted' : 'lost');
+      text.textContent = state.currentWish;
+      // Force reflow then fade in
+      void card.offsetWidth;
+      card.classList.add('visible');
+    }
+
+    function hideWish() {
+      const card = document.getElementById('wish-card');
+      card.classList.remove('visible');
+    }
+
+    function showEndScreen() {
+      state.phase = 'end';
+      updateRoundIndicator();
+      const granted = state.results.filter(r => r.granted).length;
+      const lost = state.results.length - granted;
+      document.getElementById('end-count').textContent = String(granted);
+
+      let line;
+      if (granted === 5) line = "you granted every wish.<br>you may regret some of them.";
+      else if (granted === 4) line = "you granted four.<br>one was carried away from you.";
+      else if (granted === 3) line = "you granted three.<br>you do not know which mattered.";
+      else if (granted === 2) line = "two wishes belonged to you.<br>three did not.";
+      else if (granted === 1) line = "one wish was yours to keep.<br>the others, someone else's.";
+      else line = "none were yours tonight.<br>they will be wished again.";
+
+      document.getElementById('end-line').innerHTML = line;
+
+      // Reveal granted wishes
+      const list = state.results
+        .filter(r => r.granted)
+        .map(r => `<div style="opacity:0.7;margin:0.25rem 0">“${r.wish}”</div>`)
+        .join('');
+      document.getElementById('end-summary').innerHTML = list || '<div style="opacity:0.5">·</div>';
+
+      showOverlay('end-screen');
+    }
+
+    function showOverlay(id) {
+      document.getElementById(id).classList.add('active');
+    }
+    function hideOverlay(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // ===== RENDER =====
+
+    function draw(now) {
+      ctx.clearRect(0, 0, W, H);
+
+      // Background: deep candlelit warmth
+      const bg = ctx.createRadialGradient(W/2, H*0.5, 0, W/2, H*0.5, Math.max(W, H) * 0.9);
+      bg.addColorStop(0, '#2a1810');
+      bg.addColorStop(0.35, '#1a0d07');
+      bg.addColorStop(1, '#080302');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Candle flicker glow
+      const flickerT = now * 0.003;
+      const flickerR = 220 + Math.sin(flickerT) * 14 + Math.sin(flickerT * 3.1) * 6;
+      const flickerA = 0.18 + Math.sin(flickerT * 1.7) * 0.04;
+      const glow = ctx.createRadialGradient(W/2, H*0.5, 0, W/2, H*0.5, flickerR);
+      glow.addColorStop(0, `rgba(255, 160, 80, ${flickerA})`);
+      glow.addColorStop(0.6, `rgba(255, 100, 40, ${flickerA * 0.3})`);
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      // Faint table edge / wood grain hint
+      drawTable(now);
+
+      // Shake
+      ctx.save();
+      if (state.shake > 0) {
+        const s = state.shake * state.shake * 14;
+        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+      }
+
+      // Wishbone
+      if (state.phase === 'pulling') {
+        drawWishbone(now, /*broken=*/false, 0);
+      } else if (state.phase === 'snapping') {
+        const t = Math.min(1, (now - state.snapStartedAt) / state.snapDuration);
+        drawWishbone(now, /*broken=*/true, t);
+      } else if (state.phase === 'wish') {
+        drawWishbone(now, /*broken=*/true, 1);
+      } else {
+        drawWishbone(now, /*broken=*/false, 0);
+      }
+
+      // Tension glow at the joint
+      if (state.phase === 'pulling' && state.tension > 0) {
+        const t = Math.min(1, state.tension / state.snapThreshold);
+        drawTensionGlow(t);
+      }
+
+      // Particles
+      drawParticles();
+
+      // Side pulse glows
+      drawSidePulses();
+
+      // Tap ripples
+      drawRipples();
+
+      ctx.restore();
+
+      // Subtle "tap to pull" hint when player hasn't pulled yet
+      if (state.phase === 'pulling' && !state.pulledThisRound && now - state.roundStartedAt > 600) {
+        const o = 0.35 + Math.sin(now * 0.004) * 0.25;
+        ctx.fillStyle = `rgba(244, 233, 212, ${o})`;
+        ctx.font = `italic 0.95rem 'Cormorant Garamond', serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('tap to pull', W/2, H * 0.82);
+      }
+    }
+
+    function drawTable(now) {
+      // Faint warm horizon at the bottom — suggestion of a table
+      const tableY = H * 0.78;
+      const grd = ctx.createLinearGradient(0, tableY, 0, H);
+      grd.addColorStop(0, 'rgba(40, 22, 12, 0)');
+      grd.addColorStop(1, 'rgba(60, 32, 16, 0.55)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, tableY, W, H - tableY);
+    }
+
+    // Returns a point along the wishbone curve.
+    // t in [0,1]: 0 = left tip, 1 = right tip, 0.5 = joint
+    function bonePoint(t, geom) {
+      // Two quadratic curves meeting at the joint
+      if (t <= 0.5) {
+        const u = t / 0.5; // 0..1 from left tip to joint
+        // Quadratic: P0 (left tip) -> CP (control left) -> P1 (joint)
+        const p0 = geom.tipL;
+        const p1 = geom.joint;
+        const cp = geom.ctrlL;
+        const x = (1-u)*(1-u)*p0.x + 2*(1-u)*u*cp.x + u*u*p1.x;
+        const y = (1-u)*(1-u)*p0.y + 2*(1-u)*u*cp.y + u*u*p1.y;
+        return { x, y };
+      } else {
+        const u = (t - 0.5) / 0.5; // 0..1 from joint to right tip
+        const p0 = geom.joint;
+        const p1 = geom.tipR;
+        const cp = geom.ctrlR;
+        const x = (1-u)*(1-u)*p0.x + 2*(1-u)*u*cp.x + u*u*p1.x;
+        const y = (1-u)*(1-u)*p0.y + 2*(1-u)*u*cp.y + u*u*p1.y;
+        return { x, y };
+      }
+    }
+
+    function boneTangent(t, geom) {
+      // Approximate tangent via finite difference
+      const e = 0.01;
+      const a = bonePoint(Math.max(0, t - e), geom);
+      const b = bonePoint(Math.min(1, t + e), geom);
+      return Math.atan2(b.y - a.y, b.x - a.x);
+    }
+
+    function computeGeometry(now, broken, snapProgress) {
+      const cx = W / 2;
+      const cy = H * 0.5;
+      const baseW = Math.min(W * 0.78, H * 0.5, 420);
+      const baseH = baseW * 0.62;
+
+      const tensionT = state.phase === 'pulling'
+        ? Math.min(1, state.tension / state.snapThreshold)
+        : 1;
+
+      const spread = 1 + tensionT * 0.18;
+      const lean = (state.playerTension - state.opponentTension);
+      const leanX = Math.max(-30, Math.min(30, lean * 0.6));
+
+      // High-tension micro-tremble
+      let trX = 0, trY = 0;
+      if (tensionT > 0.6 && !broken) {
+        const amp = (tensionT - 0.6) / 0.4 * 3;
+        trX = (Math.random() - 0.5) * amp;
+        trY = (Math.random() - 0.5) * amp;
+      }
+
+      // Soft sway
+      const sway = Math.sin(now * 0.0015) * 1.5;
+
+      const joint = {
+        x: cx + leanX * 0.3 + trX + sway,
+        y: cy - baseH * 0.35 + trY,
+      };
+      const tipL = {
+        x: cx - baseW * 0.5 * spread + leanX * 0.7 + trX,
+        y: cy + baseH * 0.42 + trY,
+      };
+      const tipR = {
+        x: cx + baseW * 0.5 * spread + leanX * 0.7 + trX,
+        y: cy + baseH * 0.42 + trY,
+      };
+      const ctrlL = {
+        x: cx - baseW * 0.22,
+        y: cy - baseH * 0.1,
+      };
+      const ctrlR = {
+        x: cx + baseW * 0.22,
+        y: cy - baseH * 0.1,
+      };
+
+      const geom = { joint, tipL, tipR, ctrlL, ctrlR, baseW, baseH, cx, cy };
+
+      // If broken, return offsets for the two fragments
+      if (broken) {
+        const bp = state.breakPoint;
+        // Larger piece goes to the stronger puller (the side that contains MORE of the bone)
+        // Player is at the bottom of the screen — their fragment floats toward bottom
+        // Opponent's fragment floats toward top
+        const ease = snapProgress < 1 ? snapProgress : 1;
+        const moveAmt = ease * 220;
+
+        // Determine which side (which fragment) contains the joint (0.5)?
+        // If breakPoint < 0.5, left fragment is shorter, right fragment contains joint and is longer.
+        // Player wins if playerFrac > 0.5 -> their fragment is longer.
+        // Left fragment is the "opponent" side (it's a tug of war), right fragment is "player" side.
+        // Player's piece goes to BOTTOM, opponent's to TOP.
+        // But fragment-to-player mapping: whichever fragment is larger and goes to whoever pulled more.
+        // For simplicity: left fragment goes to opponent (top), right fragment goes to player (bottom).
+        const leftPiece = {
+          dx: -ease * 18,
+          dy: -moveAmt,
+          rot: -ease * 0.6,
+          opacity: 1,
+        };
+        const rightPiece = {
+          dx: ease * 18,
+          dy: moveAmt * 0.7,
+          rot: ease * 0.6,
+          opacity: 1,
+        };
+        geom.leftPiece = leftPiece;
+        geom.rightPiece = rightPiece;
+      }
+
+      return geom;
+    }
+
+    function drawWishbone(now, broken, snapProgress) {
+      const geom = computeGeometry(now, broken, snapProgress);
+      const thickness = 16 + (state.phase === 'pulling'
+        ? Math.min(1, state.tension / state.snapThreshold) * 3
+        : 0);
+
+      if (!broken) {
+        drawBonePath(geom, 0, 1, thickness, { x: 0, y: 0, rot: 0 });
+        drawCracks(geom, thickness);
+        drawBoneKnobs(geom, thickness);
+      } else {
+        // Two fragments
+        // Left fragment: from t=0 to t=breakPoint
+        drawBonePath(geom, 0, state.breakPoint, thickness, geom.leftPiece);
+        drawFragmentEnd(geom, state.breakPoint, thickness, geom.leftPiece, 'left');
+        drawTipKnob(geom, 0, thickness, geom.leftPiece);
+        if (state.breakPoint > 0.5) {
+          drawJointKnob(geom, thickness, geom.leftPiece);
+        }
+
+        // Right fragment: from t=breakPoint to t=1
+        drawBonePath(geom, state.breakPoint, 1, thickness, geom.rightPiece);
+        drawFragmentEnd(geom, state.breakPoint, thickness, geom.rightPiece, 'right');
+        drawTipKnob(geom, 1, thickness, geom.rightPiece);
+        if (state.breakPoint < 0.5) {
+          drawJointKnob(geom, thickness, geom.rightPiece);
+        }
+      }
+    }
+
+    function drawBonePath(geom, t0, t1, thickness, offset) {
+      // Sample the curve and draw as a continuous stroked path
+      const steps = 28;
+      ctx.save();
+      ctx.translate(offset.dx || 0, offset.dy || 0);
+      // Rotate around the midpoint of the fragment
+      const mid = bonePoint((t0 + t1) / 2, geom);
+      if (offset.rot) {
+        ctx.translate(mid.x, mid.y);
+        ctx.rotate(offset.rot);
+        ctx.translate(-mid.x, -mid.y);
+      }
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Outer dark stroke
+      ctx.strokeStyle = '#4a3520';
+      ctx.lineWidth = thickness + 6;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const u = t0 + (t1 - t0) * (i / steps);
+        const p = bonePoint(u, geom);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+
+      // Mid warm tone
+      ctx.strokeStyle = '#c9b08a';
+      ctx.lineWidth = thickness + 2;
+      ctx.stroke();
+
+      // Ivory main
+      ctx.strokeStyle = '#f4e9d4';
+      ctx.lineWidth = thickness;
+      ctx.stroke();
+
+      // Inner highlight
+      ctx.strokeStyle = 'rgba(255, 250, 232, 0.55)';
+      ctx.lineWidth = thickness * 0.32;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const u = t0 + (t1 - t0) * (i / steps);
+        const p = bonePoint(u, geom);
+        const ang = boneTangent(u, geom);
+        const nx = -Math.sin(ang) * thickness * 0.18;
+        const ny = Math.cos(ang) * thickness * 0.18;
+        if (i === 0) ctx.moveTo(p.x + nx, p.y + ny);
+        else ctx.lineTo(p.x + nx, p.y + ny);
+      }
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawBoneKnobs(geom, thickness) {
+      drawTipKnob(geom, 0, thickness, { dx: 0, dy: 0, rot: 0 });
+      drawTipKnob(geom, 1, thickness, { dx: 0, dy: 0, rot: 0 });
+      drawJointKnob(geom, thickness, { dx: 0, dy: 0, rot: 0 });
+    }
+
+    function drawTipKnob(geom, t, thickness, offset) {
+      const p = bonePoint(t, geom);
+      const x = p.x + (offset.dx || 0);
+      const y = p.y + (offset.dy || 0);
+      // Tips have rounded knobby ends
+      drawKnob(x, y, thickness * 0.78);
+    }
+
+    function drawJointKnob(geom, thickness, offset) {
+      // Two little bumps near the joint
+      const p = bonePoint(0.5, geom);
+      const x = p.x + (offset.dx || 0);
+      const y = p.y + (offset.dy || 0) - thickness * 0.4;
+      drawKnob(x, y, thickness * 0.7);
+    }
+
+    function drawKnob(x, y, r) {
+      // Shadow
+      ctx.fillStyle = '#4a3520';
+      ctx.beginPath();
+      ctx.arc(x, y, r + 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Warm mid
+      ctx.fillStyle = '#c9b08a';
+      ctx.beginPath();
+      ctx.arc(x, y, r + 1, 0, Math.PI * 2);
+      ctx.fill();
+      // Main
+      ctx.fillStyle = '#f4e9d4';
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      // Highlight
+      ctx.fillStyle = 'rgba(255, 252, 235, 0.6)';
+      ctx.beginPath();
+      ctx.arc(x - r * 0.3, y - r * 0.35, r * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawFragmentEnd(geom, t, thickness, offset, side) {
+      // Jagged broken end
+      const p = bonePoint(t, geom);
+      const ang = boneTangent(t, geom);
+      ctx.save();
+      ctx.translate(p.x + (offset.dx || 0), p.y + (offset.dy || 0));
+      ctx.rotate(ang + Math.PI / 2);
+      ctx.fillStyle = '#3a2715';
+      ctx.beginPath();
+      ctx.moveTo(-thickness * 0.55, 0);
+      // Jagged edge
+      const seg = 5;
+      for (let i = 0; i <= seg; i++) {
+        const x = -thickness * 0.55 + (thickness * 1.1) * (i / seg);
+        const y = (i % 2 === 0 ? -3 : 3) + (Math.random() - 0.5) * 2;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(thickness * 0.55, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawCracks(geom, thickness) {
+      ctx.save();
+      for (const c of state.cracks) {
+        const p = bonePoint(c.t, geom);
+        const ang = boneTangent(c.t, geom);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(ang + Math.PI / 2 + c.wiggle * 0.2);
+        ctx.strokeStyle = `rgba(40, 22, 10, ${0.55 * c.depth})`;
+        ctx.lineWidth = 1.4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        const halfLen = thickness * 0.42 * c.depth;
+        ctx.moveTo(-halfLen, 0);
+        // Jagged
+        ctx.lineTo(-halfLen * 0.5, c.wiggle);
+        ctx.lineTo(halfLen * 0.2, -c.wiggle * 0.5);
+        ctx.lineTo(halfLen, c.wiggle * 0.3);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    function drawTensionGlow(t) {
+      const cx = W / 2;
+      const cy = H * 0.5 - 30;
+      const r = 40 + t * 120;
+      const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grd.addColorStop(0, `rgba(255, 160, 70, ${0.28 * t})`);
+      grd.addColorStop(0.6, `rgba(255, 110, 40, ${0.1 * t})`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    function drawSidePulses() {
+      // Left side (opponent) pulse
+      if (state.pulseLeft > 0.02) {
+        const r = 70 + state.pulseLeft * 140;
+        const grd = ctx.createRadialGradient(W * 0.12, H * 0.5, 0, W * 0.12, H * 0.5, r);
+        grd.addColorStop(0, `rgba(120, 130, 160, ${0.32 * state.pulseLeft})`);
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+      }
+      // Right side (player) pulse — warm
+      if (state.pulseRight > 0.02) {
+        const r = 70 + state.pulseRight * 140;
+        const grd = ctx.createRadialGradient(W * 0.88, H * 0.5, 0, W * 0.88, H * 0.5, r);
+        grd.addColorStop(0, `rgba(255, 170, 90, ${0.36 * state.pulseRight})`);
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    function drawRipples() {
+      for (const r of state.tapRipples) {
+        const u = r.age / r.max;
+        const radius = 8 + u * 60;
+        ctx.strokeStyle = `rgba(255, 200, 130, ${0.5 * (1 - u)})`;
+        ctx.lineWidth = 2 * (1 - u);
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    function drawParticles() {
+      for (const p of state.particles) {
+        const a = Math.max(0, Math.min(1, p.life));
+        ctx.fillStyle = p.warm
+          ? `rgba(255, 190, 120, ${a})`
+          : `rgba(244, 233, 212, ${a})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.6 + a * 0.4), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ===== INPUT =====
+
+    function onDown(e) {
+      // Ignore taps on the back button
+      const t = e.target;
+      if (t && (t.id === 'back-btn' || t.closest && t.closest('#back-btn'))) return;
+
+      const x = e.clientX;
+      const y = e.clientY;
+
+      if (state.phase === 'title') {
+        startGame();
+        return;
+      }
+      if (state.phase === 'pulling') {
+        playerPull(x, y);
+        return;
+      }
+      // Other phases: tap does nothing (auto-advance)
+    }
+
+    canvas.addEventListener('pointerdown', onDown);
+    document.getElementById('title-screen').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (state.phase === 'title') startGame();
+    });
+    document.getElementById('restart-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      startGame();
+    });
+
+    // Prevent context menu / long-press select on canvas
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ===== LOOP =====
+
+    function loop(now) {
+      const dt = Math.min(0.05, (now - state.lastFrameTime) / 1000);
+      state.lastFrameTime = now;
+      update(dt, now);
+      draw(now);
+      requestAnimationFrame(loop);
+    }
+    state.lastFrameTime = performance.now();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
