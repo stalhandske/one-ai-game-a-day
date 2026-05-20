@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Augury</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0; padding: 0; overflow: hidden;
+    width: 100%; height: 100%;
+    background: #050609;
+    color: #f4ecd8;
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  canvas#sky {
+    display: block; position: absolute; inset: 0;
+    touch-action: none;
+  }
+
+  #ui {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    z-index: 5;
+  }
+  #ui .top, #ui .bottom { pointer-events: none; }
+  #ui .bottom > * { pointer-events: auto; }
+
+  .phrase {
+    text-align: center;
+    font-size: 1.55rem;
+    font-style: italic;
+    font-weight: 400;
+    padding: 4rem 1.75rem 1rem;
+    line-height: 1.45;
+    opacity: 0;
+    transition: opacity 1.6s ease;
+    text-shadow: 0 0 24px rgba(244,236,216,0.25);
+    color: #f4ecd8;
+    letter-spacing: 0.01em;
+  }
+  .phrase.visible { opacity: 0.92; }
+
+  .controls {
+    display: flex; justify-content: center; gap: 0.6rem;
+    padding: 1rem 1.25rem 1.75rem;
+  }
+  .btn {
+    flex: 1;
+    max-width: 12rem;
+    background: rgba(244,236,216,0.04);
+    border: 1px solid rgba(244,236,216,0.28);
+    color: #f4ecd8;
+    padding: 0.85rem 1rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    letter-spacing: 0.22em;
+    text-transform: lowercase;
+    font-style: italic;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.3s ease, opacity 1s ease, color 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .btn.visible { opacity: 1; pointer-events: auto; }
+  .btn:active { background: rgba(244,236,216,0.14); }
+  .btn[disabled] {
+    color: rgba(244,236,216,0.3);
+    border-color: rgba(244,236,216,0.12);
+  }
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 2rem;
+    transition: opacity 1.6s ease;
+    z-index: 6;
+    background: radial-gradient(circle at 50% 40%, rgba(20,24,50,0.55) 0%, rgba(0,0,0,0) 70%);
+  }
+  .overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #title h1 {
+    font-size: 3.6rem;
+    font-weight: 400;
+    letter-spacing: 0.5em;
+    margin: 0 0 1.5rem 0;
+    padding-left: 0.5em;
+    text-shadow: 0 0 36px rgba(244,236,216,0.35);
+    color: #f4ecd8;
+  }
+  #title p {
+    font-style: italic; font-size: 1.15rem;
+    opacity: 0.72;
+    max-width: 22rem;
+    line-height: 1.7;
+    margin: 0;
+    color: #f4ecd8;
+  }
+  #title .tap-prompt {
+    margin-top: 3rem;
+    letter-spacing: 0.35em;
+    text-transform: lowercase;
+    font-style: italic;
+    font-size: 0.85rem;
+    opacity: 0.55;
+    animation: pulse 2.8s ease-in-out infinite;
+    color: #f4ecd8;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.75; }
+  }
+
+  #ending {
+    justify-content: space-between;
+    padding: 4.5rem 2rem 2rem;
+  }
+  #ending .closing {
+    font-size: 1.4rem;
+    font-style: italic;
+    opacity: 0.92;
+    text-shadow: 0 0 18px rgba(244,236,216,0.25);
+    line-height: 1.4;
+    text-align: center;
+  }
+  #ending .ending-spacer { flex: 1; }
+  #ending #restart-btn {
+    align-self: center;
+    max-width: 14rem;
+  }
+
+  .progress {
+    position: fixed; top: 1rem; right: 1.15rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.35em;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 1s ease;
+    z-index: 7;
+    pointer-events: none;
+    color: #f4ecd8;
+  }
+  .progress.visible { opacity: 0.4; }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="sky"></canvas>
+
+<div id="ui">
+  <div class="top">
+    <div class="phrase" id="phrase"></div>
+  </div>
+  <div class="bottom">
+    <div class="controls">
+      <button class="btn" id="clear-btn">clear</button>
+      <button class="btn" id="name-btn">name it</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="title">
+  <h1>AUGURY</h1>
+  <p>The sky is empty.<br>You will draw what you see in it.</p>
+  <div class="tap-prompt">tap to begin</div>
+</div>
+
+<div class="overlay hidden" id="ending">
+  <div class="closing" id="closing-text">this is what you saw tonight</div>
+  <div class="ending-spacer"></div>
+  <button class="btn visible" id="restart-btn">look again</button>
+</div>
+
+<div class="progress" id="progress"></div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ---------- Game ----------
+
+const phrases = [
+  "the wolf at the door",
+  "the ache that won't leave",
+  "the smell of a house you grew up in",
+  "what you nearly said",
+  "the bird that doesn't sing in the morning",
+  "the friend you keep losing",
+  "a coin that landed on neither side",
+  "the room you remember wrong",
+  "a name you almost forgot",
+  "the part of you that is afraid",
+  "the question after midnight",
+  "a hand reaching for nothing",
+  "the silence after laughter",
+  "your mother as a child",
+  "the language you don't speak",
+  "the door you didn't open",
+  "the storm that didn't come",
+  "what you would want said about you",
+  "a song that exists only in fragments",
+  "the patience of trees",
+  "the thing under the floorboard",
+  "the hour you cannot account for",
+  "an apology you never received",
+  "the weight of someone else's secret",
+  "a kindness that arrived too late",
+  "the shape of being almost alone"
+];
+
+const TOTAL_ROUNDS = 7;
+const CANVAS_BG = '#050609';
+
+const canvas = document.getElementById('sky');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0, dpr = 1;
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  generateBackgroundStars();
+}
+window.addEventListener('resize', resize);
+
+let state = 'title'; // 'title' | 'playing' | 'naming' | 'between' | 'ending'
+let round = 0;
+let stars = [];
+let connections = [];
+let allConstellations = [];
+let activePhrases = [];
+let currentPhrase = '';
+let nameAnimT = 0;
+let backgroundStars = [];
+
+const phraseEl = document.getElementById('phrase');
+const nameBtn = document.getElementById('name-btn');
+const clearBtn = document.getElementById('clear-btn');
+const restartBtn = document.getElementById('restart-btn');
+const titleEl = document.getElementById('title');
+const endingEl = document.getElementById('ending');
+const progressEl = document.getElementById('progress');
+
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generateBackgroundStars() {
+  backgroundStars = [];
+  const area = W * H;
+  const count = Math.min(140, Math.max(60, Math.floor(area / 6500)));
+  for (let i = 0; i < count; i++) {
+    backgroundStars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: 0.3 + Math.random() * 0.6,
+      alpha: 0.08 + Math.random() * 0.18,
+      twinklePhase: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.3 + Math.random() * 0.6
+    });
+  }
+}
+
+function generateStars() {
+  const count = 18 + Math.floor(Math.random() * 7); // 18..24
+  const marginX = W * 0.085;
+  const marginTop = H * 0.21;
+  const marginBottom = H * 0.20;
+  const usableW = W - 2 * marginX;
+  const usableH = H - marginTop - marginBottom;
+  const minDist = Math.min(W, H) * 0.10;
+  const result = [];
+  let tries = 0;
+  while (result.length < count && tries < 800) {
+    tries++;
+    const x = marginX + Math.random() * usableW;
+    const y = marginTop + Math.random() * usableH;
+    let ok = true;
+    for (const s of result) {
+      const dx = s.x - x, dy = s.y - y;
+      if (dx * dx + dy * dy < minDist * minDist) { ok = false; break; }
+    }
+    if (ok) {
+      result.push({
+        x, y,
+        size: 1.6 + Math.random() * 2.0,
+        twinklePhase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 0.6 + Math.random() * 1.0,
+        baseAlpha: 0.65 + Math.random() * 0.3
+      });
+    }
+  }
+  return result;
+}
+
+function startGame() {
+  round = 0;
+  allConstellations = [];
+  activePhrases = shuffled(phrases).slice(0, TOTAL_ROUNDS);
+  beginRound();
+}
+
+function beginRound() {
+  stars = generateStars();
+  connections = [];
+  currentPhrase = activePhrases[round];
+  state = 'playing';
+  phraseEl.textContent = currentPhrase;
+  progressEl.textContent = `${String(round + 1).padStart(2, '0')} / ${String(TOTAL_ROUNDS).padStart(2, '0')}`;
+  updateButtons();
+  // Fade-in
+  setTimeout(() => {
+    phraseEl.classList.add('visible');
+    nameBtn.classList.add('visible');
+    clearBtn.classList.add('visible');
+    progressEl.classList.add('visible');
+  }, 120);
+}
+
+function updateButtons() {
+  nameBtn.disabled = connections.length < 2;
+  clearBtn.disabled = connections.length === 0;
+}
+
+function nameConstellation() {
+  if (connections.length < 2 || state !== 'playing') return;
+  const points = connections.map(i => ({
+    x: stars[i].x, y: stars[i].y, size: stars[i].size
+  }));
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of points) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  allConstellations.push({
+    points,
+    phrase: currentPhrase,
+    bbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
+  });
+  state = 'naming';
+  nameAnimT = 0;
+  // Fade out controls during the moment of naming
+  nameBtn.classList.remove('visible');
+  clearBtn.classList.remove('visible');
+}
+
+function nextRound() {
+  round++;
+  phraseEl.classList.remove('visible');
+  progressEl.classList.remove('visible');
+  state = 'between';
+  setTimeout(() => {
+    if (round >= TOTAL_ROUNDS) {
+      showEnding();
+    } else {
+      beginRound();
+    }
+  }, 1100);
+}
+
+function showEnding() {
+  state = 'ending';
+  endingEl.classList.remove('hidden');
+}
+
+function restart() {
+  endingEl.classList.add('hidden');
+  setTimeout(() => {
+    titleEl.classList.remove('hidden');
+    state = 'title';
+    allConstellations = [];
+    round = 0;
+    connections = [];
+    stars = [];
+    currentPhrase = '';
+    phraseEl.textContent = '';
+    progressEl.textContent = '';
+  }, 600);
+}
+
+// ---------- Input ----------
+
+function findStar(x, y) {
+  const radius = 38;
+  let best = -1, bestDist = radius * radius;
+  for (let i = 0; i < stars.length; i++) {
+    const dx = stars[i].x - x, dy = stars[i].y - y;
+    const d = dx * dx + dy * dy;
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return best;
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (state !== 'playing') return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const idx = findStar(x, y);
+  if (idx === -1) return;
+  const last = connections.length ? connections[connections.length - 1] : -1;
+  const existingAt = connections.indexOf(idx);
+  if (idx === last) {
+    connections.pop(); // undo most recent
+  } else if (existingAt === -1) {
+    connections.push(idx); // add
+  } else {
+    // tapping an earlier star — truncate to just before it (let player redirect)
+    connections = connections.slice(0, existingAt + 1);
+  }
+  updateButtons();
+});
+
+nameBtn.addEventListener('click', nameConstellation);
+clearBtn.addEventListener('click', () => {
+  if (state !== 'playing') return;
+  connections = [];
+  updateButtons();
+});
+restartBtn.addEventListener('click', restart);
+
+titleEl.addEventListener('pointerdown', () => {
+  if (state !== 'title') return;
+  titleEl.classList.add('hidden');
+  setTimeout(startGame, 200);
+});
+
+// ---------- Render ----------
+
+function drawBackgroundStars(t) {
+  for (const bs of backgroundStars) {
+    const tw = 0.6 + 0.4 * Math.sin(t * bs.twinkleSpeed + bs.twinklePhase);
+    const a = bs.alpha * tw;
+    ctx.fillStyle = `rgba(244, 236, 216, ${a})`;
+    ctx.beginPath();
+    ctx.arc(bs.x, bs.y, bs.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawStar(s, t, isSelected, alphaScale) {
+  alphaScale = alphaScale == null ? 1 : alphaScale;
+  const twinkle = 0.55 + 0.45 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
+  const baseA = s.baseAlpha * (0.65 + 0.35 * twinkle) * alphaScale;
+  const size = isSelected ? s.size * 1.5 : s.size;
+
+  const haloA = (isSelected ? 0.55 : 0.18) * alphaScale;
+  const haloR = size * (isSelected ? 7 : 5.5);
+  const halo = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, haloR);
+  halo.addColorStop(0, `rgba(244, 236, 216, ${haloA})`);
+  halo.addColorStop(0.4, `rgba(244, 236, 216, ${haloA * 0.3})`);
+  halo.addColorStop(1, 'rgba(244, 236, 216, 0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, haloR, 0, Math.PI * 2);
+  ctx.fill();
+
+  const coreA = Math.min(1, baseA + (isSelected ? 0.35 : 0));
+  ctx.fillStyle = `rgba(255, 250, 235, ${coreA})`;
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, size, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawConnections(connList, starList, lineAlpha, shimmer) {
+  if (connList.length < 2) return;
+  shimmer = shimmer || 0;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // Outer glow pass
+  ctx.strokeStyle = `rgba(244, 236, 216, ${lineAlpha * 0.35})`;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(starList[connList[0]].x, starList[connList[0]].y);
+  for (let i = 1; i < connList.length; i++) {
+    ctx.lineTo(starList[connList[i]].x, starList[connList[i]].y);
+  }
+  ctx.stroke();
+  // Inner bright line
+  ctx.strokeStyle = `rgba(255, 252, 240, ${Math.min(1, lineAlpha + shimmer * 0.5)})`;
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(starList[connList[0]].x, starList[connList[0]].y);
+  for (let i = 1; i < connList.length; i++) {
+    ctx.lineTo(starList[connList[i]].x, starList[connList[i]].y);
+  }
+  ctx.stroke();
+}
+
+function drawSky(t) {
+  let othersAlpha = 1;
+  let shimmer = 0;
+  if (state === 'naming') {
+    nameAnimT += 1/60;
+    othersAlpha = Math.max(0, 1 - Math.max(0, nameAnimT - 0.3) * 1.3);
+    shimmer = Math.max(0, 1 - Math.abs(nameAnimT - 0.55) * 2.2);
+    if (nameAnimT > 1.55) {
+      nextRound();
+    }
+  }
+  for (let i = 0; i < stars.length; i++) {
+    const sel = connections.indexOf(i) !== -1;
+    drawStar(stars[i], t, sel, sel ? 1 : othersAlpha);
+  }
+  drawConnections(connections, stars, state === 'naming' ? 0.85 : 0.45, shimmer);
+}
+
+function drawBetween(t) {
+  // During the fade between rounds, keep drawing the named constellation softly
+  if (!allConstellations.length) return;
+  const last = allConstellations[allConstellations.length - 1];
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+  drawConnections(
+    last.points.map((_, i) => i),
+    last.points,
+    0.5,
+    0
+  );
+  for (const p of last.points) {
+    drawStar({
+      x: p.x, y: p.y,
+      size: p.size,
+      twinklePhase: 0,
+      twinkleSpeed: 1,
+      baseAlpha: 0.8
+    }, t, true, 1);
+  }
+  ctx.restore();
+}
+
+function wrapText(text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  const lines = [];
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = w;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x, y + i * lineHeight);
+  }
+  return lines.length * lineHeight;
+}
+
+function drawEnding(t) {
+  if (!allConstellations.length) return;
+  const n = allConstellations.length;
+  // Layout: a column of cells, each containing one constellation centered with phrase label
+  const topPad = H * 0.13;
+  const bottomPad = H * 0.18;
+  const usableH = H - topPad - bottomPad;
+  const cellH = usableH / n;
+  const cellW = W * 0.86;
+  const cellX = (W - cellW) / 2;
+
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    const c = allConstellations[i];
+    const cy = topPad + cellH * (i + 0.5);
+    const cx = W / 2;
+
+    const bb = c.bbox;
+    const bw = Math.max(bb.w, 1);
+    const bh = Math.max(bb.h, 1);
+    const drawW = cellW * 0.55;
+    const drawH = cellH * 0.6;
+    const scale = Math.min(drawW / bw, drawH / bh, 0.55);
+
+    // Offset constellation to the left side of the cell, phrase to the right
+    const constellationX = cellX + drawW * 0.55;
+    const points = c.points.map(p => ({
+      x: constellationX + (p.x - bb.x - bw / 2) * scale,
+      y: cy + (p.y - bb.y - bh / 2) * scale,
+      size: Math.max(0.9, p.size * Math.sqrt(scale) * 0.85)
+    }));
+
+    // Lines
+    if (points.length >= 2) {
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(244, 236, 216, 0.18)';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let j = 1; j < points.length; j++) ctx.lineTo(points[j].x, points[j].y);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 252, 240, 0.55)';
+      ctx.lineWidth = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let j = 1; j < points.length; j++) ctx.lineTo(points[j].x, points[j].y);
+      ctx.stroke();
+    }
+
+    // Stars with gentle twinkle
+    for (const p of points) {
+      const tw = 0.65 + 0.35 * Math.sin(t * 1.3 + p.x * 0.07 + p.y * 0.05);
+      const haloR = p.size * 4.5;
+      const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, haloR);
+      halo.addColorStop(0, `rgba(244, 236, 216, ${0.4 * tw})`);
+      halo.addColorStop(1, 'rgba(244, 236, 216, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, haloR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = `rgba(255, 252, 240, ${0.7 + 0.3 * tw})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Phrase label on the right of the cell
+    const fontSize = Math.max(12, Math.min(18, cellH * 0.18));
+    ctx.font = `italic ${fontSize}px 'Cormorant Garamond', Georgia, serif`;
+    ctx.fillStyle = 'rgba(244, 236, 216, 0.78)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const labelX = cellX + drawW * 1.1;
+    const labelMaxW = cellW - (labelX - cellX) - 4;
+    // For wrapping with middle baseline, compute lines first then center vertically
+    const words = c.phrase.split(' ');
+    let line = '';
+    const lines = [];
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > labelMaxW && line) {
+        lines.push(line); line = w;
+      } else line = test;
+    }
+    if (line) lines.push(line);
+    const totalH = lines.length * (fontSize * 1.15);
+    let ly = cy - totalH / 2 + (fontSize * 1.15) / 2;
+    for (const ln of lines) {
+      ctx.fillText(ln, labelX, ly);
+      ly += fontSize * 1.15;
+    }
+  }
+  ctx.restore();
+}
+
+let lastT = 0;
+function render(t) {
+  const time = t / 1000;
+  lastT = t;
+
+  ctx.fillStyle = CANVAS_BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // Atmospheric wash
+  const grad = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.45, Math.max(W, H));
+  grad.addColorStop(0, 'rgba(22, 28, 56, 0.45)');
+  grad.addColorStop(0.6, 'rgba(8, 10, 24, 0.2)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  drawBackgroundStars(time);
+
+  if (state === 'playing' || state === 'naming') {
+    drawSky(time);
+  } else if (state === 'between') {
+    drawBetween(time);
+  } else if (state === 'ending') {
+    drawEnding(time);
+  }
+
+  requestAnimationFrame(render);
+}
+
+resize();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
