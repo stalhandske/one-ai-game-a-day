@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Foley</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #d9c8a4;
+    --paper-dim: #9a886a;
+    --ink: #2a1f15;
+    --sepia: #c4a875;
+    --dark: #1a120a;
+    --darker: #08050a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%; width: 100%;
+    overflow: hidden;
+    background: var(--darker);
+    color: var(--paper);
+    font-family: 'IM Fell English', Georgia, serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #film-wrap {
+    flex: 1;
+    background: #06040a;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 6px double rgba(196, 168, 117, 0.35);
+  }
+  #film {
+    width: 100%; height: 100%;
+    display: block;
+  }
+  #vignette {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.78) 100%);
+  }
+  #grain {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.9  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    animation: grain 0.5s steps(3) infinite;
+  }
+  @keyframes grain {
+    0%   { transform: translate(0,0); }
+    33%  { transform: translate(-3px,2px); }
+    66%  { transform: translate(2px,-2px); }
+    100% { transform: translate(-1px,1px); }
+  }
+  #scratch {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    mix-blend-mode: screen;
+  }
+
+  #tray {
+    height: 38vh;
+    min-height: 210px;
+    max-height: 320px;
+    background: linear-gradient(180deg, #1a120a 0%, #050308 100%);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 10px;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+    position: relative;
+  }
+  .prop {
+    background: rgba(217, 200, 164, 0.04);
+    border: 1.5px solid rgba(217, 200, 164, 0.22);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    color: var(--paper);
+    user-select: none;
+    transition: transform 0.08s ease-out, background 0.18s, border-color 0.18s;
+    position: relative;
+    overflow: hidden;
+    padding: 8px;
+    font-family: inherit;
+  }
+  .prop:active, .prop.tapped {
+    background: rgba(217, 200, 164, 0.16);
+    transform: scale(0.97);
+  }
+  .prop.hit {
+    border-color: var(--sepia);
+    background: rgba(196, 168, 117, 0.22);
+    box-shadow: inset 0 0 18px rgba(196, 168, 117, 0.35);
+  }
+  .prop.miss {
+    border-color: #6a3030;
+    background: rgba(106, 48, 48, 0.18);
+  }
+  .prop-sketch {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 0.4rem;
+    opacity: 0.85;
+    color: var(--paper);
+  }
+  .prop-name {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.95rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--paper);
+    opacity: 0.88;
+  }
+  .prop-sub {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 0.65rem;
+    opacity: 0.38;
+    margin-top: 0.3rem;
+    letter-spacing: 0.04em;
+  }
+
+  .feedback {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--sepia);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .feedback.show {
+    animation: pop 0.7s ease-out forwards;
+  }
+  @keyframes pop {
+    0%   { opacity: 0; transform: translateY(0); }
+    20%  { opacity: 1; transform: translateY(-3px); }
+    100% { opacity: 0; transform: translateY(-14px); }
+  }
+
+  /* title and end screens */
+  #title, #end {
+    position: fixed;
+    inset: 0;
+    background: var(--darker);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+  }
+  #end { display: none; }
+
+  .title-frame {
+    border: 1.5px solid rgba(217, 200, 164, 0.3);
+    padding: 2.2rem 2.4rem 2rem;
+    max-width: 360px;
+    width: 100%;
+    background:
+      linear-gradient(180deg, rgba(217, 200, 164, 0.025), rgba(0,0,0,0));
+  }
+  .title-mark {
+    font-family: 'IM Fell English', serif;
+    font-size: 3.4rem;
+    letter-spacing: 0.42em;
+    color: var(--paper);
+    margin: 0 0 0.4rem 0.42em;
+    text-shadow: 1px 2px 0 var(--darker), 0 0 18px rgba(196, 168, 117, 0.3);
+  }
+  .title-rule {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--paper-dim), transparent);
+    margin: 0.4rem auto 1.3rem;
+    width: 60%;
+  }
+  .title-sub {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--paper);
+    opacity: 0.75;
+    line-height: 1.5;
+    margin-bottom: 2rem;
+  }
+  .start-btn {
+    font-family: 'Special Elite', monospace;
+    background: transparent;
+    color: var(--paper);
+    border: 1.5px solid var(--paper);
+    padding: 0.75rem 2.4rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.32em;
+    cursor: pointer;
+    text-transform: uppercase;
+    margin-bottom: 1.4rem;
+  }
+  .start-btn:active { background: var(--paper); color: var(--darker); }
+  .instructions {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 0.82rem;
+    opacity: 0.55;
+    line-height: 1.6;
+    max-width: 280px;
+    margin: 0 auto;
+  }
+
+  .end-card {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 1.35rem;
+    margin-bottom: 1.2rem;
+    max-width: 340px;
+    line-height: 1.55;
+  }
+  .end-score {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.22em;
+    opacity: 0.7;
+    margin-bottom: 2rem;
+    text-transform: uppercase;
+  }
+  .end-mark {
+    font-family: 'IM Fell English', serif;
+    font-size: 1.6rem;
+    letter-spacing: 0.4em;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+</style>
+</head>
+<body>
+  <a id="back-btn" href="../../index.html">← Games</a>
+
+  <div id="stage">
+    <div id="film-wrap">
+      <canvas id="film"></canvas>
+      <canvas id="scratch"></canvas>
+      <div id="vignette"></div>
+      <div id="grain"></div>
+    </div>
+    <div id="tray">
+      <button class="prop" data-prop="footstep" aria-label="footsteps">
+        <svg class="prop-sketch" viewBox="0 0 50 50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M14 38 Q14 18 27 14 Q37 16 36 25 Q34 32 36 38 Z"/>
+          <line x1="20" y1="26" x2="32" y2="26" opacity="0.5"/>
+          <circle cx="30" cy="20" r="0.7" fill="currentColor"/>
+        </svg>
+        <div class="prop-name">Footsteps</div>
+        <div class="prop-sub">coconut halves</div>
+        <div class="feedback"></div>
+      </button>
+      <button class="prop" data-prop="creak" aria-label="creak">
+        <svg class="prop-sketch" viewBox="0 0 50 50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+          <rect x="13" y="7" width="24" height="38"/>
+          <rect x="16" y="12" width="18" height="10"/>
+          <rect x="16" y="26" width="18" height="10"/>
+          <circle cx="32" cy="25" r="1" fill="currentColor"/>
+        </svg>
+        <div class="prop-name">Creak</div>
+        <div class="prop-sub">stiff leather</div>
+        <div class="feedback"></div>
+      </button>
+      <button class="prop" data-prop="wind" aria-label="wind">
+        <svg class="prop-sketch" viewBox="0 0 50 50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M6 17 Q18 13 28 17 Q36 20 38 24"/>
+          <path d="M6 26 Q20 22 32 26 Q40 28 42 31"/>
+          <path d="M6 35 Q16 32 26 35"/>
+        </svg>
+        <div class="prop-name">Wind</div>
+        <div class="prop-sub">rolled paper</div>
+        <div class="feedback"></div>
+      </button>
+      <button class="prop" data-prop="tick" aria-label="tick">
+        <svg class="prop-sketch" viewBox="0 0 50 50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="25" cy="28" r="13"/>
+          <path d="M25 28 L25 19 M25 28 L31 30"/>
+          <circle cx="25" cy="28" r="1.2" fill="currentColor"/>
+          <path d="M25 14 L25 10 M21 13 L23 11 M29 13 L27 11"/>
+        </svg>
+        <div class="prop-name">Tick</div>
+        <div class="prop-sub">wood ratchet</div>
+        <div class="feedback"></div>
+      </button>
+    </div>
+  </div>
+
+  <div id="title">
+    <div class="title-frame">
+      <div class="title-mark">FOLEY</div>
+      <div class="title-rule"></div>
+      <div class="title-sub">A silent picture<br>begs for its sound</div>
+      <button class="start-btn" id="start-btn">Begin Reel</button>
+      <div class="instructions">
+        Read the picture.<br>
+        Tap the right prop when the moment calls for it.<br>
+        Every silence dims the light.
+      </div>
+    </div>
+  </div>
+
+  <div id="end">
+    <div class="title-frame">
+      <div class="end-mark">FIN</div>
+      <div class="end-card" id="end-text"></div>
+      <div class="end-score" id="end-score"></div>
+      <button class="start-btn" id="restart-btn">Run It Again</button>
+    </div>
+  </div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+/* ===== Audio (synthesized foley sounds) ===== */
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function resumeCtx() {
+  const ctx = getCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+}
+
+function playFootstep() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  // thud body
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(130, t);
+  osc.frequency.exponentialRampToValueAtTime(48, t + 0.13);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.5, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + 0.18);
+  // wood dust
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 0.07, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const n = ctx.createBufferSource();
+  n.buffer = buf;
+  const ng = ctx.createGain();
+  ng.gain.value = 0.22;
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 1100;
+  n.connect(f).connect(ng).connect(ctx.destination);
+  n.start(t);
+}
+
+function playCreak() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(72, t);
+  osc.frequency.linearRampToValueAtTime(165, t + 0.7);
+  osc.frequency.linearRampToValueAtTime(115, t + 0.95);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.001, t);
+  g.gain.linearRampToValueAtTime(0.16, t + 0.15);
+  g.gain.linearRampToValueAtTime(0.13, t + 0.7);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 1.05);
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = 420;
+  f.Q.value = 5.5;
+  // gentle vibrato for the "creaking" quality
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 7;
+  const lfoG = ctx.createGain();
+  lfoG.gain.value = 8;
+  lfo.connect(lfoG).connect(osc.frequency);
+  osc.connect(f).connect(g).connect(ctx.destination);
+  osc.start(t);
+  lfo.start(t);
+  osc.stop(t + 1.1);
+  lfo.stop(t + 1.1);
+}
+
+function playWind() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  const dur = 1.6;
+  const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const n = ctx.createBufferSource();
+  n.buffer = buf;
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.setValueAtTime(420, t);
+  f.frequency.linearRampToValueAtTime(900, t + 0.6);
+  f.frequency.linearRampToValueAtTime(320, t + dur);
+  f.Q.value = 1.4;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.001, t);
+  g.gain.linearRampToValueAtTime(0.22, t + 0.4);
+  g.gain.linearRampToValueAtTime(0.12, t + 1.0);
+  g.gain.linearRampToValueAtTime(0.001, t + dur);
+  n.connect(f).connect(g).connect(ctx.destination);
+  n.start(t);
+}
+
+function playTick() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  function clk(offset, freq, gain) {
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t + offset);
+    g.gain.linearRampToValueAtTime(gain, t + offset + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.05);
+    o.connect(g).connect(ctx.destination);
+    o.start(t + offset);
+    o.stop(t + offset + 0.06);
+  }
+  clk(0, 2400, 0.25);
+  clk(0.35, 1900, 0.18);
+}
+
+const PLAY = { footstep: playFootstep, creak: playCreak, wind: playWind, tick: playTick };
+
+/* ===== Film engine ===== */
+const filmCanvas = document.getElementById('film');
+const cctx = filmCanvas.getContext('2d');
+const scratchCanvas = document.getElementById('scratch');
+const sctx = scratchCanvas.getContext('2d');
+let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+function resizeCanvases() {
+  const wrap = document.getElementById('film-wrap');
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  [filmCanvas, scratchCanvas].forEach(c => {
+    c.width = w * DPR;
+    c.height = h * DPR;
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+    c.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+  });
+}
+window.addEventListener('resize', resizeCanvases);
+
+/* Story timings */
+const FILM_LEN = 52;
+const WINDOW = 0.95;
+
+const CUES = [
+  { t: 5.0,  prop: 'footstep' }, // figure A walks in
+  { t: 6.9,  prop: 'footstep' }, // still walking
+  { t: 10.5, prop: 'wind' },     // wind at window
+  { t: 14.7, prop: 'footstep' }, // walking to clock
+  { t: 17.5, prop: 'tick' },     // clock ticks loudly
+  { t: 22.0, prop: 'wind' },     // wind returns
+  { t: 27.6, prop: 'footstep' }, // walking to door
+  { t: 34.0, prop: 'creak' },    // door opens
+  { t: 39.0, prop: 'footstep' }, // figure B steps in
+  { t: 41.0, prop: 'footstep' }, // figure B settles
+  { t: 46.0, prop: 'creak' },    // door closes
+];
+
+let cueState = CUES.map(() => 'pending');
+let mode = 'title';
+let startTime = 0;
+let elapsed = 0;
+let life = 1.0; // 1.0 vivid -> 0.32 floor
+
+/* === Scene animation helpers === */
+function lerp(a, b, t) { return a + (b - a) * t; }
+function ease(t) {
+  if (t <= 0) return 0; if (t >= 1) return 1;
+  return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+}
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+function figureAPos(t) {
+  if (t < 3) return { x: -0.12, walking: false, facing: 1, look: null };
+  if (t < 7) {
+    const u = ease((t - 3) / 4);
+    return { x: lerp(-0.15, 0.34, u), walking: true, facing: 1, look: null };
+  }
+  if (t < 13) return { x: 0.34, walking: false, facing: 1, look: 'window' };
+  if (t < 16) {
+    const u = ease((t - 13) / 3);
+    return { x: lerp(0.34, 0.5, u), walking: true, facing: 1, look: null };
+  }
+  if (t < 26) return { x: 0.5, walking: false, facing: 1, look: 'clock' };
+  if (t < 32) {
+    const u = ease((t - 26) / 6);
+    const walking = (t > 26.4 && t < 31.6);
+    return { x: lerp(0.5, 0.7, u), walking, facing: 1, look: null };
+  }
+  if (t < 36) return { x: 0.7, walking: false, facing: 1, look: 'door' };
+  if (t < 46) return { x: 0.66, walking: false, facing: 1, look: 'figure2' };
+  return { x: 0.66, walking: false, facing: 1, look: null };
+}
+
+function figureBPos(t) {
+  if (t < 34.5) return null;
+  if (t < 36.5) return { x: 0.94, walking: false, facing: -1, opacity: 0.45 };
+  if (t < 42) {
+    const u = ease((t - 36.5) / 5.5);
+    return { x: lerp(0.94, 0.78, u), walking: true, facing: -1, opacity: 1 };
+  }
+  return { x: 0.78, walking: false, facing: -1, opacity: 1 };
+}
+
+function doorAngle(t) {
+  if (t < 32.5) return 0;
+  if (t < 35.5) return ease((t - 32.5) / 3) * 0.85;
+  if (t < 44.5) return 0.85;
+  if (t < 47) return 0.85 * (1 - ease((t - 44.5) / 2.5));
+  return 0;
+}
+
+function windIntensity(t) {
+  const w1 = Math.max(0, 1 - Math.abs(t - 10.5) / 3.5);
+  const w2 = Math.max(0, 1 - Math.abs(t - 22.0) / 3.5);
+  return clamp(w1 + w2, 0, 1);
+}
+
+function clockFlash(t) {
+  const targets = [17.5];
+  let v = 0;
+  for (const tt of targets) {
+    const dt = t - tt;
+    if (dt >= 0 && dt < 0.5) v = Math.max(v, 1 - dt / 0.5);
+  }
+  return v;
+}
+
+function clockHandAngle(t) {
+  // Static at noon until t=14, then small twitch at each "tick" event
+  let extra = 0;
+  if (t >= 14) extra += (Math.PI * 2 / 60) * 1; // shift after first observation
+  if (t >= 17.45) extra += (Math.PI * 2 / 60) * 1;
+  return -Math.PI / 2 + extra;
+}
+
+/* === Drawing the set === */
+function drawSet(ctx, w, h, t) {
+  const floor = h * 0.78;
+  const ceil  = h * 0.16;
+  const left  = w * 0.05;
+  const right = w * 0.95;
+  const setW  = right - left;
+  const setH  = floor - ceil;
+  const wi = windIntensity(t);
+
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // wall outline
+  ctx.strokeStyle = 'rgba(196, 168, 117, 0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(left, ceil, setW, setH);
+
+  // wallpaper marks (very faint vertical lines)
+  ctx.strokeStyle = 'rgba(196, 168, 117, 0.07)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 8; i++) {
+    const x = left + (setW / 8) * i;
+    ctx.beginPath();
+    ctx.moveTo(x, ceil + 2);
+    ctx.lineTo(x, floor - 2);
+    ctx.stroke();
+  }
+
+  // floor line
+  ctx.strokeStyle = 'rgba(196, 168, 117, 0.7)';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(0, floor);
+  ctx.lineTo(w, floor);
+  ctx.stroke();
+
+  // floorboards extending forward (forced perspective)
+  ctx.strokeStyle = 'rgba(196, 168, 117, 0.18)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const x = left + (setW / 6) * i + setW / 12;
+    ctx.beginPath();
+    ctx.moveTo(x, floor);
+    const cx = (w / 2);
+    ctx.lineTo(x + (x - cx) * 1.2, h + 8);
+    ctx.stroke();
+  }
+
+  /* --- Window (back wall, left half) --- */
+  const winW = setW * 0.22;
+  const winH = setH * 0.5;
+  const winX = left + setW * 0.18;
+  const winY = ceil + setH * 0.18;
+
+  // sky behind the window
+  ctx.fillStyle = 'rgba(28, 22, 36, 0.92)';
+  ctx.fillRect(winX, winY, winW, winH);
+
+  // moon
+  ctx.fillStyle = 'rgba(217, 200, 164, 0.75)';
+  ctx.beginPath();
+  ctx.arc(winX + winW * 0.72, winY + winH * 0.28, Math.min(winW, winH) * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+  // moon faint glow
+  const moonGrad = ctx.createRadialGradient(
+    winX + winW * 0.72, winY + winH * 0.28, 1,
+    winX + winW * 0.72, winY + winH * 0.28, Math.min(winW, winH) * 0.45
+  );
+  moonGrad.addColorStop(0, 'rgba(217, 200, 164, 0.18)');
+  moonGrad.addColorStop(1, 'rgba(217, 200, 164, 0)');
+  ctx.fillStyle = moonGrad;
+  ctx.fillRect(winX, winY, winW, winH);
+
+  // a few faint stars
+  ctx.fillStyle = 'rgba(217, 200, 164, 0.55)';
+  const stars = [[0.15,0.2],[0.32,0.55],[0.55,0.16],[0.85,0.65],[0.18,0.78],[0.46,0.85]];
+  for (const [sx, sy] of stars) {
+    ctx.fillRect(winX + sx * winW, winY + sy * winH, 1.2, 1.2);
+  }
+
+  // leaves blowing past window (only when windy)
+  if (wi > 0.05) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(winX + 0.5, winY + 0.5, winW - 1, winH - 1);
+    ctx.clip();
+    for (let i = 0; i < 9; i++) {
+      const seed = i * 0.81;
+      const speed = 110 + (i % 3) * 40;
+      const phase = (t * speed + i * 80) % (winW + 60);
+      const x = winX + winW - phase + 30;
+      const y = winY + winH * (0.2 + 0.6 * ((Math.sin(t * 1.4 + i * 1.7) + 1) / 2));
+      const r = 2 + (i % 3);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(t * 5 + i);
+      ctx.fillStyle = `rgba(180, 150, 90, ${0.55 * wi})`;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // window frame and panes
+  ctx.strokeStyle = 'rgba(196, 168, 117, 0.78)';
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(winX, winY, winW, winH);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(winX + winW / 2, winY);
+  ctx.lineTo(winX + winW / 2, winY + winH);
+  ctx.moveTo(winX, winY + winH / 2);
+  ctx.lineTo(winX + winW, winY + winH / 2);
+  ctx.stroke();
+
+  // curtain sway
+  const sway = Math.sin(t * 3.4) * 7 * wi;
+  ctx.strokeStyle = 'rgba(217, 200, 164, 0.5)';
+  ctx.lineWidth = 1.4;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    const baseX = side < 0 ? winX - 4 : winX + winW + 4;
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10;
+      const x = baseX + side * (1 - u) * 2 + sway * Math.sin(u * Math.PI) * -side * 0.6;
+      const y = winY - 5 + u * (winH + 10);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  /* --- Clock --- */
+  const clockX = left + setW * 0.5;
+  const clockY = ceil + setH * 0.2;
+  const clockR = Math.min(setW, setH) * 0.06;
+  const cf = clockFlash(t);
+
+  if (cf > 0) {
+    const grad = ctx.createRadialGradient(clockX, clockY, 0, clockX, clockY, clockR * 3.5);
+    grad.addColorStop(0, `rgba(196, 168, 117, ${0.55 * cf})`);
+    grad.addColorStop(1, 'rgba(196, 168, 117, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(clockX, clockY, clockR * 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = `rgba(217, 200, 164, ${0.75 + cf * 0.25})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(clockX, clockY, clockR, 0, Math.PI * 2);
+  ctx.stroke();
+  // tick marks
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+    const r1 = clockR * 0.78;
+    const r2 = clockR * 0.93;
+    ctx.beginPath();
+    ctx.moveTo(clockX + Math.cos(a) * r1, clockY + Math.sin(a) * r1);
+    ctx.lineTo(clockX + Math.cos(a) * r2, clockY + Math.sin(a) * r2);
+    ctx.stroke();
+  }
+  // minute hand (static, pointing up)
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(clockX, clockY);
+  ctx.lineTo(clockX, clockY - clockR * 0.5);
+  ctx.stroke();
+  // second hand
+  const ha = clockHandAngle(t);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(clockX, clockY);
+  ctx.lineTo(clockX + Math.cos(ha) * clockR * 0.85, clockY + Math.sin(ha) * clockR * 0.85);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(217, 200, 164, 0.9)';
+  ctx.beginPath();
+  ctx.arc(clockX, clockY, 1.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* --- Door (right side, on back wall) --- */
+  const doorW = setW * 0.13;
+  const doorH = setH * 0.72;
+  const doorX = left + setW * 0.78;
+  const doorY = floor - doorH;
+  const da = doorAngle(t);
+
+  // doorway behind (darkness outside)
+  ctx.fillStyle = 'rgba(10, 8, 4, 0.95)';
+  ctx.fillRect(doorX, doorY, doorW, doorH);
+  // door frame
+  ctx.strokeStyle = 'rgba(217, 200, 164, 0.72)';
+  ctx.lineWidth = 2.2;
+  ctx.strokeRect(doorX, doorY, doorW, doorH);
+
+  // door swings outward (toward viewer) around left hinge
+  ctx.save();
+  ctx.translate(doorX, doorY);
+  const w0 = doorW * Math.cos(da);
+  const depth = doorW * Math.sin(da);
+  // door body
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w0, -depth * 0.15);
+  ctx.lineTo(w0, doorH - depth * 0.15);
+  ctx.lineTo(0, doorH);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(58, 42, 24, ${0.95 - da * 0.1})`;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(217, 200, 164, 0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // door panels
+  ctx.lineWidth = 1.1;
+  for (let p = 0; p < 2; p++) {
+    const py = doorH * (0.18 + p * 0.42);
+    const ph = doorH * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(w0 * 0.18, py - depth * 0.15 * 0.18);
+    ctx.lineTo(w0 * 0.82, py - depth * 0.15 * 0.82);
+    ctx.lineTo(w0 * 0.82, py + ph - depth * 0.15 * 0.82);
+    ctx.lineTo(w0 * 0.18, py + ph - depth * 0.15 * 0.18);
+    ctx.closePath();
+    ctx.stroke();
+  }
+  // doorknob (only visible when nearly closed)
+  if (da < 0.3) {
+    ctx.beginPath();
+    ctx.arc(w0 * 0.85, doorH * 0.52 - depth * 0.15 * 0.85, 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(217, 200, 164, 0.9)';
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawFigure(ctx, x, y, info, t, scale, alpha = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale * (info.facing || 1), scale);
+  ctx.fillStyle = `rgba(8, 6, 3, ${alpha})`;
+  ctx.strokeStyle = `rgba(8, 6, 3, ${alpha})`;
+  ctx.lineCap = 'round';
+
+  // head
+  ctx.beginPath();
+  ctx.arc(0, -58, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // hat brim
+  ctx.beginPath();
+  ctx.moveTo(-11, -64);
+  ctx.lineTo(11, -64);
+  ctx.lineTo(8, -67);
+  ctx.lineTo(-8, -67);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillRect(-6, -71, 12, 5);
+
+  // body trapezoid (long coat)
+  ctx.beginPath();
+  ctx.moveTo(-9, -49);
+  ctx.lineTo(-13, -16);
+  ctx.lineTo(13, -16);
+  ctx.lineTo(9, -49);
+  ctx.closePath();
+  ctx.fill();
+
+  // arms (sway when walking)
+  const swing = info.walking ? Math.sin(t * 9) * 5 : 0;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-9, -44);
+  ctx.lineTo(-13 + swing * 0.35, -22);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(9, -44);
+  ctx.lineTo(13 - swing * 0.35, -22);
+  ctx.stroke();
+
+  // legs
+  const legSwing = info.walking ? Math.sin(t * 9) * 6 : 0;
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(-4, -16);
+  ctx.lineTo(-4 + legSwing, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(4, -16);
+  ctx.lineTo(4 - legSwing, 0);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* Title cards drawn on canvas for the intro/outro */
+function drawIntroOutro(ctx, w, h, t) {
+  if (t < 2.2) {
+    const u = t < 0.5 ? t / 0.5 : (t > 1.6 ? Math.max(0, (2.2 - t) / 0.6) : 1);
+    ctx.save();
+    ctx.fillStyle = `rgba(8, 5, 3, ${u})`;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = u;
+    ctx.fillStyle = '#d9c8a4';
+    ctx.font = `italic ${Math.min(w, h) * 0.058}px 'IM Fell English', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('— an evening at home —', w / 2, h / 2);
+    ctx.restore();
+  }
+  if (t > FILM_LEN - 2.5) {
+    const u = Math.min(1, (t - (FILM_LEN - 2.5)) / 2.5);
+    ctx.save();
+    ctx.fillStyle = `rgba(8, 5, 3, ${u})`;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = u;
+    ctx.fillStyle = '#d9c8a4';
+    ctx.font = `italic ${Math.min(w, h) * 0.07}px 'IM Fell English', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('— fin —', w / 2, h / 2);
+    ctx.restore();
+  }
+}
+
+/* Periodic scratch flecks on the scratch layer */
+let lastScratchT = -1;
+function drawScratches(t) {
+  // Update at ~12 fps
+  if (Math.floor(t * 12) === Math.floor(lastScratchT * 12)) return;
+  lastScratchT = t;
+  const w = scratchCanvas.clientWidth;
+  const h = scratchCanvas.clientHeight;
+  sctx.clearRect(0, 0, w, h);
+  sctx.strokeStyle = 'rgba(217, 200, 164, 0.5)';
+  sctx.lineWidth = 1;
+  const count = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * w;
+    sctx.beginPath();
+    sctx.moveTo(x, 0);
+    sctx.lineTo(x + (Math.random() - 0.5) * 6, h);
+    sctx.globalAlpha = 0.2 + Math.random() * 0.4;
+    sctx.stroke();
+  }
+  // dust specks
+  for (let i = 0; i < 12; i++) {
+    sctx.fillStyle = `rgba(217, 200, 164, ${0.3 + Math.random() * 0.4})`;
+    sctx.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+  }
+  sctx.globalAlpha = 1;
+}
+
+/* === Frame === */
+function drawFilm(t) {
+  const w = filmCanvas.clientWidth;
+  const h = filmCanvas.clientHeight;
+
+  // base tint shifts with life — sepia when alive, cold/blue/grey when dying
+  const r = lerp(36, 14, 1 - life);
+  const g = lerp(28, 14, 1 - life);
+  const b = lerp(20, 22, 1 - life);
+  cctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  cctx.fillRect(0, 0, w, h);
+
+  cctx.save();
+  cctx.globalAlpha = lerp(0.42, 1, life);
+
+  drawSet(cctx, w, h, t);
+
+  const floor = h * 0.78;
+  const figureScale = Math.min(w, h) * 0.0055;
+
+  const fa = figureAPos(t);
+  const fb = figureBPos(t);
+
+  // draw figure A (in room)
+  if (fa.x > -0.18 && fa.x < 1.18) {
+    drawFigure(cctx, fa.x * w, floor, fa, t, figureScale, 1);
+  }
+  // draw figure B (entering through door)
+  if (fb) {
+    drawFigure(cctx, fb.x * w, floor, fb, t, figureScale, fb.opacity);
+  }
+
+  cctx.restore();
+
+  drawIntroOutro(cctx, w, h, t);
+  drawScratches(t);
+}
+
+/* === Cues / gameplay === */
+function tapProp(propId) {
+  resumeCtx();
+  PLAY[propId]();
+
+  const btn = document.querySelector(`[data-prop="${propId}"]`);
+  if (btn) {
+    btn.classList.remove('hit', 'miss');
+    btn.classList.add('tapped');
+    setTimeout(() => btn.classList.remove('tapped'), 110);
+  }
+  if (mode !== 'playing') return;
+
+  const t = elapsed;
+  let matchedIdx = -1;
+  let bestDt = Infinity;
+  for (let i = 0; i < CUES.length; i++) {
+    if (cueState[i] !== 'pending') continue;
+    const dt = Math.abs(t - CUES[i].t);
+    if (dt < WINDOW && CUES[i].prop === propId && dt < bestDt) {
+      matchedIdx = i;
+      bestDt = dt;
+    }
+  }
+
+  if (matchedIdx >= 0) {
+    cueState[matchedIdx] = 'hit';
+    life = Math.min(1, life + 0.02);
+    if (btn) {
+      btn.classList.add('hit');
+      showFeedback(btn, 'hit', '·');
+      setTimeout(() => btn.classList.remove('hit'), 280);
+    }
+  } else {
+    life = Math.max(0.32, life - 0.05);
+    if (btn) {
+      btn.classList.add('miss');
+      showFeedback(btn, 'miss', '—');
+      setTimeout(() => btn.classList.remove('miss'), 280);
+    }
+  }
+}
+
+function showFeedback(btn, type, text) {
+  const f = btn.querySelector('.feedback');
+  if (!f) return;
+  f.textContent = text;
+  f.style.color = type === 'hit' ? 'var(--sepia)' : '#a86060';
+  f.classList.remove('show');
+  void f.offsetWidth;
+  f.classList.add('show');
+}
+
+function tickCues() {
+  const t = elapsed;
+  for (let i = 0; i < CUES.length; i++) {
+    if (cueState[i] === 'pending' && t > CUES[i].t + WINDOW) {
+      cueState[i] = 'miss';
+      life = Math.max(0.32, life - 0.07);
+      const btn = document.querySelector(`[data-prop="${CUES[i].prop}"]`);
+      if (btn) {
+        btn.classList.add('miss');
+        showFeedback(btn, 'miss', '—');
+        setTimeout(() => btn.classList.remove('miss'), 400);
+      }
+    }
+  }
+}
+
+/* === Loop === */
+function frame() {
+  if (mode === 'playing') {
+    elapsed = performance.now() / 1000 - startTime;
+    tickCues();
+    drawFilm(elapsed);
+    if (elapsed > FILM_LEN) {
+      mode = 'end';
+      showEnd();
+    }
+  } else if (mode === 'title') {
+    drawFilm(0);
+  }
+  requestAnimationFrame(frame);
+}
+
+function showEnd() {
+  const hits = cueState.filter(s => s === 'hit').length;
+  const total = CUES.length;
+  const pct = hits / total;
+
+  const endText = document.getElementById('end-text');
+  const endScore = document.getElementById('end-score');
+
+  let line;
+  if (pct >= 0.9)        line = '"They sat together, and you heard the room around them."<br>The picture lived. The audience leaves with it.';
+  else if (pct >= 0.7)   line = '"A good evening at the cinema."<br>A few in the audience leaned forward. Most didn\'t look up.';
+  else if (pct >= 0.45)  line = '"Something happened on the screen, surely."<br>Polite clapping. They will not speak of this one.';
+  else if (pct >= 0.2)   line = '"What were we watching?"<br>The lights came up too soon. No one stayed for coffee.';
+  else                   line = '"Was there sound at all?"<br>The picture flickered into silence. They left without a word.';
+
+  endText.innerHTML = line;
+  endScore.textContent = `${hits} of ${total} sounds placed`;
+
+  document.getElementById('end').style.display = 'flex';
+}
+
+function startGame() {
+  cueState = CUES.map(() => 'pending');
+  life = 1.0;
+  startTime = performance.now() / 1000;
+  elapsed = 0;
+  mode = 'playing';
+  // reset prop visual state
+  document.querySelectorAll('.prop').forEach(p => {
+    p.classList.remove('hit', 'miss', 'tapped');
+  });
+}
+
+/* === Wire up === */
+document.querySelectorAll('.prop').forEach(btn => {
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    tapProp(btn.dataset.prop);
+  });
+  // prevent default-click sound on iOS as well
+  btn.addEventListener('click', e => e.preventDefault());
+});
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('title').style.display = 'none';
+  resumeCtx();
+  startGame();
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  document.getElementById('end').style.display = 'none';
+  resumeCtx();
+  startGame();
+});
+
+resizeCanvases();
+window.addEventListener('resize', resizeCanvases);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvases, 200));
+
+mode = 'title';
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
