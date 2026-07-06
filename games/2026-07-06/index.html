@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Zenith</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@300;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #06060c;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    color: #e8e4de;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: 0.02em;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #game {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, rgba(30, 22, 66, 0.55), rgba(6, 6, 12, 0.98) 70%);
+    color: #f4efe6;
+    transition: opacity 0.6s ease;
+  }
+  .screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .title-word {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(4.5rem, 22vw, 8rem);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+    color: #f2ecdd;
+    text-shadow: 0 0 40px rgba(180, 170, 255, 0.25);
+  }
+  .tagline {
+    margin-top: 1.2rem;
+    max-width: 22rem;
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.1rem;
+    line-height: 1.4;
+    color: #c3bfb0;
+    opacity: 0.85;
+  }
+  .instructions {
+    margin-top: 2.2rem;
+    max-width: 22rem;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    letter-spacing: 0.04em;
+    color: #a8a396;
+    text-transform: uppercase;
+  }
+  .instructions .divider {
+    margin: 0.35rem 0;
+    color: #4d4a44;
+    letter-spacing: 0.4em;
+  }
+  .cta {
+    margin-top: 2.5rem;
+    padding: 0.8rem 1.6rem;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #f2ecdd;
+    background: transparent;
+    border: 1px solid rgba(242, 236, 221, 0.35);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    animation: pulse 2.6s ease-in-out infinite;
+  }
+  .cta:hover, .cta:active {
+    background: rgba(242, 236, 221, 0.08);
+    border-color: rgba(242, 236, 221, 0.7);
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 rgba(242, 236, 221, 0); }
+    50% { box-shadow: 0 0 30px rgba(200, 180, 255, 0.22); }
+  }
+
+  #hud {
+    position: fixed;
+    top: 0.9rem;
+    right: 0.9rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+    text-align: right;
+    pointer-events: none;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    color: #ece7d6;
+    text-shadow: 0 0 8px rgba(0,0,0,0.85);
+  }
+  #hud .score {
+    font-size: 1.1rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  #hud .streak {
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+  #hud .time {
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0.65;
+  }
+  #hud .lives {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.2rem;
+  }
+  #hud .life {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f2ecdd;
+    box-shadow: 0 0 6px rgba(230, 210, 255, 0.6);
+    transition: all 0.35s ease;
+  }
+  #hud .life.spent {
+    background: transparent;
+    border: 1px solid rgba(242, 236, 221, 0.25);
+    box-shadow: none;
+  }
+  #hud.hidden { display: none; }
+
+  .end-title {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(2.2rem, 9vw, 3.4rem);
+    line-height: 1.1;
+    color: #f2ecdd;
+    margin-bottom: 0.4rem;
+  }
+  .end-sub {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: #a8a396;
+    margin-bottom: 2.2rem;
+    max-width: 22rem;
+  }
+  .end-numbers {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.6rem;
+  }
+  .end-numbers .cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+  .end-numbers .label {
+    font-size: 0.65rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #7a7568;
+  }
+  .end-numbers .value {
+    font-family: 'Instrument Serif', serif;
+    font-size: 2.2rem;
+    color: #f2ecdd;
+  }
+  .end-numbers .value .plus {
+    font-size: 1rem;
+    vertical-align: super;
+    opacity: 0.6;
+  }
+  #dawnCanvas {
+    display: block;
+    width: 260px;
+    height: 130px;
+    margin-bottom: 1.5rem;
+    border-radius: 12px;
+  }
+  .dawn-caption {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: #b8b3a4;
+    max-width: 22rem;
+    margin-bottom: 1.6rem;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+  <a id="back-btn" href="../../index.html">← Games</a>
+
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="score" id="scoreEl">0</div>
+    <div class="streak" id="streakEl">×1</div>
+    <div class="time" id="timeEl">1:30</div>
+    <div class="lives" id="livesEl">
+      <div class="life"></div><div class="life"></div><div class="life"></div>
+    </div>
+  </div>
+
+  <div id="titleScreen" class="screen">
+    <div class="title-word">Zenith</div>
+    <div class="tagline">You are the storm.<br>Choose what is tallest.<br>Crown it before the sky moves on.</div>
+    <div class="instructions">
+      Drag along the cloud<span class="divider">·</span>
+      Release to strike<span class="divider">·</span>
+      Kites, drones, and birds are decoys<span class="divider">·</span>
+      They are never rooted
+    </div>
+    <button class="cta" id="startBtn">Begin the storm</button>
+  </div>
+
+  <div id="endScreen" class="screen hidden">
+    <div class="end-title" id="endTitleEl">The storm passed</div>
+    <div class="end-sub" id="endSubEl">The sky is empty of intention.</div>
+    <div class="end-numbers">
+      <div class="cell"><div class="label">Score</div><div class="value" id="finalScore">0</div></div>
+      <div class="cell"><div class="label">Longest Reach</div><div class="value" id="finalStreak">0</div></div>
+      <div class="cell"><div class="label">Best</div><div class="value" id="finalBest">0</div></div>
+    </div>
+    <canvas id="dawnCanvas" width="520" height="260"></canvas>
+    <div class="dawn-caption" id="dawnCaptionEl">The tallest thing you did not crown.</div>
+    <button class="cta" id="restartBtn">Storm again</button>
+  </div>
+
+<script>
+'use strict';
+
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ──────────────────────────────────────────────────────────
+//  ZENITH — the storm chooses a tallest thing
+// ──────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const scoreEl = document.getElementById('scoreEl');
+const streakEl = document.getElementById('streakEl');
+const timeEl = document.getElementById('timeEl');
+const livesEl = document.getElementById('livesEl');
+const titleScreen = document.getElementById('titleScreen');
+const endScreen = document.getElementById('endScreen');
+const startBtn = document.getElementById('startBtn');
+const restartBtn = document.getElementById('restartBtn');
+const finalScoreEl = document.getElementById('finalScore');
+const finalStreakEl = document.getElementById('finalStreak');
+const finalBestEl = document.getElementById('finalBest');
+const endTitleEl = document.getElementById('endTitleEl');
+const endSubEl = document.getElementById('endSubEl');
+const dawnCanvas = document.getElementById('dawnCanvas');
+const dawnCaptionEl = document.getElementById('dawnCaptionEl');
+
+let W = 0, H = 0, DPR = 1;
+const CLOUD_H_FRAC = 0.20;   // top portion is the storm cloud
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  checkOrientation();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ──────────────────────────────────────────────────────────
+//  Audio
+// ──────────────────────────────────────────────────────────
+
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function sfxCrown() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(780, now);
+  o.frequency.exponentialRampToValueAtTime(1180, now + 0.12);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.32, now + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(now); o.stop(now + 0.5);
+
+  // bright partial
+  const o2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  o2.type = 'triangle';
+  o2.frequency.setValueAtTime(1560, now);
+  o2.frequency.exponentialRampToValueAtTime(2340, now + 0.12);
+  g2.gain.setValueAtTime(0.0001, now);
+  g2.gain.exponentialRampToValueAtTime(0.11, now + 0.03);
+  g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+  o2.connect(g2).connect(audioCtx.destination);
+  o2.start(now); o2.stop(now + 0.45);
+}
+function sfxThunder() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const bufSize = audioCtx.sampleRate * 0.9;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) {
+    const t = i / bufSize;
+    data[i] = (Math.random() * 2 - 1) * (1 - t) * (1 - t);
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 260;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.55;
+  src.connect(filter).connect(g).connect(audioCtx.destination);
+  src.start(now);
+}
+function sfxMiss() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(220, now);
+  o.frequency.exponentialRampToValueAtTime(140, now + 0.25);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(now); o.stop(now + 0.4);
+}
+function sfxTick() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.value = 90;
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.08, now + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(now); o.stop(now + 0.22);
+}
+
+// ──────────────────────────────────────────────────────────
+//  State
+// ──────────────────────────────────────────────────────────
+
+const STATE = {
+  mode: 'title',           // 'title' | 'play' | 'end'
+  time: 0,
+  duration: 90,
+  score: 0,
+  streak: 0,
+  longestStreak: 0,
+  lives: 3,
+  scrollX: 0,
+  scrollSpeed: 42,
+  seedX: 0,
+  aiming: false,
+  cloudPulse: 0,
+  distantFlashUntil: 0,
+  lastSpawnX: 0,
+  lastFloaterAt: 0,
+  finalReveal: null,
+  crowns: [],              // {x,y,age}
+};
+
+function bestScore() {
+  try { return parseInt(localStorage.getItem('zenith-best') || '0') || 0; }
+  catch (_) { return 0; }
+}
+function setBest(v) {
+  try { localStorage.setItem('zenith-best', String(v)); } catch (_) {}
+}
+
+// ──────────────────────────────────────────────────────────
+//  World objects
+// ──────────────────────────────────────────────────────────
+
+const SIL_TYPES = ['building', 'churchspire', 'radiotower', 'crane', 'watertower', 'tree'];
+const FLOAT_TYPES = ['kite', 'bird', 'balloon', 'drone'];
+
+const silhouettes = [];   // rooted
+const floaters = [];      // decoys
+const strikes = [];       // active bolt animations
+const embers = [];        // particles from struck silhouettes
+const shakes = { amt: 0 };
+
+function seededHeight(type) {
+  // Screen-relative heights; small variance
+  const r = Math.random();
+  switch (type) {
+    case 'building':    return H * (0.18 + r * 0.16);
+    case 'churchspire': return H * (0.28 + r * 0.14);
+    case 'radiotower':  return H * (0.40 + r * 0.16);
+    case 'crane':       return H * (0.36 + r * 0.16);
+    case 'watertower':  return H * (0.22 + r * 0.09);
+    case 'tree':        return H * (0.16 + r * 0.10);
+  }
+  return H * 0.25;
+}
+function seededWidth(type) {
+  switch (type) {
+    case 'building':    return 40 + Math.random() * 60;
+    case 'churchspire': return 44 + Math.random() * 16;
+    case 'radiotower':  return 30 + Math.random() * 14;
+    case 'crane':       return 90 + Math.random() * 20;
+    case 'watertower':  return 54 + Math.random() * 20;
+    case 'tree':        return 60 + Math.random() * 30;
+  }
+  return 60;
+}
+
+function newSilhouette(worldX) {
+  const type = SIL_TYPES[Math.floor(Math.random() * SIL_TYPES.length)];
+  const h = seededHeight(type);
+  const w = seededWidth(type);
+  return {
+    type, worldX,
+    h, w,
+    seed: Math.random() * 1000,
+    id: Math.random(),
+    alive: true,
+    struckAt: 0,
+    fallAngle: 0,
+    fallRate: 0,
+  };
+}
+
+function newFloater() {
+  const type = FLOAT_TYPES[Math.floor(Math.random() * FLOAT_TYPES.length)];
+  const worldX = STATE.scrollX + W + 40 + Math.random() * 120;
+  const y = H * (0.18 + Math.random() * 0.32);
+  const drift = 5 + Math.random() * 25;   // horizontal wobble
+  return {
+    type, worldX, baseY: y,
+    y,
+    speed: (STATE.scrollSpeed * 0.6) + Math.random() * 20,
+    wobble: drift,
+    wobblePhase: Math.random() * Math.PI * 2,
+    id: Math.random(),
+    alive: true,
+  };
+}
+
+function apexScreenY(s) {
+  // Returns the top y-coordinate on screen where the strike must land
+  let extra = 0;
+  if (s.type === 'building') extra = 14;    // antenna
+  else if (s.type === 'churchspire') extra = 10; // cross
+  return H - s.h - extra;
+}
+
+function silhouetteScreenX(s) {
+  return s.worldX - STATE.scrollX;
+}
+function floaterScreenX(f) {
+  const wobble = Math.sin((performance.now() * 0.001) * 0.8 + f.wobblePhase) * f.wobble;
+  return (f.worldX - STATE.scrollX) + wobble;
+}
+function floaterScreenY(f) {
+  return f.baseY + Math.sin((performance.now() * 0.001) * 1.3 + f.wobblePhase) * 8;
+}
+
+// ──────────────────────────────────────────────────────────
+//  Drawing
+// ──────────────────────────────────────────────────────────
+
+function drawBackground(t) {
+  // vertical gradient
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0a0722');
+  g.addColorStop(0.55, '#0b0b1a');
+  g.addColorStop(1, '#08080f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // distant flash
+  if (t < STATE.distantFlashUntil) {
+    const remaining = (STATE.distantFlashUntil - t) / 220;
+    ctx.fillStyle = `rgba(180, 200, 255, ${0.14 * remaining})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // rain streaks (subtle)
+  ctx.strokeStyle = 'rgba(210, 220, 255, 0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < 50; i++) {
+    const seed = (i * 37 + Math.floor(t / 60)) % 100;
+    const x = (seed * 13 + t * 0.15) % W;
+    const y = ((seed * 91 + t * 0.9) % H);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 4, y + 14);
+  }
+  ctx.stroke();
+}
+
+function drawCloud(t) {
+  const cloudH = H * CLOUD_H_FRAC;
+  // dark violet cloud base
+  const grad = ctx.createLinearGradient(0, 0, 0, cloudH);
+  grad.addColorStop(0, 'rgba(20, 18, 40, 0.95)');
+  grad.addColorStop(1, 'rgba(14, 12, 28, 0.75)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, cloudH);
+
+  // pulsing "brewing" spots
+  const spots = 5;
+  for (let i = 0; i < spots; i++) {
+    const cx = (i + 0.5) * W / spots + Math.sin(t * 0.001 + i) * 20;
+    const cy = cloudH * (0.5 + Math.sin(t * 0.0007 + i * 0.7) * 0.2);
+    const r = cloudH * (0.55 + Math.sin(t * 0.0013 + i * 2) * 0.18);
+    const glow = 0.05 + 0.04 * Math.abs(Math.sin(t * 0.0015 + i));
+    const rad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    rad.addColorStop(0, `rgba(160, 140, 255, ${glow})`);
+    rad.addColorStop(1, 'rgba(160, 140, 255, 0)');
+    ctx.fillStyle = rad;
+    ctx.fillRect(0, 0, W, cloudH);
+  }
+
+  // wispy underbelly
+  ctx.fillStyle = 'rgba(6, 6, 12, 0.6)';
+  ctx.beginPath();
+  ctx.moveTo(0, cloudH * 0.85);
+  for (let x = 0; x <= W; x += 24) {
+    const y = cloudH * 0.85 + Math.sin(x * 0.03 + t * 0.001) * 8 + Math.sin(x * 0.08 - t * 0.002) * 4;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, 0);
+  ctx.lineTo(0, 0);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawSeed(t) {
+  if (STATE.mode !== 'play') return;
+  const cloudH = H * CLOUD_H_FRAC;
+  const x = STATE.seedX;
+  const y = cloudH * 0.72;
+  const pulse = 0.75 + Math.sin(t * 0.008) * 0.25;
+
+  // Aiming guide (soft line down)
+  if (STATE.aiming) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(220, 220, 255, 0.10)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 8]);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Glow
+  const gr = ctx.createRadialGradient(x, y, 0, x, y, 40 * pulse);
+  gr.addColorStop(0, `rgba(220, 230, 255, ${0.7 * pulse})`);
+  gr.addColorStop(0.4, `rgba(160, 140, 255, ${0.28 * pulse})`);
+  gr.addColorStop(1, 'rgba(140, 120, 255, 0)');
+  ctx.fillStyle = gr;
+  ctx.fillRect(x - 60, y - 60, 120, 120);
+
+  // Core
+  ctx.fillStyle = '#f8f4ff';
+  ctx.beginPath();
+  ctx.arc(x, y, 5 + Math.sin(t * 0.02) * 1.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSilhouette(s, t) {
+  const sx = silhouetteScreenX(s);
+  if (sx < -s.w * 2 || sx > W + s.w * 2) return;
+
+  const baseY = H;
+  ctx.save();
+  ctx.translate(sx, baseY);
+
+  // Falling animation for struck ones
+  if (!s.alive) {
+    const age = (t - s.struckAt) / 1000;
+    if (age > 2) return;
+    ctx.globalAlpha = Math.max(0, 1 - age * 0.55);
+    s.fallAngle += s.fallRate;
+    ctx.rotate(s.fallAngle);
+  }
+
+  ctx.fillStyle = '#020207';
+
+  switch (s.type) {
+    case 'building': {
+      ctx.fillRect(-s.w/2, -s.h, s.w, s.h);
+      // small antenna
+      ctx.fillRect(-1.5, -s.h - 14, 3, 14);
+      // a hint of windows (one or two dim ones)
+      ctx.fillStyle = 'rgba(255, 226, 160, 0.14)';
+      const rows = Math.max(2, Math.floor(s.h / 45));
+      const cols = Math.max(2, Math.floor(s.w / 20));
+      const cellW = s.w / cols;
+      const cellH = s.h / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          // Deterministic-ish lit windows
+          if (((r * 7 + c * 11 + Math.floor(s.seed)) % 9) < 2) {
+            ctx.fillRect(-s.w/2 + c * cellW + 3, -s.h + r * cellH + 3, cellW - 6, cellH - 6);
+          }
+        }
+      }
+      break;
+    }
+    case 'churchspire': {
+      // base building
+      const baseH = s.h * 0.55;
+      ctx.fillStyle = '#020207';
+      ctx.fillRect(-s.w/2, -baseH, s.w, baseH);
+      // spire
+      ctx.beginPath();
+      ctx.moveTo(-s.w/2 + 2, -baseH);
+      ctx.lineTo(0, -s.h + 10);
+      ctx.lineTo(s.w/2 - 2, -baseH);
+      ctx.closePath();
+      ctx.fill();
+      // cross
+      ctx.fillRect(-1, -s.h - 10, 2, 10);
+      ctx.fillRect(-5, -s.h - 6, 10, 2);
+      break;
+    }
+    case 'radiotower': {
+      // outline triangle
+      ctx.beginPath();
+      ctx.moveTo(-s.w/2, 0);
+      ctx.lineTo(0, -s.h);
+      ctx.lineTo(s.w/2, 0);
+      ctx.closePath();
+      ctx.fill();
+      // cross braces (subtle)
+      ctx.strokeStyle = 'rgba(6, 6, 14, 0.9)';
+      ctx.lineWidth = 1;
+      const steps = 8;
+      for (let i = 1; i < steps; i++) {
+        const y = -s.h * (i / steps);
+        const wi = (s.w/2) * (1 - i / steps);
+        ctx.beginPath();
+        ctx.moveTo(-wi, y);
+        ctx.lineTo(wi, y);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'crane': {
+      // Mast
+      ctx.fillRect(-4, -s.h + 8, 8, s.h - 8);
+      // Horizontal arm
+      const armLen = s.w * 0.75;
+      ctx.fillRect(-armLen * 0.28, -s.h + 4, armLen, 6);
+      // counter weight
+      ctx.fillRect(-armLen * 0.28 - 6, -s.h + 2, 8, 10);
+      // hook line
+      ctx.strokeStyle = '#020207';
+      ctx.lineWidth = 1.4;
+      const hookX = armLen * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(hookX, -s.h + 10);
+      ctx.lineTo(hookX, -s.h + 62);
+      ctx.stroke();
+      // hook
+      ctx.fillRect(hookX - 4, -s.h + 62, 8, 4);
+      break;
+    }
+    case 'watertower': {
+      const tankH = s.h * 0.35;
+      const legH = s.h * 0.65;
+      // legs
+      ctx.beginPath();
+      ctx.moveTo(-s.w/2, 0);
+      ctx.lineTo(-s.w * 0.18, -legH);
+      ctx.lineTo(-s.w * 0.12, -legH);
+      ctx.lineTo(-s.w/2 + 6, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(s.w/2, 0);
+      ctx.lineTo(s.w * 0.18, -legH);
+      ctx.lineTo(s.w * 0.12, -legH);
+      ctx.lineTo(s.w/2 - 6, 0);
+      ctx.closePath();
+      ctx.fill();
+      // cross brace
+      ctx.strokeStyle = '#020207';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-s.w * 0.35, -legH * 0.55);
+      ctx.lineTo(s.w * 0.35, -legH * 0.55);
+      ctx.stroke();
+      // tank
+      ctx.beginPath();
+      ctx.ellipse(0, -legH - tankH * 0.4, s.w * 0.5, tankH * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // top spike
+      ctx.fillRect(-1, -s.h - 4, 2, 4);
+      break;
+    }
+    case 'tree': {
+      // trunk
+      ctx.fillRect(-3.5, -s.h * 0.35, 7, s.h * 0.35);
+      // foliage as overlapping circles
+      const cy = -s.h * 0.55;
+      const r = s.w * 0.42;
+      ctx.beginPath();
+      ctx.arc(0, cy, r, 0, Math.PI * 2);
+      ctx.arc(-r * 0.6, cy + r * 0.2, r * 0.75, 0, Math.PI * 2);
+      ctx.arc(r * 0.6, cy + r * 0.2, r * 0.75, 0, Math.PI * 2);
+      ctx.arc(0, cy - r * 0.55, r * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawFloater(f, t) {
+  if (!f.alive) return;
+  const x = floaterScreenX(f);
+  const y = floaterScreenY(f);
+  if (x < -60 || x > W + 60) return;
+
+  ctx.save();
+  ctx.translate(x, y);
+  const alpha = 1;
+  ctx.fillStyle = `rgba(2, 2, 8, ${alpha})`;
+  ctx.strokeStyle = `rgba(2, 2, 8, ${alpha})`;
+
+  switch (f.type) {
+    case 'kite': {
+      const s = 12;
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.lineTo(s * 0.7, 0);
+      ctx.lineTo(0, s);
+      ctx.lineTo(-s * 0.7, 0);
+      ctx.closePath();
+      ctx.fill();
+      // tail (wavy)
+      ctx.strokeStyle = 'rgba(2, 2, 8, 0.9)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(0, s);
+      for (let i = 1; i <= 6; i++) {
+        const ty = s + i * 5;
+        const tx = Math.sin((t * 0.005) + i) * 4;
+        ctx.lineTo(tx, ty);
+      }
+      ctx.stroke();
+      // string upward
+      ctx.strokeStyle = 'rgba(180, 190, 220, 0.15)';
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.lineTo(-3, -30);
+      ctx.stroke();
+      break;
+    }
+    case 'bird': {
+      const spread = 14;
+      const flap = Math.sin(t * 0.02 + f.wobblePhase) * 3;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-spread, -flap);
+      ctx.quadraticCurveTo(-spread * 0.4, 3, 0, 0);
+      ctx.quadraticCurveTo(spread * 0.4, 3, spread, -flap);
+      ctx.stroke();
+      break;
+    }
+    case 'balloon': {
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      // basket string
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 8);
+      ctx.lineTo(0, 16);
+      ctx.stroke();
+      ctx.fillRect(-3, 16, 6, 4);
+      break;
+    }
+    case 'drone': {
+      // body
+      ctx.fillRect(-3, -3, 6, 6);
+      // arms
+      ctx.fillRect(-11, -1, 22, 2);
+      ctx.fillRect(-1, -11, 2, 22);
+      // rotor blur
+      ctx.strokeStyle = 'rgba(210, 220, 255, 0.25)';
+      ctx.lineWidth = 1;
+      const rotorR = 6;
+      [[-11, 0], [11, 0], [0, -11], [0, 11]].forEach(([rx, ry]) => {
+        ctx.beginPath();
+        ctx.arc(rx, ry, rotorR, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      // LED blink
+      const blink = (Math.sin(t * 0.02 + f.wobblePhase) + 1) * 0.5;
+      ctx.fillStyle = `rgba(255, 80, 80, ${0.4 + blink * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(0, 4, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function generateBoltPath(x0, y0, x1, y1, segments = 14, jitter = 24) {
+  const pts = [{ x: x0, y: y0 }];
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const bx = x0 + (x1 - x0) * t;
+    const by = y0 + (y1 - y0) * t;
+    const wobble = jitter * (1 - Math.abs(t - 0.5) * 1.4);
+    pts.push({
+      x: bx + (Math.random() - 0.5) * wobble,
+      y: by + (Math.random() - 0.5) * 6,
+    });
+  }
+  pts.push({ x: x1, y: y1 });
+  return pts;
+}
+
+function generateBranches(mainPath) {
+  const branches = [];
+  for (let i = 2; i < mainPath.length - 2; i++) {
+    if (Math.random() < 0.35) {
+      const p = mainPath[i];
+      const dir = (Math.random() < 0.5 ? -1 : 1);
+      const endX = p.x + dir * (20 + Math.random() * 40);
+      const endY = p.y + 20 + Math.random() * 40;
+      branches.push(generateBoltPath(p.x, p.y, endX, endY, 5, 14));
+    }
+  }
+  return branches;
+}
+
+function drawBolt(bolt, alpha) {
+  ctx.save();
+  const glowAlpha = alpha * 0.55;
+
+  // wide outer glow
+  ctx.strokeStyle = `rgba(160, 150, 255, ${glowAlpha * 0.4})`;
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  drawStroke(bolt.path);
+  bolt.branches.forEach(drawStroke);
+
+  // mid glow
+  ctx.strokeStyle = `rgba(200, 200, 255, ${glowAlpha})`;
+  ctx.lineWidth = 6;
+  drawStroke(bolt.path);
+  bolt.branches.forEach(drawStroke);
+
+  // core white
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+  ctx.lineWidth = 2;
+  drawStroke(bolt.path);
+  bolt.branches.forEach(drawStroke);
+
+  ctx.restore();
+}
+
+function drawStroke(pts) {
+  if (pts.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+}
+
+function drawEmbers(t) {
+  for (let i = embers.length - 1; i >= 0; i--) {
+    const e = embers[i];
+    e.age += 16;
+    e.x += e.vx;
+    e.y += e.vy;
+    e.vy += 0.08;
+    e.vx *= 0.99;
+    const life = e.age / e.maxAge;
+    if (life >= 1) { embers.splice(i, 1); continue; }
+    const a = (1 - life) * 0.95;
+    ctx.fillStyle = `rgba(255, ${180 + Math.floor(Math.random() * 30)}, ${100 + Math.floor(Math.random() * 60)}, ${a})`;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 1.5 + (1 - life) * 1.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawCrowns(t) {
+  for (let i = STATE.crowns.length - 1; i >= 0; i--) {
+    const c = STATE.crowns[i];
+    c.age += 16;
+    if (c.age > 3200) { STATE.crowns.splice(i, 1); continue; }
+    const alpha = Math.max(0, 1 - c.age / 3200) * 0.5;
+    const sx = c.worldX - STATE.scrollX;
+    if (sx < -30 || sx > W + 30) continue;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 220, 140, ${alpha})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    // small crown mark: three spires
+    const y = c.y - 14 - Math.min(10, c.age / 200);
+    ctx.moveTo(sx - 8, y + 6);
+    ctx.lineTo(sx - 8, y);
+    ctx.lineTo(sx - 3, y + 4);
+    ctx.lineTo(sx, y - 4);
+    ctx.lineTo(sx + 3, y + 4);
+    ctx.lineTo(sx + 8, y);
+    ctx.lineTo(sx + 8, y + 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+//  Game logic
+// ──────────────────────────────────────────────────────────
+
+function findTallestSilhouetteOnScreen() {
+  let tallest = null;
+  let apex = Infinity;
+  for (const s of silhouettes) {
+    if (!s.alive) continue;
+    const sx = silhouetteScreenX(s);
+    if (sx < 20 || sx > W - 20) continue;
+    const a = apexScreenY(s);
+    if (a < apex) { apex = a; tallest = s; }
+  }
+  return tallest;
+}
+
+function findNearestObject(x, tolerance = 55) {
+  let bestKind = null;
+  let bestObj = null;
+  let bestDist = tolerance;
+  for (const s of silhouettes) {
+    if (!s.alive) continue;
+    const sx = silhouetteScreenX(s);
+    const d = Math.abs(sx - x);
+    if (d < bestDist) { bestDist = d; bestObj = s; bestKind = 'sil'; }
+  }
+  for (const f of floaters) {
+    if (!f.alive) continue;
+    const fx = floaterScreenX(f);
+    const d = Math.abs(fx - x);
+    // floaters have a slight priority when they visually overlap silhouettes
+    if (d < bestDist * 0.75) { bestDist = d; bestObj = f; bestKind = 'flt'; }
+  }
+  return { kind: bestKind, obj: bestObj, dist: bestDist };
+}
+
+function fireStrike(x) {
+  if (STATE.mode !== 'play') return;
+  const cloudH = H * CLOUD_H_FRAC;
+  const y0 = cloudH * 0.72;
+
+  const tallest = findTallestSilhouetteOnScreen();
+  const nearest = findNearestObject(x);
+
+  let landY = H;
+  let outcome = 'ground';
+  let strikeTargetX = x;
+
+  if (nearest.obj) {
+    if (nearest.kind === 'sil') {
+      const s = nearest.obj;
+      const sx = silhouetteScreenX(s);
+      strikeTargetX = sx;
+      landY = apexScreenY(s);
+      if (s === tallest) outcome = 'crown';
+      else outcome = 'shortmiss';
+    } else {
+      const f = nearest.obj;
+      strikeTargetX = floaterScreenX(f);
+      landY = floaterScreenY(f);
+      outcome = 'decoy';
+    }
+  }
+
+  const bolt = {
+    path: generateBoltPath(x, y0, strikeTargetX, landY, 16, 30),
+    branches: [],
+    age: 0,
+    life: 420,
+    outcome,
+  };
+  bolt.branches = generateBranches(bolt.path);
+  strikes.push(bolt);
+
+  STATE.distantFlashUntil = performance.now() + 220;
+  shakes.amt = 6;
+
+  if (outcome === 'crown') {
+    const s = nearest.obj;
+    s.alive = false;
+    s.struckAt = performance.now();
+    s.fallRate = (Math.random() < 0.5 ? -1 : 1) * (0.003 + Math.random() * 0.005);
+    for (let i = 0; i < 22; i++) {
+      embers.push({
+        x: strikeTargetX + (Math.random() - 0.5) * 30,
+        y: landY + (Math.random() - 0.5) * 10,
+        vx: (Math.random() - 0.5) * 4,
+        vy: -2 - Math.random() * 3,
+        age: 0,
+        maxAge: 1200 + Math.random() * 800,
+      });
+    }
+    STATE.crowns.push({ worldX: s.worldX, y: landY, age: 0 });
+    STATE.streak += 1;
+    STATE.longestStreak = Math.max(STATE.longestStreak, STATE.streak);
+    const gain = 1 + STATE.streak;
+    STATE.score += gain;
+    floatText(strikeTargetX, landY - 20, `+${gain}`);
+    sfxCrown();
+  } else if (outcome === 'decoy') {
+    const f = nearest.obj;
+    f.alive = false;
+    STATE.lives -= 1;
+    STATE.streak = 0;
+    for (let i = 0; i < 10; i++) {
+      embers.push({
+        x: strikeTargetX + (Math.random() - 0.5) * 10,
+        y: landY + (Math.random() - 0.5) * 6,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -1 - Math.random() * 2,
+        age: 0,
+        maxAge: 800,
+      });
+    }
+    floatText(strikeTargetX, landY - 18, 'decoy', '#ff8686');
+    sfxThunder();
+  } else if (outcome === 'shortmiss') {
+    STATE.streak = 0;
+    floatText(strikeTargetX, landY - 18, 'not tallest', '#a89f80');
+    sfxMiss();
+  } else {
+    STATE.streak = 0;
+    sfxTick();
+  }
+
+  updateHud();
+  if (STATE.lives <= 0) endGame();
+}
+
+const floatingTexts = [];
+function floatText(x, y, text, color = '#f2ecdd') {
+  floatingTexts.push({ x, y, text, color, age: 0 });
+}
+function drawFloatingTexts() {
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.age += 16;
+    if (ft.age > 1400) { floatingTexts.splice(i, 1); continue; }
+    const a = Math.max(0, 1 - ft.age / 1400);
+    const rise = (ft.age / 1400) * 34;
+    ctx.save();
+    ctx.font = '500 14px "Space Grotesk", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = ft.color;
+    ctx.globalAlpha = a;
+    ctx.fillText(ft.text, ft.x, ft.y - rise);
+    ctx.restore();
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+//  Spawning
+// ──────────────────────────────────────────────────────────
+
+function spawnInitialSkyline() {
+  silhouettes.length = 0;
+  floaters.length = 0;
+  STATE.crowns.length = 0;
+  STATE.lastSpawnX = -80;
+  let x = -80;
+  while (x < W + 80) {
+    const s = newSilhouette(x);
+    silhouettes.push(s);
+    const gap = 40 + Math.random() * 80;
+    x += s.w / 2 + gap + s.w / 2;
+    STATE.lastSpawnX = x;
+  }
+  // A few starting floaters
+  for (let i = 0; i < 3; i++) {
+    const f = newFloater();
+    f.worldX = STATE.scrollX + (i + 0.5) * W / 3;
+    floaters.push(f);
+  }
+}
+
+function maintainSpawns() {
+  const screenRightWorld = STATE.scrollX + W;
+  // Ensure silhouettes cover the right edge
+  while (STATE.lastSpawnX < screenRightWorld + 120) {
+    const s = newSilhouette(STATE.lastSpawnX);
+    silhouettes.push(s);
+    const gap = 40 + Math.random() * 80;
+    STATE.lastSpawnX += s.w / 2 + gap + s.w / 2;
+  }
+  // Prune old
+  for (let i = silhouettes.length - 1; i >= 0; i--) {
+    const s = silhouettes[i];
+    const sx = silhouetteScreenX(s);
+    if (sx < -200) silhouettes.splice(i, 1);
+    else if (!s.alive && (performance.now() - s.struckAt) > 3000) silhouettes.splice(i, 1);
+  }
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i];
+    const fx = floaterScreenX(f);
+    if (fx < -80 || !f.alive) floaters.splice(i, 1);
+  }
+  // Occasionally spawn floaters
+  const now = performance.now();
+  const spawnInterval = 1500 + Math.random() * 1600;
+  if (now - STATE.lastFloaterAt > spawnInterval && floaters.length < 5) {
+    floaters.push(newFloater());
+    STATE.lastFloaterAt = now;
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+//  Game loop
+// ──────────────────────────────────────────────────────────
+
+let lastFrame = 0;
+
+function loop(t) {
+  const dt = Math.min(0.05, (t - lastFrame) / 1000 || 0);
+  lastFrame = t;
+
+  // Camera shake
+  let shakeX = 0, shakeY = 0;
+  if (shakes.amt > 0.1) {
+    shakeX = (Math.random() - 0.5) * shakes.amt;
+    shakeY = (Math.random() - 0.5) * shakes.amt;
+    shakes.amt *= 0.85;
+  } else { shakes.amt = 0; }
+
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+
+  drawBackground(t);
+
+  if (STATE.mode === 'play') {
+    STATE.time += dt;
+    STATE.scrollX += STATE.scrollSpeed * dt;
+    maintainSpawns();
+    for (const f of floaters) {
+      // horizontal drift on top of scroll
+      f.worldX += (f.speed - STATE.scrollSpeed) * dt * 0.1;
+    }
+    updateHud();
+    if (STATE.time >= STATE.duration) endGame();
+    // distant flashes randomly
+    if (Math.random() < 0.005) STATE.distantFlashUntil = t + 220;
+  }
+
+  // Silhouettes (rooted)
+  for (const s of silhouettes) drawSilhouette(s, t);
+  // Falling struck silhouettes get emphasized flash
+  drawEmbers(t);
+
+  // Floaters (on top of silhouettes)
+  for (const f of floaters) drawFloater(f, t);
+
+  // Crowns (persistent marks)
+  drawCrowns(t);
+
+  // Cloud on top
+  drawCloud(t);
+
+  // Bolts
+  for (let i = strikes.length - 1; i >= 0; i--) {
+    const b = strikes[i];
+    b.age += 16;
+    const alpha = Math.max(0, 1 - b.age / b.life);
+    drawBolt(b, alpha);
+    if (b.age > b.life) strikes.splice(i, 1);
+  }
+
+  // Seed
+  drawSeed(t);
+
+  drawFloatingTexts();
+
+  ctx.restore();
+
+  requestAnimationFrame(loop);
+}
+
+// ──────────────────────────────────────────────────────────
+//  HUD
+// ──────────────────────────────────────────────────────────
+
+function updateHud() {
+  scoreEl.textContent = STATE.score;
+  streakEl.textContent = STATE.streak > 0 ? `×${1 + STATE.streak} reach` : `×1 reach`;
+  const rem = Math.max(0, STATE.duration - STATE.time);
+  const m = Math.floor(rem / 60);
+  const s = Math.floor(rem % 60);
+  timeEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+  // Lives
+  const dots = livesEl.querySelectorAll('.life');
+  dots.forEach((d, i) => {
+    if (i < STATE.lives) d.classList.remove('spent');
+    else d.classList.add('spent');
+  });
+}
+
+// ──────────────────────────────────────────────────────────
+//  Input
+// ──────────────────────────────────────────────────────────
+
+function clientPos(e) {
+  const p = e.touches ? e.touches[0] : e;
+  return { x: p.clientX, y: p.clientY };
+}
+
+function onDown(e) {
+  if (STATE.mode !== 'play') return;
+  ensureAudio();
+  const { x } = clientPos(e);
+  STATE.aiming = true;
+  STATE.seedX = Math.max(20, Math.min(W - 20, x));
+  e.preventDefault();
+}
+function onMove(e) {
+  if (STATE.mode !== 'play' || !STATE.aiming) return;
+  const { x } = clientPos(e);
+  STATE.seedX = Math.max(20, Math.min(W - 20, x));
+  e.preventDefault();
+}
+function onUp(e) {
+  if (STATE.mode !== 'play' || !STATE.aiming) return;
+  STATE.aiming = false;
+  fireStrike(STATE.seedX);
+  e.preventDefault();
+}
+
+canvas.addEventListener('pointerdown', onDown, { passive: false });
+canvas.addEventListener('pointermove', onMove, { passive: false });
+canvas.addEventListener('pointerup', onUp, { passive: false });
+canvas.addEventListener('pointercancel', onUp, { passive: false });
+
+// ──────────────────────────────────────────────────────────
+//  Screens
+// ──────────────────────────────────────────────────────────
+
+function startGame() {
+  ensureAudio();
+  STATE.mode = 'play';
+  STATE.time = 0;
+  STATE.score = 0;
+  STATE.streak = 0;
+  STATE.longestStreak = 0;
+  STATE.lives = 3;
+  STATE.scrollX = 0;
+  STATE.seedX = W / 2;
+  STATE.aiming = false;
+  STATE.crowns.length = 0;
+  strikes.length = 0;
+  embers.length = 0;
+  floatingTexts.length = 0;
+  spawnInitialSkyline();
+  updateHud();
+  hud.classList.remove('hidden');
+  titleScreen.classList.add('hidden');
+  endScreen.classList.add('hidden');
+}
+
+function endGame() {
+  if (STATE.mode !== 'play') return;
+  STATE.mode = 'end';
+  hud.classList.add('hidden');
+  const best = Math.max(bestScore(), STATE.score);
+  setBest(best);
+  finalScoreEl.textContent = STATE.score;
+  finalStreakEl.textContent = STATE.longestStreak;
+  finalBestEl.textContent = best;
+
+  // Find "the tallest thing you did not crown" — the tallest surviving alive silhouette left on the horizon.
+  let uncrowned = null;
+  let apex = Infinity;
+  for (const s of silhouettes) {
+    if (!s.alive) continue;
+    const a = apexScreenY(s);
+    if (a < apex) { apex = a; uncrowned = s; }
+  }
+
+  if (STATE.lives <= 0) {
+    endTitleEl.textContent = 'The storm spent itself';
+    endSubEl.textContent = 'You chased what only pretended to be tallest.';
+  } else if (STATE.longestStreak >= 8) {
+    endTitleEl.textContent = 'The sky remembered you';
+    endSubEl.textContent = 'A run of crownings that felt almost like fate.';
+  } else if (STATE.score === 0) {
+    endTitleEl.textContent = 'The storm passed';
+    endSubEl.textContent = 'Nothing was crowned. Nothing was decided.';
+  } else {
+    endTitleEl.textContent = 'The storm passed';
+    endSubEl.textContent = 'A quiet coronation, half of what you meant.';
+  }
+
+  drawDawnScene(uncrowned);
+
+  if (uncrowned) {
+    const captions = [
+      'The tallest thing you did not crown.',
+      'It went on being tallest, without ceremony.',
+      'The horizon kept it, and the horizon told no one.',
+      'This is what you left standing.',
+      'It waited for lightning that never came.',
+    ];
+    dawnCaptionEl.textContent = captions[Math.floor(Math.random() * captions.length)];
+  } else {
+    dawnCaptionEl.textContent = 'You crowned all of it. The horizon is bare.';
+  }
+
+  setTimeout(() => endScreen.classList.remove('hidden'), 40);
+}
+
+function drawDawnScene(sil) {
+  const dctx = dawnCanvas.getContext('2d');
+  const cw = dawnCanvas.width, ch = dawnCanvas.height;
+  dctx.clearRect(0, 0, cw, ch);
+  // dawn sky gradient
+  const g = dctx.createLinearGradient(0, 0, 0, ch);
+  g.addColorStop(0, '#4a2b52');
+  g.addColorStop(0.4, '#c07660');
+  g.addColorStop(0.8, '#f3c68b');
+  g.addColorStop(1, '#f6dfa6');
+  dctx.fillStyle = g;
+  dctx.fillRect(0, 0, cw, ch);
+  // low sun
+  dctx.fillStyle = 'rgba(255, 235, 200, 0.7)';
+  dctx.beginPath();
+  dctx.arc(cw * 0.72, ch * 0.75, 28, 0, Math.PI * 2);
+  dctx.fill();
+  // sil silhouette centered
+  if (sil) {
+    // draw at scale that fits
+    const scaleH = ch * 0.85 / Math.max(60, sil.h);
+    const scale = Math.min(0.9, scaleH);
+    const cx = cw * 0.28;
+    const baseY = ch - 8;
+    dctx.save();
+    dctx.translate(cx, baseY);
+    dctx.scale(scale, scale);
+    dctx.fillStyle = '#12080f';
+    // Reuse silhouette drawing minus antenna details
+    const s = sil;
+    switch (s.type) {
+      case 'building':
+        dctx.fillRect(-s.w/2, -s.h, s.w, s.h);
+        dctx.fillRect(-1.5, -s.h - 14, 3, 14);
+        break;
+      case 'churchspire': {
+        const baseH = s.h * 0.55;
+        dctx.fillRect(-s.w/2, -baseH, s.w, baseH);
+        dctx.beginPath();
+        dctx.moveTo(-s.w/2 + 2, -baseH);
+        dctx.lineTo(0, -s.h + 10);
+        dctx.lineTo(s.w/2 - 2, -baseH);
+        dctx.closePath();
+        dctx.fill();
+        dctx.fillRect(-1, -s.h - 10, 2, 10);
+        dctx.fillRect(-5, -s.h - 6, 10, 2);
+        break;
+      }
+      case 'radiotower':
+        dctx.beginPath();
+        dctx.moveTo(-s.w/2, 0);
+        dctx.lineTo(0, -s.h);
+        dctx.lineTo(s.w/2, 0);
+        dctx.closePath();
+        dctx.fill();
+        break;
+      case 'crane':
+        dctx.fillRect(-4, -s.h + 8, 8, s.h - 8);
+        dctx.fillRect(-s.w * 0.28, -s.h + 4, s.w * 0.75, 6);
+        break;
+      case 'watertower': {
+        const tankH = s.h * 0.35;
+        const legH = s.h * 0.65;
+        dctx.beginPath();
+        dctx.moveTo(-s.w/2, 0);
+        dctx.lineTo(-s.w * 0.18, -legH);
+        dctx.lineTo(-s.w * 0.12, -legH);
+        dctx.lineTo(-s.w/2 + 6, 0);
+        dctx.closePath();
+        dctx.fill();
+        dctx.beginPath();
+        dctx.moveTo(s.w/2, 0);
+        dctx.lineTo(s.w * 0.18, -legH);
+        dctx.lineTo(s.w * 0.12, -legH);
+        dctx.lineTo(s.w/2 - 6, 0);
+        dctx.closePath();
+        dctx.fill();
+        dctx.beginPath();
+        dctx.ellipse(0, -legH - tankH * 0.4, s.w * 0.5, tankH * 0.45, 0, 0, Math.PI * 2);
+        dctx.fill();
+        break;
+      }
+      case 'tree': {
+        dctx.fillRect(-3.5, -s.h * 0.35, 7, s.h * 0.35);
+        const cy = -s.h * 0.55;
+        const r = s.w * 0.42;
+        dctx.beginPath();
+        dctx.arc(0, cy, r, 0, Math.PI * 2);
+        dctx.arc(-r * 0.6, cy + r * 0.2, r * 0.75, 0, Math.PI * 2);
+        dctx.arc(r * 0.6, cy + r * 0.2, r * 0.75, 0, Math.PI * 2);
+        dctx.arc(0, cy - r * 0.55, r * 0.7, 0, Math.PI * 2);
+        dctx.fill();
+        break;
+      }
+    }
+    dctx.restore();
+
+    // fading gold crown above the silhouette
+    const apexScreenYVal = baseY - sil.h * scale - 6;
+    let crownAge = 0;
+    const drawCrownFrame = () => {
+      // clear the crown region and redraw
+      dctx.save();
+      const y = apexScreenYVal - 14 - Math.min(8, crownAge / 30);
+      const alpha = Math.max(0, 1 - crownAge / 200) * 0.9;
+      dctx.strokeStyle = `rgba(255, 220, 140, ${alpha})`;
+      dctx.lineWidth = 1.6;
+      dctx.beginPath();
+      dctx.moveTo(cx - 10, y + 6);
+      dctx.lineTo(cx - 10, y);
+      dctx.lineTo(cx - 4, y + 4);
+      dctx.lineTo(cx, y - 5);
+      dctx.lineTo(cx + 4, y + 4);
+      dctx.lineTo(cx + 10, y);
+      dctx.lineTo(cx + 10, y + 6);
+      dctx.stroke();
+      dctx.restore();
+      crownAge += 1;
+      if (crownAge < 200 && STATE.mode === 'end') requestAnimationFrame(drawCrownFrame);
+    };
+    setTimeout(drawCrownFrame, 400);
+  }
+}
+
+startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); }, { passive: false });
+restartBtn.addEventListener('click', startGame);
+restartBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); }, { passive: false });
+
+// Also allow tapping the title screen anywhere (except the back button) to start
+titleScreen.addEventListener('click', (e) => {
+  if (e.target.closest('#back-btn')) return;
+  if (e.target === startBtn) return;
+  startGame();
+});
+
+// Start the loop immediately (title screen renders on top of canvas)
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
