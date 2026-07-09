@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0705">
+<title>The Feather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: #0a0705;
+    color: #efe1c0;
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    touch-action: manipulation;
+  }
+  body {
+    display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(120, 80, 30, 0.22), transparent 55%),
+      radial-gradient(ellipse at 50% 100%, rgba(70, 45, 15, 0.18), transparent 60%);
+  }
+  #back-btn {
+    position: fixed; top: 0.75rem; left: 0.75rem; z-index: 9998;
+    background: rgba(0,0,0,0.5); color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; padding: 0.4rem 0.75rem;
+    font-size: 0.85rem; cursor: pointer; text-decoration: none;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    font-family: sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .mote {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: #e6c86a;
+    border-radius: 50%;
+    opacity: 0;
+    box-shadow: 0 0 4px 1px rgba(230,200,106,0.5);
+    animation: drift linear infinite;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0,0); opacity: 0; }
+    18%  { opacity: 0.45; }
+    82%  { opacity: 0.45; }
+    100% { transform: translate(var(--dx), -110vh); opacity: 0; }
+  }
+
+  #app {
+    position: relative;
+    flex: 1;
+    padding: 3.5rem 1rem 1rem;
+    display: flex; flex-direction: column;
+    z-index: 1;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 3.5rem 1rem 1rem;
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.7s ease;
+  }
+  .screen.active { opacity: 1; pointer-events: auto; }
+
+  /* Title */
+  #title-screen { justify-content: center; align-items: center; text-align: center; }
+  .glyph {
+    font-size: 3.2rem;
+    color: #e6c86a;
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 0 8px rgba(230,200,106,0.4));
+  }
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 2.2rem;
+    letter-spacing: 0.24em;
+    font-weight: 500;
+    color: #e6c86a;
+    margin-bottom: 1.6rem;
+    text-shadow: 0 0 22px rgba(230,200,106,0.28);
+  }
+  .subtitle {
+    font-style: italic;
+    opacity: 0.78;
+    max-width: 20rem;
+    line-height: 1.55;
+    font-size: 1.15rem;
+    margin-bottom: 2.4rem;
+  }
+  .subtitle > div { margin-bottom: 0.35rem; }
+  .btn {
+    padding: 0.75rem 2.2rem;
+    font-family: 'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.28em;
+    background: transparent;
+    color: #e6c86a;
+    border: 1px solid rgba(230,200,106,0.55);
+    border-radius: 999px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .btn:active { background: rgba(230,200,106,0.15); }
+
+  /* Game */
+  #soul-intro {
+    text-align: center;
+    font-style: italic;
+    opacity: 0.7;
+    font-size: 1.05rem;
+    line-height: 1.4;
+    min-height: 2.6em;
+    margin-bottom: 0.35rem;
+    transition: opacity 0.5s;
+  }
+  #scale-container {
+    height: 22vh;
+    max-height: 190px;
+    min-height: 130px;
+    position: relative;
+    margin-bottom: 0.35rem;
+  }
+  #scale-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  #status-text {
+    text-align: center;
+    font-size: 0.9rem;
+    opacity: 0.55;
+    font-style: italic;
+    letter-spacing: 0.03em;
+    min-height: 1.3em;
+    margin-bottom: 0.35rem;
+  }
+  #stones {
+    flex: 1;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.25rem 0.15rem 0.5rem;
+    scrollbar-width: none;
+    min-height: 0;
+  }
+  #stones::-webkit-scrollbar { display: none; }
+
+  .stone {
+    padding: 0.85rem 1rem;
+    background: linear-gradient(180deg, rgba(72,54,28,0.72), rgba(38,28,12,0.85));
+    border: 1px solid rgba(180,140,80,0.28);
+    border-radius: 3px;
+    font-size: 1.02rem;
+    line-height: 1.35;
+    color: #ecd8a4;
+    text-align: center;
+    cursor: pointer;
+    font-style: italic;
+    position: relative;
+    transition: transform 0.3s, opacity 0.5s, box-shadow 0.35s, background 0.35s, color 0.3s;
+    flex-shrink: 0;
+  }
+  .stone.selected {
+    background: linear-gradient(180deg, rgba(125,95,48,0.9), rgba(70,50,20,0.95));
+    box-shadow: 0 0 26px rgba(230,200,106,0.32), inset 0 0 15px rgba(230,200,106,0.15);
+    transform: translateY(-2px);
+    color: #f7dd8e;
+  }
+  .stone.selected::after {
+    content: 'tap again to release';
+    display: block;
+    margin-top: 0.55rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    opacity: 0.7;
+    text-transform: uppercase;
+    font-style: normal;
+    font-family: 'Cinzel', serif;
+  }
+  .stone.releasing {
+    opacity: 0;
+    transform: translateY(40px) scale(0.92);
+    pointer-events: none;
+  }
+  .stone.pulsing { animation: stonePulse 1.1s ease-out; }
+  @keyframes stonePulse {
+    0%   { box-shadow: 0 0 0 rgba(230,200,106,0); }
+    35%  { box-shadow: 0 0 30px rgba(230,200,106,0.55); background: linear-gradient(180deg, rgba(105,80,40,0.85), rgba(60,45,20,0.9)); }
+    100% { box-shadow: 0 0 0 rgba(230,200,106,0); }
+  }
+
+  #bottom-bar {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 0.4rem;
+    padding-top: 0.5rem;
+  }
+  #release-btn {
+    opacity: 0.25;
+    pointer-events: none;
+    transition: opacity 0.5s, box-shadow 0.4s;
+  }
+  #release-btn.ready {
+    opacity: 1;
+    pointer-events: auto;
+    animation: gentleGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes gentleGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(230,200,106,0.2); }
+    50%      { box-shadow: 0 0 22px rgba(230,200,106,0.55); }
+  }
+  #restart-link {
+    background: none; border: none;
+    color: rgba(230,200,106,0.4);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.25rem 0.6rem;
+    letter-spacing: 0.03em;
+  }
+  #restart-link:hover { color: rgba(230,200,106,0.75); }
+
+  /* End */
+  #end-screen {
+    justify-content: flex-start;
+    align-items: center;
+    text-align: center;
+    overflow-y: auto;
+    padding: 1rem 0.5rem;
+    scrollbar-width: none;
+  }
+  #end-screen::-webkit-scrollbar { display: none; }
+  #end-screen h1 {
+    font-size: 1.6rem;
+    letter-spacing: 0.18em;
+    margin: 1rem 0 0.75rem;
+  }
+  #end-summary {
+    max-width: 22rem;
+    line-height: 1.55;
+    font-size: 1.05rem;
+    font-style: italic;
+    opacity: 0.8;
+    margin-bottom: 1rem;
+  }
+  .soul-block { margin: 1.2rem 0 0.5rem; max-width: 22rem; }
+  .list-header {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    opacity: 0.55;
+    margin-bottom: 0.3rem;
+    color: #e6c86a;
+  }
+  .soul-intro-end {
+    font-style: italic; font-size: 0.95rem;
+    opacity: 0.75; margin-bottom: 0.6rem;
+  }
+  .kept-line {
+    font-style: italic;
+    font-size: 0.98rem;
+    opacity: 0.9;
+    line-height: 1.55;
+    padding: 0.1rem 0;
+    color: #f0dfa8;
+  }
+  .kept-none {
+    font-style: italic;
+    font-size: 0.9rem;
+    opacity: 0.45;
+  }
+  #restart-btn { margin: 1.6rem 0 1rem; }
+
+  /* SVG element styles */
+  .scale-stroke { stroke: #b89250; stroke-width: 2.2; fill: none; stroke-linecap: round; }
+  .chain { stroke: #8f6a1c; stroke-width: 1; stroke-dasharray: 1.5 2.2; }
+  .feather-shape { fill: #f0dea0; opacity: 0.92; }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">&larr; Games</a>
+<div id="particles"></div>
+<div id="app">
+  <div id="title-screen" class="screen active">
+    <div class="glyph">&#9765;</div>
+    <h1>The Feather</h1>
+    <div class="subtitle">
+      <div>Three souls will come to your scale.</div>
+      <div>They are heavy with what they have kept.</div>
+      <div>Help them let go of just enough to pass.</div>
+    </div>
+    <button id="start-btn" class="btn">Begin</button>
+  </div>
+
+  <div id="game-screen" class="screen">
+    <div id="soul-intro"></div>
+    <div id="scale-container">
+      <svg id="scale-svg" viewBox="0 0 300 170" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="gold-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f7dd8e"/>
+            <stop offset="50%" stop-color="#c9a24a"/>
+            <stop offset="100%" stop-color="#7a5820"/>
+          </linearGradient>
+          <radialGradient id="soul-grad" cx="0.5" cy="0.5" r="0.55">
+            <stop offset="0%"  stop-color="rgba(255,230,150,0.95)"/>
+            <stop offset="55%" stop-color="rgba(230,200,106,0.5)"/>
+            <stop offset="100%" stop-color="rgba(230,200,106,0)"/>
+          </radialGradient>
+          <radialGradient id="feather-glow" cx="0.5" cy="0.5" r="0.6">
+            <stop offset="0%"  stop-color="rgba(255,245,200,0.35)"/>
+            <stop offset="100%" stop-color="rgba(255,245,200,0)"/>
+          </radialGradient>
+        </defs>
+        <!-- Fulcrum -->
+        <line x1="150" y1="160" x2="150" y2="52" class="scale-stroke" stroke-width="2.5"/>
+        <path d="M 136 160 L 164 160 L 158 165 L 142 165 Z" fill="url(#gold-grad)"/>
+        <circle cx="150" cy="52" r="4" fill="url(#gold-grad)"/>
+        <!-- Beam -->
+        <line id="scale-beam" x1="60" y1="52" x2="240" y2="52" class="scale-stroke" stroke-width="3"/>
+        <!-- Left chain + pan -->
+        <line id="left-chain" x1="60" y1="52" x2="60" y2="94" class="chain"/>
+        <g id="left-pan-group">
+          <ellipse id="feather-halo" cx="60" cy="82" rx="20" ry="14" fill="url(#feather-glow)"/>
+          <ellipse cx="60" cy="94" rx="28" ry="4" fill="url(#gold-grad)"/>
+          <path d="M 34 94 Q 60 104 86 94" stroke="#8f6a1c" stroke-width="1" fill="rgba(0,0,0,0.28)"/>
+          <path class="feather-shape" d="M 60 74 Q 63 78 62.5 84 Q 62 89 60 92 Q 58 89 57.5 84 Q 57 78 60 74 Z"/>
+          <line x1="60" y1="74" x2="60" y2="92" stroke="#a88030" stroke-width="0.5" opacity="0.7"/>
+        </g>
+        <!-- Right chain + pan -->
+        <line id="right-chain" x1="240" y1="52" x2="240" y2="94" class="chain"/>
+        <g id="right-pan-group">
+          <circle id="soul-orb" cx="240" cy="82" r="10" fill="url(#soul-grad)"/>
+          <ellipse cx="240" cy="94" rx="28" ry="4" fill="url(#gold-grad)"/>
+          <path d="M 214 94 Q 240 104 266 94" stroke="#8f6a1c" stroke-width="1" fill="rgba(0,0,0,0.28)"/>
+        </g>
+      </svg>
+    </div>
+    <div id="status-text"></div>
+    <div id="stones"></div>
+    <div id="bottom-bar">
+      <button id="release-btn" class="btn">Let them pass</button>
+      <button id="restart-link">return everything</button>
+    </div>
+  </div>
+
+  <div id="end-screen" class="screen">
+    <div class="glyph">&#10022;</div>
+    <h1>The chamber is quiet.</h1>
+    <div id="end-summary"></div>
+    <div id="end-lists"></div>
+    <button id="restart-btn" class="btn">Begin again</button>
+  </div>
+</div>
+
+<script>
+  const ORIENTATION = 'PORTRAIT';
+
+  function checkOrientation() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                  (ORIENTATION === 'LANDSCAPE' && isPortrait);
+    let overlay = document.getElementById('orientation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'orientation-overlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:9999;
+        background:#000; color:#fff; flex-direction:column;
+        align-items:center; justify-content:center;
+        font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+      `;
+      overlay.innerHTML = `
+        <div style="font-size:3rem">&#128241;</div>
+        <div>Please rotate your device</div>
+        <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = wrong ? 'flex' : 'none';
+  }
+  window.addEventListener('resize', checkOrientation);
+  checkOrientation();
+
+  async function tryLockOrientation() {
+    try {
+      await document.documentElement.requestFullscreen?.();
+      await screen.orientation?.lock?.(
+        ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+      );
+    } catch (_) {}
+  }
+  document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+  // Ambient motes
+  (function spawnMotes(count) {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < count; i++) {
+      const m = document.createElement('div');
+      m.className = 'mote';
+      const dur = 14 + Math.random() * 18;
+      const delay = -Math.random() * dur;
+      m.style.left = (Math.random() * 100) + 'vw';
+      m.style.top = '108vh';
+      m.style.animationDuration = dur + 's';
+      m.style.animationDelay = delay + 's';
+      m.style.setProperty('--dx', ((Math.random() - 0.5) * 80) + 'px');
+      container.appendChild(m);
+    }
+  })(16);
+
+  const SOULS = [
+    {
+      title: 'The Weaver',
+      intro: 'She wove baskets. Sixty-two years.',
+      stones: [
+        { id: 'a1', text: "the smell of my mother's hands",       weight: 0.30 },
+        { id: 'a2', text: "a Saturday when nothing happened",       weight: 0.20 },
+        { id: 'a3', text: "the year I could not stop laughing",     weight: 0.60 },
+        { id: 'a4', text: "the person I never called back",         weight: 1.20, resonance: { a5: -0.40 } },
+        { id: 'a5', text: "the friend I kept until the end",        weight: 0.60 },
+        { id: 'a6', text: "the hunger I felt at seventeen",         weight: 0.90 },
+        { id: 'a7', text: "rain on the roof, one autumn",           weight: 0.30 }
+      ]
+    },
+    {
+      title: 'The Writer',
+      intro: 'He wrote letters he did not send. Forty-one years.',
+      stones: [
+        { id: 'b1', text: "the letter I did not send",              weight: 1.40 },
+        { id: 'b2', text: "the man I promised to become",           weight: 1.60, resonance: { b1: -0.50, b7: -0.30 } },
+        { id: 'b3', text: "the child I did not have",               weight: 1.50, resonance: { b4: -0.60 } },
+        { id: 'b4', text: "the room I kept empty",                  weight: 0.90 },
+        { id: 'b5', text: "the songs I wrote and burned",           weight: 0.80 },
+        { id: 'b6', text: "a Tuesday morning full of light",        weight: 0.30 },
+        { id: 'b7', text: "the pride I hid from everyone",          weight: 0.70 }
+      ]
+    },
+    {
+      title: 'The Long Life',
+      intro: 'She lived so long she outlived her name. Ninety-eight years.',
+      stones: [
+        { id: 'c1', text: "seventy summers of the same lake",       weight: 1.10 },
+        { id: 'c2', text: "the names of everyone I outlived",       weight: 1.50, resonance: { c3: -1.00 } },
+        { id: 'c3', text: "the loneliness of the late years",       weight: 1.40 },
+        { id: 'c4', text: "the sweetness of forgetting",            weight: 0.40, resonance: { c2: 0.30, c8: 0.20 } },
+        { id: 'c5', text: "a joke I told a thousand times",         weight: 0.50 },
+        { id: 'c6', text: "a house I never entered",                weight: 0.30 },
+        { id: 'c7', text: "the day I finally slept in the sun",     weight: 0.60 },
+        { id: 'c8', text: "regret, worn smooth as a river stone",   weight: 0.70 }
+      ]
+    }
+  ];
+
+  const FEATHER_WEIGHT = 1.0;
+  const TOLERANCE = 0.30;
+
+  const state = {
+    soulIdx: 0,
+    heldStones: [],
+    releasedStones: [],
+    selectedId: null,
+    currentTilt: 0,
+    targetTilt: 0,
+    isPassing: false,
+    runLog: []
+  };
+
+  const dom = {
+    stones:       document.getElementById('stones'),
+    soulIntro:    document.getElementById('soul-intro'),
+    releaseBtn:   document.getElementById('release-btn'),
+    statusText:   document.getElementById('status-text'),
+    scaleBeam:    document.getElementById('scale-beam'),
+    leftChain:    document.getElementById('left-chain'),
+    rightChain:   document.getElementById('right-chain'),
+    leftPanGroup: document.getElementById('left-pan-group'),
+    rightPanGroup:document.getElementById('right-pan-group'),
+    soulOrb:      document.getElementById('soul-orb')
+  };
+
+  function initSoul(idx) {
+    state.soulIdx = idx;
+    const soul = SOULS[idx];
+    state.heldStones = soul.stones.map(s => ({
+      ...s,
+      effectiveWeight: s.weight
+    }));
+    state.releasedStones = [];
+    state.selectedId = null;
+    dom.soulIntro.textContent = soul.intro;
+    dom.soulIntro.style.opacity = '';
+    dom.stones.style.opacity = '';
+    renderStones();
+    computeTilt();
+    updateStatus();
+    updateReleaseBtn();
+  }
+
+  function renderStones() {
+    dom.stones.innerHTML = '';
+    state.heldStones.forEach(stone => {
+      const el = document.createElement('div');
+      el.className = 'stone';
+      el.dataset.id = stone.id;
+      el.textContent = stone.text;
+      el.addEventListener('click', () => onStoneClick(stone.id));
+      dom.stones.appendChild(el);
+    });
+  }
+
+  function onStoneClick(id) {
+    if (state.isPassing) return;
+    if (state.selectedId === id) {
+      state.selectedId = null;
+      releaseStone(id);
+    } else {
+      state.selectedId = id;
+    }
+    document.querySelectorAll('.stone').forEach(el => {
+      el.classList.toggle('selected', el.dataset.id === state.selectedId);
+    });
+  }
+
+  function releaseStone(id) {
+    const idx = state.heldStones.findIndex(s => s.id === id);
+    if (idx < 0) return;
+    const stone = state.heldStones[idx];
+    state.heldStones.splice(idx, 1);
+    state.releasedStones.push(stone);
+
+    const affected = [];
+    if (stone.resonance) {
+      Object.entries(stone.resonance).forEach(([targetId, delta]) => {
+        const target = state.heldStones.find(s => s.id === targetId);
+        if (target) {
+          target.effectiveWeight = Math.max(0.05, target.effectiveWeight + delta);
+          affected.push(targetId);
+        }
+      });
+    }
+
+    const el = document.querySelector(`.stone[data-id="${id}"]`);
+    if (el) {
+      el.classList.remove('selected');
+      el.classList.add('releasing');
+      setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 550);
+    }
+    affected.forEach(tid => {
+      const tel = document.querySelector(`.stone[data-id="${tid}"]`);
+      if (tel) {
+        tel.classList.remove('pulsing');
+        void tel.offsetWidth;
+        tel.classList.add('pulsing');
+        setTimeout(() => tel.classList.remove('pulsing'), 1100);
+      }
+    });
+
+    computeTilt();
+    updateStatus();
+    updateReleaseBtn();
+  }
+
+  function currentSoulWeight() {
+    return state.heldStones.reduce((sum, s) => sum + s.effectiveWeight, 0);
+  }
+
+  function isBalanced() {
+    return Math.abs(currentSoulWeight() - FEATHER_WEIGHT) <= TOLERANCE + 1e-6;
+  }
+
+  function computeTilt() {
+    const diff = currentSoulWeight() - FEATHER_WEIGHT;
+    state.targetTilt = Math.max(-22, Math.min(22, diff * 7));
+    updateSoulOrb();
+  }
+
+  function updateSoulOrb() {
+    const w = currentSoulWeight();
+    const r = Math.max(4, Math.min(16, 4 + w * 3));
+    dom.soulOrb.setAttribute('r', r);
+  }
+
+  function updateStatus() {
+    const diff = currentSoulWeight() - FEATHER_WEIGHT;
+    let msg;
+    if (Math.abs(diff) <= TOLERANCE + 1e-6) {
+      msg = 'the scale rests. they are ready.';
+    } else if (diff > TOLERANCE * 3) {
+      msg = 'they are still heavy with keeping.';
+    } else if (diff > 0) {
+      msg = 'a little heavy still.';
+    } else if (diff < -TOLERANCE * 2) {
+      msg = 'too little remains.';
+    } else {
+      msg = 'a shade too light.';
+    }
+    dom.statusText.textContent = msg;
+  }
+
+  function updateReleaseBtn() {
+    dom.releaseBtn.classList.toggle('ready', isBalanced() && state.heldStones.length > 0);
+  }
+
+  // Physics-ish loop for smooth tilt
+  function tick() {
+    const damping = 0.075;
+    state.currentTilt += (state.targetTilt - state.currentTilt) * damping;
+    renderScale(state.currentTilt);
+    requestAnimationFrame(tick);
+  }
+  function renderScale(tilt) {
+    const rad = tilt * Math.PI / 180;
+    const beamHalf = 90;
+    const cx = 150, cy = 52;
+    const chainLen = 42;
+
+    const lx = cx - beamHalf * Math.cos(rad);
+    const ly = cy - beamHalf * Math.sin(rad);
+    const rx = cx + beamHalf * Math.cos(rad);
+    const ry = cy + beamHalf * Math.sin(rad);
+
+    dom.scaleBeam.setAttribute('x1', lx.toFixed(2));
+    dom.scaleBeam.setAttribute('y1', ly.toFixed(2));
+    dom.scaleBeam.setAttribute('x2', rx.toFixed(2));
+    dom.scaleBeam.setAttribute('y2', ry.toFixed(2));
+
+    dom.leftChain.setAttribute('x1', lx.toFixed(2));
+    dom.leftChain.setAttribute('y1', ly.toFixed(2));
+    dom.leftChain.setAttribute('x2', lx.toFixed(2));
+    dom.leftChain.setAttribute('y2', (ly + chainLen).toFixed(2));
+
+    dom.rightChain.setAttribute('x1', rx.toFixed(2));
+    dom.rightChain.setAttribute('y1', ry.toFixed(2));
+    dom.rightChain.setAttribute('x2', rx.toFixed(2));
+    dom.rightChain.setAttribute('y2', (ry + chainLen).toFixed(2));
+
+    const leftDx = lx - 60;
+    const leftDy = (ly + chainLen) - 94;
+    const rightDx = rx - 240;
+    const rightDy = (ry + chainLen) - 94;
+    dom.leftPanGroup.setAttribute('transform', `translate(${leftDx.toFixed(2)}, ${leftDy.toFixed(2)})`);
+    dom.rightPanGroup.setAttribute('transform', `translate(${rightDx.toFixed(2)}, ${rightDy.toFixed(2)})`);
+  }
+  requestAnimationFrame(tick);
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+    state.runLog = [];
+    initSoul(0);
+    showScreen('game-screen');
+  });
+
+  document.getElementById('release-btn').addEventListener('click', async () => {
+    if (!isBalanced() || state.isPassing || state.heldStones.length === 0) return;
+    state.isPassing = true;
+    state.runLog.push({
+      title: SOULS[state.soulIdx].title,
+      intro: SOULS[state.soulIdx].intro,
+      kept: state.heldStones.map(s => s.text),
+      released: state.releasedStones.map(s => s.text)
+    });
+    dom.releaseBtn.classList.remove('ready');
+    dom.soulIntro.style.opacity = '0.25';
+    dom.stones.style.transition = 'opacity 0.85s ease';
+    dom.stones.style.opacity = '0';
+    dom.statusText.textContent = '…they pass through.';
+    dom.soulOrb.setAttribute('fill', 'rgba(255,245,200,0.95)');
+    await new Promise(r => setTimeout(r, 1100));
+    dom.soulOrb.setAttribute('fill', 'url(#soul-grad)');
+    state.isPassing = false;
+    if (state.soulIdx < SOULS.length - 1) {
+      initSoul(state.soulIdx + 1);
+    } else {
+      showEndScreen();
+    }
+  });
+
+  document.getElementById('restart-link').addEventListener('click', () => {
+    if (state.isPassing) return;
+    initSoul(state.soulIdx);
+  });
+
+  document.getElementById('restart-btn').addEventListener('click', () => {
+    state.runLog = [];
+    showScreen('title-screen');
+  });
+
+  function showEndScreen() {
+    const lists = document.getElementById('end-lists');
+    lists.innerHTML = '';
+    state.runLog.forEach(entry => {
+      const wrap = document.createElement('div');
+      wrap.className = 'soul-block';
+      let inner = `
+        <div class="list-header">${entry.title}</div>
+        <div class="soul-intro-end">${entry.intro}</div>
+      `;
+      if (entry.kept.length) {
+        inner += entry.kept.map(t => `<div class="kept-line">${t}</div>`).join('');
+      } else {
+        inner += `<div class="kept-none">nothing was carried through</div>`;
+      }
+      wrap.innerHTML = inner;
+      lists.appendChild(wrap);
+    });
+    document.getElementById('end-summary').innerHTML =
+      `Three passed the scale.<br>These are what they took with them.`;
+    showScreen('end-screen');
+  }
+</script>
+</body>
+</html>
