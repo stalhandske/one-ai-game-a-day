@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>HOLLOW</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #1a0f0a; font-family: 'Cormorant Garamond', Georgia, serif; color: #f7ecd7; }
+  body { user-select: none; -webkit-user-select: none; }
+  #canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(40,20,12,0.86) 0%, rgba(15,8,5,0.94) 90%);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .overlay.active { display: flex; }
+
+  .title {
+    font-size: clamp(3.6rem, 15vw, 5.6rem);
+    letter-spacing: 0.35rem;
+    font-weight: 500;
+    color: #f5deb3;
+    margin-bottom: 0.6rem;
+    text-shadow: 0 0 30px rgba(245, 222, 179, 0.18);
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    font-style: italic;
+    color: #d4b997;
+    margin-bottom: 2rem;
+    max-width: 28ch;
+    line-height: 1.65;
+    padding: 0 0.5rem;
+  }
+
+  .cta {
+    padding: 0.85rem 2.4rem;
+    font-size: 1rem;
+    background: none;
+    border: 1px solid #d4b997;
+    color: #f5deb3;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.25rem;
+    transition: all 0.3s ease;
+  }
+  .cta:hover, .cta:active { background: rgba(212, 185, 151, 0.18); }
+
+  .duration { font-size: 1.05rem; color: #d4b997; margin-bottom: 1.4rem; letter-spacing: 0.08rem; font-style: italic; }
+  .contents-label { font-size: 0.78rem; letter-spacing: 0.3rem; text-transform: uppercase; opacity: 0.6; margin-bottom: 1rem; }
+  .contents {
+    max-width: 32ch;
+    font-style: italic;
+    font-size: 1.1rem;
+    line-height: 1.75;
+    margin-bottom: 2rem;
+    color: #efdcc0;
+  }
+  .contents p { margin: 0.5rem 0; }
+
+  .break-hint {
+    position: fixed;
+    top: 4.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: rgba(247, 236, 215, 0.7);
+    letter-spacing: 0.08rem;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    padding: 0 1rem;
+    max-width: 90vw;
+  }
+  .break-hint.active { opacity: 1; }
+
+  #let-go-btn {
+    position: fixed;
+    bottom: 1.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 91;
+    padding: 0.6rem 1.6rem;
+    background: rgba(20,12,8,0.6);
+    color: #f5deb3;
+    border: 1px solid rgba(212, 185, 151, 0.6);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    letter-spacing: 0.25rem;
+    cursor: pointer;
+    display: none;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+  #let-go-btn.active { display: block; }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="canvas"></canvas>
+
+<div id="title-overlay" class="overlay active">
+  <div class="title">HOLLOW</div>
+  <div class="subtitle">You are the piñata.<br/>Sway away from the bats.<br/>Find out what you were made of.</div>
+  <button class="cta" id="start-btn">BEGIN</button>
+</div>
+
+<div id="end-overlay" class="overlay">
+  <div class="duration" id="end-duration"></div>
+  <div class="contents-label">what you kept inside</div>
+  <div class="contents" id="end-contents"></div>
+  <button class="cta" id="restart-btn">AGAIN</button>
+</div>
+
+<div class="break-hint" id="break-hint">touch what fell from you</div>
+<button id="let-go-btn">LET GO</button>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ============ Canvas ============
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layoutScene();
+}
+window.addEventListener('resize', resize);
+
+// ============ Content pool ============
+const CONTENTS_POOL = [
+  "a letter you meant to send",
+  "the sound of a screen door in June",
+  "your grandmother's handwriting on an envelope",
+  "a joke only your father laughed at",
+  "the smell of rain on hot pavement",
+  "an apology rehearsed but never given",
+  "the shape of an old friend's laugh",
+  "your favorite word when you were seven",
+  "a song stuck in your head for no reason",
+  "the last thing you remember dreaming",
+  "a promise you kept in secret",
+  "the color of a hallway you can't quite place",
+  "the taste of a fruit you'll never eat again",
+  "a stranger's kindness on a bad afternoon",
+  "the moment before you understood a poem",
+  "someone else's photograph you kept",
+  "the exact weight of a coin from childhood",
+  "a name you almost gave a child",
+  "the specific hush of a library at dusk",
+  "a wish you made twice and then hid",
+  "the way one particular window used to light up",
+  "the second before you were about to say something else",
+  "the version of yourself you were on a Tuesday",
+  "a small lie that made someone feel loved",
+  "the feeling of walking barefoot on tile",
+  "a face you saw once through a window on a train",
+];
+
+// ============ State ============
+const state = {
+  screen: 'title', // title | game | breaking | end
+  time: 0,
+  startTime: 0,
+  survivedMs: 0,
+  hp: 3,
+  breakTime: 0,
+  nextSwingAt: 0,
+  hintAlpha: 0,
+  hintShown: false,
+};
+
+const pinata = {
+  ropeAnchorY: 0,
+  ropeLen: 0,
+  angle: 0,
+  angVel: 0,
+  spin: 0,
+  spinVel: 0,
+  x: 0, y: 0,
+  tears: [],
+  shakeAmp: 0,
+};
+
+const kids = [];
+let currentSwinger = null;
+let fragments = [];
+let contents = [];
+let embers = [];
+
+let touch = null;
+
+// ============ Layout ============
+function layoutScene() {
+  pinata.ropeAnchorY = H * 0.09;
+  pinata.ropeLen = Math.min(H * 0.32, W * 0.55);
+  if (kids.length === 0) return;
+  const positions = [-0.36, -0.13, 0.14, 0.37];
+  const extraPositions = [-0.48, 0.48];
+  const groundY = H * 0.83;
+  for (let i = 0; i < kids.length; i++) {
+    const idx = i < 4 ? i : i - 4;
+    const p = i < 4 ? positions[idx] : extraPositions[idx];
+    kids[i].x = W/2 + W * p;
+    kids[i].y = groundY;
+  }
+}
+
+// ============ Input ============
+canvas.addEventListener('pointerdown', e => {
+  if (state.screen === 'title' || state.screen === 'end') return;
+  touch = { x: e.clientX, y: e.clientY, held: true };
+  if (state.screen === 'breaking') {
+    for (const c of contents) {
+      if (c.revealed) continue;
+      const dx = e.clientX - c.x;
+      const dy = e.clientY - c.y;
+      if (Math.hypot(dx, dy) < 48) {
+        c.revealed = true;
+        c.fadeIn = 0;
+        spawnEmbers(c.x, c.y);
+        break;
+      }
+    }
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (touch && touch.held) {
+    touch.x = e.clientX;
+    touch.y = e.clientY;
+  }
+});
+function releaseTouch() { if (touch) touch.held = false; touch = null; }
+canvas.addEventListener('pointerup', releaseTouch);
+canvas.addEventListener('pointercancel', releaseTouch);
+canvas.addEventListener('pointerleave', releaseTouch);
+
+// ============ Screen buttons ============
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', () => {
+  document.getElementById('end-overlay').classList.remove('active');
+  document.getElementById('title-overlay').classList.add('active');
+  state.screen = 'title';
+});
+document.getElementById('let-go-btn').addEventListener('click', () => {
+  document.getElementById('let-go-btn').classList.remove('active');
+  document.getElementById('break-hint').classList.remove('active');
+  endGame();
+});
+
+// ============ Start / lifecycle ============
+function startGame() {
+  document.getElementById('title-overlay').classList.remove('active');
+  document.getElementById('end-overlay').classList.remove('active');
+  document.getElementById('let-go-btn').classList.remove('active');
+  document.getElementById('break-hint').classList.remove('active');
+
+  state.screen = 'game';
+  state.time = 0;
+  state.startTime = performance.now();
+  state.hp = 3;
+  state.breakTime = 0;
+  state.hintAlpha = 1;
+  state.hintShown = true;
+
+  pinata.angle = 0;
+  pinata.angVel = 0;
+  pinata.spin = 0;
+  pinata.spinVel = 0;
+  pinata.tears = [];
+  pinata.shakeAmp = 0;
+
+  kids.length = 0;
+  const hatPalette = ['#c26e5e', '#d4a259', '#5c8a72', '#7a6a95', '#a26769', '#b58755'];
+  const blindPalette = ['#5b8a72', '#c26e5e', '#7a6a95', '#d4a259', '#a26769'];
+  for (let i = 0; i < 4; i++) {
+    kids.push({
+      x: 0, y: 0,
+      hatColor: hatPalette[Math.floor(Math.random() * hatPalette.length)],
+      bodyColor: '#1c130d',
+      blindfoldColor: blindPalette[Math.floor(Math.random() * blindPalette.length)],
+      dance: Math.random() * Math.PI * 2,
+      danceRate: 1.2 + Math.random() * 0.6,
+    });
+  }
+  layoutScene();
+
+  currentSwinger = null;
+  fragments = [];
+  contents = [];
+  embers = [];
+  state.nextSwingAt = state.time + 2.5;
+}
+
+// ============ Update ============
+function update(dt) {
+  state.time += dt;
+
+  if (state.screen === 'game') {
+    updateGame(dt);
+  } else if (state.screen === 'breaking') {
+    updateBreak(dt);
+  }
+  updateEmbers(dt);
+}
+
+function updateGame(dt) {
+  // Hint fade
+  if (state.time > 4.5) state.hintAlpha = Math.max(0, state.hintAlpha - dt * 0.6);
+
+  // Pinata pendulum physics
+  const g = 3600;
+  const L = pinata.ropeLen;
+  const damp = 0.6;
+  let acc = -(g / L) * Math.sin(pinata.angle) - damp * pinata.angVel;
+
+  if (touch && touch.held) {
+    const dir = (touch.x - W/2) / (W/2);
+    const targetAngle = Math.max(-0.9, Math.min(0.9, dir * 1.05));
+    acc += (targetAngle - pinata.angle) * 55;
+    acc -= pinata.angVel * 1.4;
+  }
+
+  pinata.angVel += acc * dt;
+  pinata.angle += pinata.angVel * dt;
+
+  // Clamp
+  if (pinata.angle > 1.05) { pinata.angle = 1.05; pinata.angVel *= -0.2; }
+  if (pinata.angle < -1.05) { pinata.angle = -1.05; pinata.angVel *= -0.2; }
+
+  // Spin decay
+  pinata.spinVel *= Math.pow(0.4, dt);
+  pinata.spin += pinata.spinVel * dt;
+
+  pinata.shakeAmp *= Math.pow(0.02, dt);
+
+  pinata.x = W/2 + Math.sin(pinata.angle) * L;
+  pinata.y = pinata.ropeAnchorY + Math.cos(pinata.angle) * L;
+
+  for (const k of kids) k.dance += dt * k.danceRate;
+
+  // Occasionally add a new kid as difficulty rises
+  if (state.time > 25 && kids.length === 4) addKid();
+  if (state.time > 55 && kids.length === 5) addKid();
+
+  // Swinger cycle
+  if (!currentSwinger && state.time >= state.nextSwingAt) {
+    startSwinger();
+  }
+
+  if (currentSwinger) {
+    const sw = currentSwinger;
+    if (sw.phase === 'winding') {
+      sw.progress += dt / sw.windDur;
+      if (sw.progress >= 1) {
+        sw.phase = 'swinging';
+        sw.progress = 0;
+      }
+    } else if (sw.phase === 'swinging') {
+      sw.progress += dt / sw.swingDur;
+      if (sw.progress > 0.55 && sw.progress < 1.05 && !sw.hit) {
+        const t = Math.min(1, sw.progress);
+        const kid = kids[sw.kidIndex];
+        const startX = kid.x;
+        const startY = kid.y - 55;
+        const endX = sw.arcTargetX;
+        const endY = pinata.ropeAnchorY + pinata.ropeLen;
+        const ctrlX = (startX + endX) / 2;
+        const ctrlY = (startY + endY) / 2 - 110;
+        const bx = (1-t)*(1-t)*startX + 2*(1-t)*t*ctrlX + t*t*endX;
+        const by = (1-t)*(1-t)*startY + 2*(1-t)*t*ctrlY + t*t*endY;
+        const d = Math.hypot(pinata.x - bx, pinata.y - by);
+        if (d < 56) {
+          hitPinata();
+          sw.hit = true;
+        }
+      }
+      if (sw.progress >= 1) {
+        currentSwinger = null;
+        const difficulty = Math.min(1, state.time / 70);
+        const gap = 1.6 - difficulty * 1.05 + Math.random() * 0.4;
+        state.nextSwingAt = state.time + gap;
+      }
+    }
+  }
+}
+
+function addKid() {
+  const hatPalette = ['#c26e5e', '#d4a259', '#5c8a72', '#7a6a95', '#a26769', '#b58755'];
+  const blindPalette = ['#5b8a72', '#c26e5e', '#7a6a95', '#d4a259', '#a26769'];
+  kids.push({
+    x: 0, y: 0,
+    hatColor: hatPalette[Math.floor(Math.random() * hatPalette.length)],
+    bodyColor: '#1c130d',
+    blindfoldColor: blindPalette[Math.floor(Math.random() * blindPalette.length)],
+    dance: Math.random() * Math.PI * 2,
+    danceRate: 1.2 + Math.random() * 0.6,
+  });
+  layoutScene();
+}
+
+function startSwinger() {
+  const kidIndex = Math.floor(Math.random() * kids.length);
+  const kid = kids[kidIndex];
+  // Blindfolded: mostly aims near own position, with some random spread
+  const spread = 100 + Math.random() * 60;
+  const arcTargetX = kid.x + (Math.random() - 0.5) * spread;
+  const difficulty = Math.min(1, state.time / 70);
+  const windDur = 1.55 - difficulty * 0.85;
+  currentSwinger = {
+    kidIndex,
+    phase: 'winding',
+    progress: 0,
+    arcTargetX,
+    swingDur: 0.34,
+    windDur,
+    hit: false,
+  };
+}
+
+function hitPinata() {
+  state.hp -= 1;
+  const dir = Math.random() < 0.5 ? -1 : 1;
+  pinata.tears.push({
+    ax: (Math.random() - 0.5) * 40,
+    ay: (Math.random() - 0.5) * 40,
+    len: 18 + Math.random() * 26,
+    rot: Math.random() * Math.PI * 2,
+  });
+  pinata.spinVel += dir * (6 + Math.random() * 6);
+  pinata.angVel += dir * (2 + Math.random() * 3);
+  pinata.shakeAmp = 12;
+
+  if (state.hp <= 0) {
+    startBreak();
+  }
+}
+
+function startBreak() {
+  state.screen = 'breaking';
+  state.breakTime = 0;
+  state.survivedMs = performance.now() - state.startTime;
+
+  const fx = pinata.x;
+  const fy = pinata.y;
+  const colors = ['#f7ecd7', '#f5deb3', '#efdcc0', '#e8d0a9', '#d4b997', '#c26e5e', '#d4a259', '#a95c3f'];
+  for (let i = 0; i < 44; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 200 + Math.random() * 420;
+    fragments.push({
+      x: fx + (Math.random() - 0.5) * 40,
+      y: fy + (Math.random() - 0.5) * 40,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - 220,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 14,
+      w: 8 + Math.random() * 22,
+      h: 6 + Math.random() * 18,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    });
+  }
+
+  const count = 4 + Math.floor(Math.random() * 2);
+  const shuffled = [...CONTENTS_POOL].sort(() => Math.random() - 0.5);
+  const rowH = Math.max(70, H * 0.09);
+  for (let i = 0; i < count; i++) {
+    const targetX = W * (0.16 + (i + 0.5) * (0.68 / count)) + (Math.random() - 0.5) * W * 0.04;
+    const row = i % 2;
+    contents.push({
+      x: fx + (Math.random() - 0.5) * 50,
+      y: fy - 10 + (Math.random() - 0.5) * 20,
+      vx: (targetX - fx) * 0.7,
+      vy: -150 - Math.random() * 200,
+      gravity: 360,
+      restY: H * 0.5 + row * rowH + Math.random() * 20,
+      wobble: Math.random() * Math.PI * 2,
+      landed: false,
+      text: shuffled[i],
+      revealed: false,
+      fadeIn: 0,
+      fadeOut: 1,
+      revealTime: 0,
+      shape: i % 4,
+      hue: 0.05 + Math.random() * 0.08,
+    });
+  }
+
+  spawnEmbers(fx, fy, 30);
+}
+
+function updateBreak(dt) {
+  state.breakTime += dt;
+
+  // Pinata rope goes slack — animate rope tail dangling
+  for (const f of fragments) {
+    f.vy += 900 * dt;
+    f.x += f.vx * dt;
+    f.y += f.vy * dt;
+    f.rot += f.rotV * dt;
+    f.vx *= Math.pow(0.5, dt);
+    f.rotV *= Math.pow(0.6, dt);
+  }
+
+  for (const c of contents) {
+    if (c.revealed) {
+      c.fadeIn = Math.min(1, c.fadeIn + dt * 1.4);
+      c.wobble += dt * 1.2;
+      c.y -= dt * 6;
+      c.revealTime += dt;
+      if (c.revealTime > 4.5) c.fadeOut = Math.max(0, c.fadeOut - dt * 0.9);
+    } else {
+      if (!c.landed) {
+        c.vy += c.gravity * dt;
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+        c.vx *= Math.pow(0.4, dt);
+        if (c.y > c.restY) {
+          c.y = c.restY;
+          c.vy *= -0.35;
+          c.vx *= 0.4;
+          if (Math.abs(c.vy) < 30) { c.landed = true; c.vy = 0; }
+        }
+      } else {
+        c.wobble += dt * 2;
+      }
+    }
+  }
+
+  // Show hint after fragments settle
+  if (state.breakTime > 1.2) {
+    document.getElementById('break-hint').classList.add('active');
+  }
+  if (state.breakTime > 3.5) {
+    document.getElementById('let-go-btn').classList.add('active');
+  }
+
+  // Auto-continue if all revealed
+  const allRevealed = contents.length > 0 && contents.every(c => c.revealed);
+  if (allRevealed && state.breakTime > 5.5) {
+    document.getElementById('let-go-btn').classList.remove('active');
+    document.getElementById('break-hint').classList.remove('active');
+    endGame();
+  }
+  // Force end after long timeout
+  if (state.breakTime > 22) {
+    document.getElementById('let-go-btn').classList.remove('active');
+    document.getElementById('break-hint').classList.remove('active');
+    endGame();
+  }
+}
+
+function spawnEmbers(x, y, count = 8) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 40 + Math.random() * 120;
+    embers.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 60,
+      life: 1,
+      maxLife: 1 + Math.random() * 0.6,
+      size: 1.5 + Math.random() * 2.5,
+    });
+  }
+}
+
+function updateEmbers(dt) {
+  for (const e of embers) {
+    e.vy += 60 * dt;
+    e.vx *= Math.pow(0.5, dt);
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.life -= dt / e.maxLife;
+  }
+  embers = embers.filter(e => e.life > 0);
+}
+
+function endGame() {
+  state.screen = 'end';
+  const seconds = Math.floor(state.survivedMs / 1000);
+  const label = seconds === 1 ? 'you held out for 1 second' : `you held out for ${seconds} seconds`;
+  document.getElementById('end-duration').textContent = label;
+  const revealed = contents.filter(c => c.revealed).map(c => c.text);
+  const contentsEl = document.getElementById('end-contents');
+  contentsEl.innerHTML = '';
+  if (revealed.length === 0) {
+    const p = document.createElement('p');
+    p.innerHTML = '<em>. . . you kept it all to yourself.</em>';
+    contentsEl.appendChild(p);
+  } else {
+    for (const t of revealed) {
+      const p = document.createElement('p');
+      p.textContent = t;
+      contentsEl.appendChild(p);
+    }
+  }
+  document.getElementById('end-overlay').classList.add('active');
+}
+
+// ============ Draw ============
+function draw() {
+  drawSky();
+  drawLanterns();
+  drawGround();
+
+  for (let i = 0; i < kids.length; i++) drawKid(kids[i], i);
+
+  if (state.screen === 'game') {
+    if (currentSwinger) drawSwing();
+    drawRope();
+    drawPinata();
+    drawHUD();
+    drawHint();
+  } else if (state.screen === 'breaking') {
+    drawFragments();
+    drawContents();
+    drawSlackRope();
+  }
+
+  drawEmbers();
+}
+
+function drawSky() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#2a1108');
+  grad.addColorStop(0.4, '#6a2f1c');
+  grad.addColorStop(0.75, '#b25230');
+  grad.addColorStop(1, '#d97442');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Distant paper texture noise via subtle circles
+  ctx.fillStyle = 'rgba(255, 230, 190, 0.03)';
+  for (let i = 0; i < 30; i++) {
+    const x = (i * 137.5) % W;
+    const y = (i * 233.7) % (H * 0.7);
+    ctx.beginPath();
+    ctx.arc(x, y, 30 + (i % 5) * 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawLanterns() {
+  const count = 6;
+  const yBase = H * 0.14;
+  for (let i = 0; i < count; i++) {
+    const baseX = (i + 0.5) * W / count;
+    const swayT = state.time * 0.55 + i * 1.3;
+    const x = baseX + Math.sin(swayT) * 12;
+    const y = yBase + Math.cos(swayT * 0.9) * 5;
+    // String
+    ctx.strokeStyle = 'rgba(30, 15, 8, 0.55)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(baseX, 0);
+    ctx.quadraticCurveTo((baseX + x) / 2, y * 0.5, x, y - 18);
+    ctx.stroke();
+    // Halo
+    const haloGrad = ctx.createRadialGradient(x, y, 3, x, y, 40);
+    haloGrad.addColorStop(0, 'rgba(255, 220, 150, 0.6)');
+    haloGrad.addColorStop(1, 'rgba(255, 200, 130, 0)');
+    ctx.fillStyle = haloGrad;
+    ctx.beginPath();
+    ctx.arc(x, y, 40, 0, Math.PI * 2);
+    ctx.fill();
+    // Lantern body
+    ctx.fillStyle = '#f5b060';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 11, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(80, 30, 15, 0.4)';
+    ctx.fillRect(x - 12, y - 3, 24, 1.5);
+    ctx.fillRect(x - 12, y + 4, 24, 1.5);
+    // Top cap
+    ctx.fillStyle = '#3a281a';
+    ctx.fillRect(x - 4, y - 18, 8, 4);
+  }
+}
+
+function drawGround() {
+  ctx.fillStyle = '#25130a';
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.9);
+  for (let x = 0; x <= W; x += 40) {
+    const y = H * 0.9 + Math.sin(x * 0.03) * 4;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+  // Softer top edge
+  ctx.strokeStyle = 'rgba(255, 160, 90, 0.15)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.9);
+  for (let x = 0; x <= W; x += 40) {
+    const y = H * 0.9 + Math.sin(x * 0.03) * 4;
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function drawKid(k, i) {
+  const bob = Math.sin(k.dance * 1.4 + i) * 3;
+  const sway = Math.sin(k.dance * 0.9 + i * 0.7) * 4;
+  const x = k.x + sway;
+  const y = k.y + bob;
+  const isSwinger = currentSwinger && kids[currentSwinger.kidIndex] === k;
+
+  // Legs
+  ctx.fillStyle = k.bodyColor;
+  ctx.fillRect(x - 10, y - 22, 6, 42);
+  ctx.fillRect(x + 4, y - 22, 6, 42);
+  // Torso
+  ctx.beginPath();
+  ctx.ellipse(x, y - 34, 20, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Arms (default at rest)
+  if (!isSwinger) {
+    ctx.strokeStyle = k.bodyColor;
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    const armSwing = Math.sin(k.dance * 1.4 + i) * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(x - 12, y - 45);
+    ctx.lineTo(x - 12 + Math.sin(armSwing) * 8, y - 20 + Math.cos(armSwing) * 8);
+    ctx.moveTo(x + 12, y - 45);
+    ctx.lineTo(x + 12 - Math.sin(armSwing) * 8, y - 20 + Math.cos(armSwing) * 8);
+    ctx.stroke();
+  }
+  // Head
+  ctx.fillStyle = k.bodyColor;
+  ctx.beginPath();
+  ctx.arc(x, y - 70, 15, 0, Math.PI * 2);
+  ctx.fill();
+  // Blindfold ribbon
+  ctx.fillStyle = k.blindfoldColor;
+  ctx.fillRect(x - 17, y - 74, 34, 8);
+  ctx.fillRect(x + 12, y - 76, 12, 12);
+  // Trailing ribbon end
+  ctx.beginPath();
+  ctx.moveTo(x + 20, y - 66);
+  ctx.quadraticCurveTo(x + 30, y - 60, x + 24, y - 52);
+  ctx.lineTo(x + 18, y - 60);
+  ctx.closePath();
+  ctx.fill();
+  // Hat
+  ctx.fillStyle = k.hatColor;
+  ctx.beginPath();
+  ctx.moveTo(x - 14, y - 80);
+  ctx.lineTo(x + 14, y - 80);
+  ctx.lineTo(x, y - 108);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.moveTo(x - 11, y - 88);
+  ctx.lineTo(x + 11, y - 88);
+  ctx.lineTo(x + 6, y - 96);
+  ctx.lineTo(x - 6, y - 96);
+  ctx.closePath();
+  ctx.fill();
+  // Pom
+  ctx.fillStyle = '#f5deb3';
+  ctx.beginPath();
+  ctx.arc(x, y - 108, 4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSwing() {
+  const sw = currentSwinger;
+  const kid = kids[sw.kidIndex];
+  const groundY = pinata.ropeAnchorY + pinata.ropeLen;
+
+  if (sw.phase === 'winding') {
+    // Telegraph arc
+    const alpha = 0.25 + Math.min(0.55, sw.progress * 0.9);
+    ctx.strokeStyle = `rgba(255, 220, 180, ${alpha})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 7]);
+    ctx.beginPath();
+    const startX = kid.x;
+    const startY = kid.y - 55;
+    const endX = sw.arcTargetX;
+    const endY = groundY;
+    const ctrlX = (startX + endX) / 2;
+    const ctrlY = (startY + endY) / 2 - 110;
+    ctx.moveTo(startX, startY);
+    ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Target mark
+    ctx.strokeStyle = `rgba(255, 100, 60, ${alpha + 0.2})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(endX, endY, 20 + Math.sin(state.time * 8) * 3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Kid raising arms + bat
+    ctx.strokeStyle = kid.bodyColor;
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    const wound = sw.progress;
+    const armAngle = -Math.PI/2 - wound * 0.9;
+    const shoulderY = kid.y - 55;
+    const armLen = 30;
+    const handX = kid.x + Math.cos(armAngle) * armLen;
+    const handY = shoulderY + Math.sin(armAngle) * armLen;
+    ctx.beginPath();
+    ctx.moveTo(kid.x, shoulderY);
+    ctx.lineTo(handX, handY);
+    ctx.stroke();
+    // Bat
+    ctx.strokeStyle = '#4a2f1a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    const batTipX = handX + Math.cos(armAngle) * 55;
+    const batTipY = handY + Math.sin(armAngle) * 55;
+    ctx.moveTo(handX, handY);
+    ctx.lineTo(batTipX, batTipY);
+    ctx.stroke();
+  } else if (sw.phase === 'swinging') {
+    const t = sw.progress;
+    const startX = kid.x;
+    const startY = kid.y - 55;
+    const endX = sw.arcTargetX;
+    const endY = groundY;
+    const ctrlX = (startX + endX) / 2;
+    const ctrlY = (startY + endY) / 2 - 110;
+    const px = (1-t)*(1-t)*startX + 2*(1-t)*t*ctrlX + t*t*endX;
+    const py = (1-t)*(1-t)*startY + 2*(1-t)*t*ctrlY + t*t*endY;
+
+    // Arm reaching toward bat handle midpoint
+    const handT = 0.35;
+    const hx = (1-handT)*(1-handT)*startX + 2*(1-handT)*handT*ctrlX + handT*handT*endX;
+    const hy = (1-handT)*(1-handT)*startY + 2*(1-handT)*handT*ctrlY + handT*handT*endY;
+    ctx.strokeStyle = kid.bodyColor;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(kid.x, kid.y - 55);
+    ctx.lineTo(hx, hy);
+    ctx.stroke();
+
+    // Bat
+    ctx.strokeStyle = '#4a2f1a';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+
+    // Whoosh trail
+    ctx.strokeStyle = 'rgba(255, 220, 180, 0.35)';
+    ctx.lineWidth = 4;
+    for (let k = 1; k <= 3; k++) {
+      const tt = Math.max(0, t - k * 0.06);
+      const tpx = (1-tt)*(1-tt)*startX + 2*(1-tt)*tt*ctrlX + tt*tt*endX;
+      const tpy = (1-tt)*(1-tt)*startY + 2*(1-tt)*tt*ctrlY + tt*tt*endY;
+      ctx.globalAlpha = (0.35 - k * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(tpx, tpy);
+      ctx.lineTo(px, py);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawRope() {
+  const anchorX = W/2;
+  const anchorY = 0;
+  const attachX = pinata.x;
+  const attachY = pinata.y - 40;
+  // Slight sag using midpoint
+  const midX = (anchorX + attachX) / 2 + Math.sin(pinata.angle) * 4;
+  const midY = (anchorY + attachY) / 2 + 4;
+  ctx.strokeStyle = '#3a281a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(anchorX, anchorY);
+  ctx.quadraticCurveTo(midX, midY, attachX, attachY);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(80, 45, 25, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(anchorX - 1, anchorY);
+  ctx.quadraticCurveTo(midX - 1, midY, attachX - 1, attachY);
+  ctx.stroke();
+}
+
+function drawSlackRope() {
+  // After break: rope dangles from anchor, empty
+  const anchorX = W/2;
+  const t = Math.min(1, state.breakTime / 1.2);
+  const dropY = 40 + 60 * t;
+  ctx.strokeStyle = '#3a281a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(anchorX, 0);
+  ctx.quadraticCurveTo(anchorX + Math.sin(state.time * 2) * 6, dropY * 0.6, anchorX + Math.sin(state.time * 2.4) * 4, dropY);
+  ctx.stroke();
+}
+
+function drawPinata() {
+  const cx = pinata.x + (Math.random() - 0.5) * pinata.shakeAmp;
+  const cy = pinata.y + (Math.random() - 0.5) * pinata.shakeAmp;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(pinata.angle * 0.35 + pinata.spin * 0.15);
+  drawCrane();
+  // Tears
+  ctx.strokeStyle = 'rgba(122, 60, 30, 0.85)';
+  ctx.lineWidth = 2.5;
+  for (const t of pinata.tears) {
+    ctx.save();
+    ctx.translate(t.ax, t.ay);
+    ctx.rotate(t.rot);
+    ctx.beginPath();
+    ctx.moveTo(-t.len/2, 0);
+    ctx.bezierCurveTo(-t.len/4, -3, t.len/4, 3, t.len/2, 0);
+    ctx.stroke();
+    // Shadow inside tear
+    ctx.strokeStyle = 'rgba(40, 20, 10, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-t.len/2 + 2, 1);
+    ctx.lineTo(t.len/2 - 2, 1);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(122, 60, 30, 0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawCrane() {
+  // Paper crane – abstract crumpled shape in cream tones
+  ctx.fillStyle = '#f5deb3';
+  ctx.strokeStyle = '#a88855';
+  ctx.lineWidth = 1.2;
+
+  // Left wing
+  ctx.beginPath();
+  ctx.moveTo(-8, -8);
+  ctx.lineTo(-62, -22);
+  ctx.lineTo(-48, 12);
+  ctx.lineTo(-10, 8);
+  ctx.closePath();
+  ctx.fillStyle = '#e8d0a9';
+  ctx.fill();
+  ctx.stroke();
+  // Right wing
+  ctx.beginPath();
+  ctx.moveTo(8, -8);
+  ctx.lineTo(62, -22);
+  ctx.lineTo(48, 12);
+  ctx.lineTo(10, 8);
+  ctx.closePath();
+  ctx.fillStyle = '#e8d0a9';
+  ctx.fill();
+  ctx.stroke();
+
+  // Body (diamond)
+  ctx.beginPath();
+  ctx.moveTo(0, -32);
+  ctx.lineTo(28, -4);
+  ctx.lineTo(6, 42);
+  ctx.lineTo(-28, -4);
+  ctx.closePath();
+  ctx.fillStyle = '#f5deb3';
+  ctx.fill();
+  ctx.stroke();
+
+  // Body fold highlight
+  ctx.strokeStyle = 'rgba(200, 160, 100, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, -32);
+  ctx.lineTo(6, 42);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-28, -4);
+  ctx.lineTo(28, -4);
+  ctx.stroke();
+
+  // Neck/head to upper right
+  ctx.fillStyle = '#f5deb3';
+  ctx.strokeStyle = '#a88855';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, -32);
+  ctx.lineTo(20, -52);
+  ctx.lineTo(6, -30);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Beak
+  ctx.beginPath();
+  ctx.moveTo(20, -52);
+  ctx.lineTo(30, -48);
+  ctx.lineTo(20, -46);
+  ctx.closePath();
+  ctx.fillStyle = '#d4a259';
+  ctx.fill();
+  ctx.stroke();
+
+  // Tail to lower left
+  ctx.beginPath();
+  ctx.moveTo(-28, -4);
+  ctx.lineTo(-40, -22);
+  ctx.lineTo(-26, -8);
+  ctx.closePath();
+  ctx.fillStyle = '#e8d0a9';
+  ctx.fill();
+  ctx.stroke();
+
+  // Crepe frill at bottom
+  ctx.strokeStyle = '#c26e5e';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = -3; i <= 3; i++) {
+    const x = i * 6;
+    const y = 42 + Math.abs(i % 2) * 3;
+    if (i === -3) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // Tiny eye
+  ctx.fillStyle = '#2a170e';
+  ctx.beginPath();
+  ctx.arc(16, -46, 1.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawFragments() {
+  for (const f of fragments) {
+    if (f.y > H + 60 || f.x < -60 || f.x > W + 60) continue;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rot);
+    ctx.fillStyle = f.color;
+    ctx.beginPath();
+    ctx.moveTo(-f.w/2, -f.h/2);
+    ctx.lineTo(f.w/2, -f.h/3);
+    ctx.lineTo(f.w/3, f.h/2);
+    ctx.lineTo(-f.w/2, f.h/3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60, 30, 15, 0.35)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawContents() {
+  for (const c of contents) {
+    ctx.save();
+    const yWobble = c.landed && !c.revealed ? Math.sin(c.wobble) * 2 : 0;
+    ctx.translate(c.x, c.y + yWobble);
+    if (!c.revealed) {
+      const pulse = 0.5 + 0.5 * Math.sin(state.time * 2.6 + c.wobble);
+      const glowGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, 42);
+      glowGrad.addColorStop(0, `rgba(255, 235, 190, ${0.35 + pulse * 0.25})`);
+      glowGrad.addColorStop(1, 'rgba(255, 220, 160, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 42, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      const glowGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, 30 * c.fadeIn);
+      glowGrad.addColorStop(0, `rgba(255, 235, 190, ${0.5 * (1 - c.fadeIn)})`);
+      glowGrad.addColorStop(1, 'rgba(255, 220, 160, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 30 * c.fadeIn, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = c.revealed ? 0.35 * (1 - c.fadeIn) + 0.4 : 1;
+    drawToken(c.shape);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    if (c.revealed) {
+      const fade = c.fadeIn * c.fadeOut;
+      ctx.fillStyle = `rgba(247, 236, 215, ${fade})`;
+      const fontSize = Math.max(14, Math.round(H * 0.022));
+      ctx.font = `italic ${fontSize}px 'Cormorant Garamond', Georgia, serif`;
+      ctx.textAlign = 'center';
+      const yOff = -36 - (1 - fade) * 24;
+      const maxWidth = Math.min(W - 32, 300);
+      const words = c.text.split(' ');
+      const lines = [];
+      let curr = '';
+      for (const w of words) {
+        const test = curr ? curr + ' ' + w : w;
+        if (ctx.measureText(test).width > maxWidth && curr) {
+          lines.push(curr);
+          curr = w;
+        } else curr = test;
+      }
+      if (curr) lines.push(curr);
+      const lineH = fontSize * 1.3;
+      lines.forEach((ln, i) => {
+        const lineW = ctx.measureText(ln).width;
+        const tx = Math.max(lineW/2 + 14, Math.min(W - lineW/2 - 14, c.x));
+        ctx.fillText(ln, tx, c.y + yOff - (lines.length - 1) * lineH / 2 + i * lineH);
+      });
+    }
+  }
+}
+
+function drawToken(shape) {
+  ctx.fillStyle = '#f7ecd7';
+  ctx.strokeStyle = '#8a6a3f';
+  ctx.lineWidth = 1;
+  const s = 14;
+  if (shape === 0) {
+    // heart
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.35);
+    ctx.bezierCurveTo(-s, -s * 1.1, -s * 1.05, s * 0.4, 0, s);
+    ctx.bezierCurveTo(s * 1.05, s * 0.4, s, -s * 1.1, 0, -s * 0.35);
+    ctx.fill();
+    ctx.stroke();
+  } else if (shape === 1) {
+    // envelope
+    ctx.fillRect(-s * 1.1, -s * 0.7, s * 2.2, s * 1.4);
+    ctx.strokeRect(-s * 1.1, -s * 0.7, s * 2.2, s * 1.4);
+    ctx.beginPath();
+    ctx.moveTo(-s * 1.1, -s * 0.7);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(s * 1.1, -s * 0.7);
+    ctx.stroke();
+    // Seal
+    ctx.fillStyle = '#c26e5e';
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (shape === 2) {
+    // flower
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 - Math.PI/2;
+      const px = Math.cos(a) * s * 0.55;
+      const py = Math.sin(a) * s * 0.55;
+      ctx.beginPath();
+      ctx.arc(px, py, s * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#d4a259';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // star
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? s : s * 0.42;
+      const a = (i / 10) * Math.PI * 2 - Math.PI/2;
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function drawHUD() {
+  // Hearts top-right
+  for (let i = 0; i < 3; i++) {
+    const x = W - 24 - i * 24;
+    const y = 30;
+    ctx.save();
+    ctx.translate(x, y);
+    const alive = i < state.hp;
+    ctx.fillStyle = alive ? '#f5deb3' : 'rgba(245, 222, 179, 0.15)';
+    ctx.strokeStyle = alive ? '#a88855' : 'rgba(168, 136, 85, 0.25)';
+    ctx.lineWidth = 1;
+    const s = 7;
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.35);
+    ctx.bezierCurveTo(-s, -s * 1.1, -s * 1.05, s * 0.4, 0, s);
+    ctx.bezierCurveTo(s * 1.05, s * 0.4, s, -s * 1.1, 0, -s * 0.35);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawHint() {
+  if (state.hintAlpha <= 0.01) return;
+  ctx.fillStyle = `rgba(247, 236, 215, ${state.hintAlpha * 0.75})`;
+  ctx.font = `italic ${Math.max(13, Math.round(H * 0.02))}px 'Cormorant Garamond', Georgia, serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('touch and hold left or right to sway', W/2, H * 0.5);
+}
+
+function drawEmbers() {
+  for (const e of embers) {
+    ctx.fillStyle = `rgba(255, 220, 150, ${Math.max(0, e.life * 0.8)})`;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============ Main loop ============
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min(0.045, (now - lastT) / 1000);
+  lastT = now;
+  update(dt);
+  ctx.clearRect(0, 0, W, H);
+  draw();
+  requestAnimationFrame(loop);
+}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
