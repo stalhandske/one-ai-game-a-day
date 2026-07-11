@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0508">
+<title>UNSAY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0a0508;
+    color: #f4e6c8;
+    font-family: 'Inter', system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #game {
+    position: fixed;
+    inset: 0;
+    display: block;
+    touch-action: none;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    background: radial-gradient(ellipse at top, rgba(80, 40, 20, 0.3), transparent 60%),
+                radial-gradient(ellipse at bottom, rgba(60, 15, 25, 0.4), transparent 60%),
+                #0a0508;
+    animation: fadeIn 0.6s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .overlay.hidden { display: none; }
+
+  .title-word {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: clamp(4rem, 18vw, 8rem);
+    letter-spacing: 0.15em;
+    color: #f4e6c8;
+    text-shadow: 0 0 60px rgba(255, 220, 150, 0.5);
+    margin: 0;
+    animation: breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.85; text-shadow: 0 0 40px rgba(255, 220, 150, 0.4); }
+    50%      { opacity: 1;    text-shadow: 0 0 80px rgba(255, 220, 150, 0.7); }
+  }
+
+  .subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1rem, 4vw, 1.25rem);
+    opacity: 0.65;
+    max-width: 22em;
+    line-height: 1.55;
+    margin: 1.5rem 0 3rem;
+    letter-spacing: 0.02em;
+  }
+
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    background: transparent;
+    color: #f4e6c8;
+    border: 1px solid rgba(244, 230, 200, 0.4);
+    padding: 0.9rem 2rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(4px);
+  }
+  .btn:hover, .btn:active {
+    background: rgba(244, 230, 200, 0.08);
+    border-color: rgba(244, 230, 200, 0.7);
+  }
+
+  .instructions {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+    opacity: 0.55;
+    max-width: 20em;
+    line-height: 1.6;
+    margin-top: 3rem;
+    letter-spacing: 0.01em;
+  }
+
+  .glyph {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.2rem, 9vw, 3.2rem);
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    margin: 0.3rem 0;
+  }
+
+  .flourish {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(0.95rem, 3.5vw, 1.15rem);
+    opacity: 0.7;
+    line-height: 1.7;
+    max-width: 24em;
+    margin: 1.5rem 0;
+  }
+
+  #between-screen .word-echo {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: clamp(2.5rem, 10vw, 4rem);
+    letter-spacing: 0.05em;
+    color: #f4e6c8;
+    text-shadow: 0 0 40px rgba(255, 220, 150, 0.4);
+    animation: fadeUp 1.2s ease-out;
+    margin: 0;
+  }
+  #between-screen .word-echo.striked {
+    position: relative;
+    opacity: 0.85;
+  }
+  #between-screen .word-echo.striked::after {
+    content: "";
+    position: absolute;
+    left: -0.1em; right: -0.1em;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,220,150,0.7), transparent);
+    animation: strike 0.9s 0.4s ease-out both;
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  @keyframes strike { to { transform: scaleX(1); } }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .caption {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+    opacity: 0.55;
+    margin: 1.2rem 0 0;
+    letter-spacing: 0.02em;
+  }
+
+  .fail-word {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: clamp(2.5rem, 10vw, 4rem);
+    letter-spacing: 0.05em;
+    color: #d84a5a;
+    text-shadow: 0 0 30px rgba(216, 74, 90, 0.5);
+    margin: 0;
+  }
+  .fail-caption {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+    opacity: 0.65;
+    margin: 1rem 0 2.5rem;
+    max-width: 20em;
+    line-height: 1.6;
+  }
+
+  #hud {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 50;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    opacity: 0.55;
+    letter-spacing: 0.05em;
+    text-align: right;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="game"></canvas>
+<div id="hud"></div>
+
+<div id="title-screen" class="overlay">
+  <h1 class="title-word">UNSAY</h1>
+  <p class="subtitle">A word has just left your mouth.<br>You have seconds to reach in and take it back.</p>
+  <button id="begin-btn" class="btn">Begin</button>
+  <p class="instructions">
+    Drag to guide the word toward the light above.<br>
+    Hold it there until it is unsaid.<br>
+    Do not let it reach the ear.
+  </p>
+</div>
+
+<div id="between-screen" class="overlay hidden">
+  <p class="caption" id="between-caption">unsaid</p>
+  <p class="word-echo striked" id="between-word">sorry</p>
+  <p class="flourish" id="between-line"></p>
+  <button id="continue-btn" class="btn">Continue</button>
+</div>
+
+<div id="fail-screen" class="overlay hidden">
+  <p class="caption">they heard you say</p>
+  <p class="fail-word" id="fail-word">sorry</p>
+  <p class="fail-caption" id="fail-line"></p>
+  <button id="retry-btn" class="btn">Try again</button>
+</div>
+
+<div id="end-screen" class="overlay hidden">
+  <p class="caption">unsaid</p>
+  <div id="end-list" style="margin: 1rem 0 2rem; display:flex; flex-direction:column; gap:0.4rem;">
+  </div>
+  <p class="flourish" style="opacity: 0.75;">
+    The room forgets.<br>You don't.
+  </p>
+  <button id="restart-btn" class="btn">Again</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ------------- GAME -------------
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', () => { resize(); });
+
+const LEVELS = [
+  { word: 'sorry',      gravity: 55,  earTop: 0.75, beamRate: 0,    holdMs: 1800, aftermath: "You didn't mean that one. Not this time.", failLine: "It landed. She looks away." },
+  { word: 'no',         gravity: 75,  earTop: 0.72, beamRate: 0,    holdMs: 2000, aftermath: "The door stays open a little longer.", failLine: "The door closes with a soft, final click." },
+  { word: 'later',      gravity: 90,  earTop: 0.70, beamRate: 4200, holdMs: 2200, aftermath: "Later becomes soon becomes now.", failLine: "He learned that later meant never." },
+  { word: 'why',        gravity: 108, earTop: 0.68, beamRate: 3400, holdMs: 2500, aftermath: "The question folds itself back into wondering.", failLine: "Some questions cannot be given back." },
+  { word: 'always',     gravity: 128, earTop: 0.65, beamRate: 2600, holdMs: 3000, aftermath: "Nothing is always. You almost said something you'd have to keep.", failLine: "Always is a promise, and now it's evidence." },
+  { word: 'goodbye',    gravity: 150, earTop: 0.62, beamRate: 2100, holdMs: 3400, aftermath: "The word returned. So did you.", failLine: "It was the last thing said. It didn't have to be." }
+];
+
+let state = 'title';
+let levelIndex = 0;
+let wordX, wordY, wordVX, wordVY;
+let dragging = false;
+let dragX = 0, dragY = 0;
+let dragOffsetY = 90;
+let beams = [];
+let ripples = [];
+let comprehension = 0;
+let inMouthTimer = 0;
+let waveTimer = 0;
+let beamTimer = 0;
+let lastFrame = 0;
+let unsaidWords = [];
+let overallTime = 0;
+let wordFontPx = 44;
+
+const MOUTH_FRACTION = 0.18;
+const WORD_PAD_X = 40;
+
+function measureWordFont(word) {
+  wordFontPx = Math.round(Math.min(W, H) * 0.11);
+  wordFontPx = Math.max(28, Math.min(wordFontPx, 68));
+  ctx.font = `300 ${wordFontPx}px "Cormorant Garamond", serif`;
+  return ctx.measureText(word).width;
+}
+
+function startLevel(i) {
+  levelIndex = i;
+  const L = LEVELS[i];
+  measureWordFont(L.word);
+  wordX = W / 2;
+  wordY = H * 0.48;
+  wordVX = 0;
+  wordVY = 0;
+  beams = [];
+  ripples = [];
+  comprehension = 0;
+  inMouthTimer = 0;
+  waveTimer = 0;
+  beamTimer = 0;
+  overallTime = 0;
+  dragging = false;
+  state = 'playing';
+  updateHud();
+}
+
+function updateHud() {
+  if (state === 'playing') {
+    hud.textContent = `${levelIndex + 1} of ${LEVELS.length}`;
+  } else {
+    hud.textContent = '';
+  }
+}
+
+function showOverlay(id) {
+  ['title-screen', 'between-screen', 'fail-screen', 'end-screen'].forEach(o => {
+    document.getElementById(o).classList.toggle('hidden', o !== id);
+  });
+}
+
+function hideAllOverlays() {
+  ['title-screen', 'between-screen', 'fail-screen', 'end-screen'].forEach(o => {
+    document.getElementById(o).classList.add('hidden');
+  });
+}
+
+// ------------- INPUT -------------
+
+function setDrag(clientX, clientY) {
+  dragX = clientX;
+  dragY = clientY - dragOffsetY;
+}
+
+canvas.addEventListener('touchstart', e => {
+  if (state !== 'playing') return;
+  e.preventDefault();
+  const t = e.touches[0];
+  dragging = true;
+  setDrag(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  if (state !== 'playing') return;
+  e.preventDefault();
+  const t = e.touches[0];
+  setDrag(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  dragging = false;
+}, { passive: false });
+canvas.addEventListener('touchcancel', () => { dragging = false; });
+
+canvas.addEventListener('mousedown', e => {
+  if (state !== 'playing') return;
+  dragging = true;
+  setDrag(e.clientX, e.clientY);
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging || state !== 'playing') return;
+  setDrag(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+
+// ------------- UPDATE -------------
+
+function update(dt) {
+  const L = LEVELS[levelIndex];
+  const dtSec = dt / 1000;
+  overallTime += dt;
+
+  // Word movement — frame-rate independent
+  if (dragging) {
+    // Smooth follow toward drag target (with vertical offset already applied)
+    const targetX = Math.max(WORD_PAD_X, Math.min(W - WORD_PAD_X, dragX));
+    const targetY = Math.max(60, Math.min(H - 60, dragY));
+    const alpha = 1 - Math.exp(-16 * dtSec);
+    const nx = wordX + (targetX - wordX) * alpha;
+    const ny = wordY + (targetY - wordY) * alpha;
+    wordVX = (nx - wordX) / dtSec;
+    wordVY = (ny - wordY) / dtSec;
+    wordX = nx;
+    wordY = ny;
+  } else {
+    // Gravity (attention pulling word down toward ear)
+    wordVY += L.gravity * dtSec;
+    wordVX *= Math.pow(0.05, dtSec);
+    if (wordVY > 320) wordVY = 320;
+    wordX += wordVX * dtSec;
+    wordY += wordVY * dtSec;
+  }
+
+  if (wordX < WORD_PAD_X) { wordX = WORD_PAD_X; wordVX = 0; }
+  if (wordX > W - WORD_PAD_X) { wordX = W - WORD_PAD_X; wordVX = 0; }
+  if (wordY < wordFontPx * 0.6) { wordY = wordFontPx * 0.6; wordVY = 0; }
+  if (wordY > H - wordFontPx * 0.6) { wordY = H - wordFontPx * 0.6; wordVY = 0; }
+
+  // Ripples spawn periodically for atmosphere and from the word
+  waveTimer += dt;
+  if (waveTimer > 900) {
+    waveTimer = 0;
+    ripples.push({
+      x: wordX, y: wordY, r: 0, maxR: 220,
+      alpha: 0.35, life: 2200
+    });
+  }
+
+  // Update ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.r += 80 * dtSec;
+    r.life -= dt;
+    r.alpha = Math.max(0, r.alpha - 0.5 * dtSec);
+    if (r.life <= 0 || r.alpha <= 0) ripples.splice(i, 1);
+  }
+
+  // Spawn beams
+  if (L.beamRate > 0) {
+    beamTimer += dt;
+    if (beamTimer > L.beamRate) {
+      beamTimer = 0;
+      const beamWidth = Math.max(60, W * 0.14);
+      const beamX = 30 + Math.random() * (W - 60 - beamWidth);
+      beams.push({
+        x: beamX,
+        w: beamWidth,
+        life: 1400,
+        maxLife: 1400,
+        active: false,
+        counted: false
+      });
+    }
+  }
+
+  // Update beams
+  for (let i = beams.length - 1; i >= 0; i--) {
+    const b = beams[i];
+    b.life -= dt;
+    // active during last 350ms
+    const wasActive = b.active;
+    b.active = b.life < 350 && b.life > 0;
+    if (b.active) {
+      // Word inside beam column?
+      if (wordX > b.x && wordX < b.x + b.w && wordY > H * 0.35) {
+        if (!b.counted) {
+          comprehension = Math.min(100, comprehension + 22);
+          b.counted = true;
+        }
+      }
+    }
+    if (b.life <= 0) beams.splice(i, 1);
+  }
+
+  // Comprehension from being in the ear zone
+  const earTop = H * L.earTop;
+  if (wordY > earTop) {
+    const depth = (wordY - earTop) / (H - earTop);
+    // 0 at boundary, 1 at bottom
+    comprehension += (12 + depth * 45) * dtSec;
+    if (comprehension > 100) comprehension = 100;
+  } else {
+    // slow decay so bad moments aren't permanent
+    comprehension -= 4 * dtSec;
+    if (comprehension < 0) comprehension = 0;
+  }
+
+  // Mouth zone hold
+  const mouthBottom = H * MOUTH_FRACTION;
+  if (wordY < mouthBottom) {
+    inMouthTimer += dt;
+    if (inMouthTimer >= L.holdMs) {
+      // Unsaid!
+      unsaidWords.push(L.word);
+      if (levelIndex + 1 < LEVELS.length) {
+        state = 'between';
+        showBetween();
+      } else {
+        state = 'end';
+        showEnd();
+      }
+    }
+  } else {
+    inMouthTimer = Math.max(0, inMouthTimer - dt * 0.6);
+  }
+
+  // Fail
+  if (comprehension >= 100) {
+    state = 'fail';
+    showFail();
+  }
+}
+
+// ------------- RENDER -------------
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Base background gradient — warm at top (mouth), cool/dark at bottom (ear)
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#2a1a10');
+  bg.addColorStop(0.20, '#1a1008');
+  bg.addColorStop(0.55, '#0a0508');
+  bg.addColorStop(1, '#180510');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const L = LEVELS[levelIndex];
+
+  // Mouth glow at top
+  const pulse = 0.85 + Math.sin(overallTime / 700) * 0.15;
+  const mouthGlow = ctx.createRadialGradient(W/2, -H*0.05, 0, W/2, -H*0.05, H * 0.42);
+  mouthGlow.addColorStop(0, `rgba(255, 210, 140, ${0.45 * pulse})`);
+  mouthGlow.addColorStop(0.5, `rgba(255, 180, 100, ${0.15 * pulse})`);
+  mouthGlow.addColorStop(1, 'rgba(255, 180, 100, 0)');
+  ctx.fillStyle = mouthGlow;
+  ctx.fillRect(0, 0, W, H * 0.5);
+
+  // Mouth threshold line (soft)
+  const mouthBottom = H * MOUTH_FRACTION;
+  ctx.strokeStyle = 'rgba(255, 220, 150, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 8]);
+  ctx.beginPath();
+  ctx.moveTo(20, mouthBottom);
+  ctx.lineTo(W - 20, mouthBottom);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ear zone
+  const earTop = H * L.earTop;
+  const earGrad = ctx.createLinearGradient(0, earTop, 0, H);
+  const earPulse = 0.75 + Math.sin(overallTime / 500) * 0.15;
+  const earAlpha = 0.15 + (comprehension / 100) * 0.35;
+  earGrad.addColorStop(0, `rgba(120, 20, 30, 0)`);
+  earGrad.addColorStop(0.6, `rgba(140, 30, 40, ${earAlpha * 0.4 * earPulse})`);
+  earGrad.addColorStop(1, `rgba(200, 50, 60, ${earAlpha * earPulse})`);
+  ctx.fillStyle = earGrad;
+  ctx.fillRect(0, earTop, W, H - earTop);
+
+  // Ear threshold hint
+  ctx.strokeStyle = `rgba(220, 60, 70, ${0.18 + earAlpha * 0.3})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 10]);
+  ctx.beginPath();
+  ctx.moveTo(20, earTop);
+  ctx.lineTo(W - 20, earTop);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Ripples (atmosphere emanating from the word)
+  ripples.forEach(r => {
+    ctx.strokeStyle = `rgba(220, 210, 180, ${r.alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Beams — attention shafts from the listener
+  beams.forEach(b => {
+    const t = 1 - b.life / b.maxLife;
+    if (b.life > 350) {
+      // charging: thin, glowing dotted column
+      const chargeAlpha = t * 0.4;
+      const g = ctx.createLinearGradient(0, H, 0, 0);
+      g.addColorStop(0, `rgba(255, 90, 100, ${chargeAlpha})`);
+      g.addColorStop(1, `rgba(255, 90, 100, 0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(b.x, 0, b.w, H);
+      // Bright base
+      ctx.fillStyle = `rgba(255, 90, 100, ${chargeAlpha + 0.15})`;
+      ctx.fillRect(b.x, H - 4, b.w, 4);
+    } else {
+      // active flash
+      const flash = (b.life / 350);
+      const g = ctx.createLinearGradient(0, H, 0, 0);
+      g.addColorStop(0, `rgba(255, 90, 110, ${0.85 * flash})`);
+      g.addColorStop(0.6, `rgba(255, 90, 110, ${0.45 * flash})`);
+      g.addColorStop(1, `rgba(255, 90, 110, 0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(b.x, 0, b.w, H);
+      ctx.fillStyle = `rgba(255, 200, 200, ${flash})`;
+      ctx.fillRect(b.x, H - 6, b.w, 6);
+    }
+  });
+
+  // Progress dots at very top
+  const dotY = 24;
+  const totalW = (LEVELS.length - 1) * 14;
+  for (let i = 0; i < LEVELS.length; i++) {
+    const x = W/2 - totalW/2 + i * 14;
+    let a = 0.15;
+    if (i < levelIndex) a = 0.8;
+    else if (i === levelIndex) a = 0.5;
+    ctx.fillStyle = `rgba(244, 230, 200, ${a})`;
+    ctx.beginPath();
+    ctx.arc(x, dotY, i === levelIndex ? 3.5 : 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // In-mouth hold indicator around the word
+  if (inMouthTimer > 0) {
+    const t = Math.min(1, inMouthTimer / LEVELS[levelIndex].holdMs);
+    const radius = wordFontPx * 1.3;
+    ctx.strokeStyle = `rgba(255, 220, 150, ${0.35 + t * 0.5})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(wordX, wordY, radius, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * t);
+    ctx.stroke();
+  }
+
+  // Word — the star
+  ctx.font = `300 ${wordFontPx}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // glow
+  ctx.shadowColor = 'rgba(255, 220, 150, 0.9)';
+  ctx.shadowBlur = 26 + Math.sin(overallTime / 400) * 6;
+  ctx.fillStyle = '#f4e6c8';
+  ctx.fillText(L.word, wordX, wordY);
+  ctx.shadowBlur = 0;
+
+  // Comprehension gauge (thin bar on right)
+  const gaugeH = H * 0.42;
+  const gaugeY = (H - gaugeH) / 2;
+  const gaugeX = W - 14;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+  ctx.fillRect(gaugeX - 1, gaugeY, 3, gaugeH);
+  const fill = (comprehension / 100) * gaugeH;
+  const gg = ctx.createLinearGradient(0, gaugeY + gaugeH, 0, gaugeY + gaugeH - fill);
+  gg.addColorStop(0, 'rgba(230, 60, 75, 0.95)');
+  gg.addColorStop(1, 'rgba(230, 60, 75, 0.55)');
+  ctx.fillStyle = gg;
+  ctx.fillRect(gaugeX - 1, gaugeY + gaugeH - fill, 3, fill);
+
+  // Label under gauge
+  ctx.save();
+  ctx.translate(gaugeX - 3, gaugeY + gaugeH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.font = 'italic 300 10px "Cormorant Garamond", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('heard', 0, 0);
+  ctx.restore();
+
+  // Subtle finger hint on first level, first few seconds
+  if (levelIndex === 0 && !dragging && overallTime < 3500) {
+    const hintAlpha = 0.5 * (1 - overallTime / 3500);
+    ctx.fillStyle = `rgba(244, 230, 200, ${hintAlpha})`;
+    ctx.font = 'italic 300 14px "Cormorant Garamond", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('drag to guide it up', W / 2, H - H * 0.28);
+  }
+}
+
+// ------------- LOOP -------------
+
+function loop(t) {
+  const dt = lastFrame ? Math.min(50, t - lastFrame) : 16;
+  lastFrame = t;
+  if (state === 'playing') {
+    update(dt);
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ------------- SCREENS -------------
+
+function showBetween() {
+  updateHud();
+  const L = LEVELS[levelIndex];
+  document.getElementById('between-word').textContent = L.word;
+  document.getElementById('between-line').textContent = L.aftermath;
+  showOverlay('between-screen');
+}
+
+function showFail() {
+  updateHud();
+  const L = LEVELS[levelIndex];
+  document.getElementById('fail-word').textContent = L.word;
+  document.getElementById('fail-line').textContent = L.failLine;
+  showOverlay('fail-screen');
+}
+
+function showEnd() {
+  updateHud();
+  const list = document.getElementById('end-list');
+  list.innerHTML = '';
+  unsaidWords.forEach(w => {
+    const p = document.createElement('p');
+    p.className = 'glyph';
+    p.textContent = w;
+    p.style.opacity = 0.85;
+    list.appendChild(p);
+  });
+  showOverlay('end-screen');
+}
+
+// ------------- BUTTONS -------------
+
+document.getElementById('begin-btn').addEventListener('click', () => {
+  hideAllOverlays();
+  unsaidWords = [];
+  startLevel(0);
+});
+
+document.getElementById('continue-btn').addEventListener('click', () => {
+  hideAllOverlays();
+  startLevel(levelIndex + 1);
+});
+
+document.getElementById('retry-btn').addEventListener('click', () => {
+  hideAllOverlays();
+  startLevel(levelIndex);
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  hideAllOverlays();
+  unsaidWords = [];
+  startLevel(0);
+});
+
+// Prevent iOS scroll bounce/zoom
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+</script>
+</body>
+</html>
