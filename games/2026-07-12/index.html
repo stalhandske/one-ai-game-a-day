@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>AUTOCORRECT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    background: #06060c;
+  }
+  body {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    color: #eee;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,60,140,0.10), transparent 45%),
+      radial-gradient(circle at 80% 90%, rgba(70,130,255,0.10), transparent 45%),
+      linear-gradient(180deg, #08060f 0%, #05050a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    position: fixed;
+    inset: 0;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #app {
+    width: 100%;
+    height: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding: env(safe-area-inset-top) 0.75rem env(safe-area-inset-bottom);
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3.5rem 0.25rem 0.75rem;
+    gap: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+  }
+  #chaos-label { color: rgba(255,120,160,0.9); font-weight: 700; }
+  #chaos-value {
+    font-size: 1.05rem;
+    color: #ff5a8a;
+    text-shadow: 0 0 12px rgba(255,90,138,0.35);
+    font-weight: 700;
+  }
+  #round-info { opacity: 0.7; }
+
+  /* PHONE FRAME */
+  .phone {
+    flex: 1;
+    background: linear-gradient(180deg, #10101a 0%, #14141f 100%);
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.02) inset,
+      0 30px 60px -20px rgba(0,0,0,0.7),
+      0 0 60px -10px rgba(255,90,138,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .phone-header {
+    padding: 0.9rem 1rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
+  }
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7a5aff, #ff5a8a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .recipient-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+  }
+  .recipient-status {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.4);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .chat-log {
+    flex: 1;
+    padding: 1rem 0.75rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    scrollbar-width: none;
+  }
+  .chat-log::-webkit-scrollbar { display: none; }
+
+  .bubble {
+    max-width: 78%;
+    padding: 0.55rem 0.8rem;
+    border-radius: 16px;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    word-wrap: break-word;
+    animation: bubble-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .bubble.sent {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #4a4aff, #6a3aff);
+    color: #fff;
+    border-bottom-right-radius: 5px;
+  }
+  .bubble.received {
+    align-self: flex-start;
+    background: #23232f;
+    color: #eaeaf0;
+    border-bottom-left-radius: 5px;
+  }
+  .bubble.typing {
+    align-self: flex-start;
+    background: #23232f;
+    padding: 0.5rem 0.9rem;
+    border-radius: 16px;
+    border-bottom-left-radius: 5px;
+    display: inline-flex;
+    gap: 3px;
+  }
+  .bubble.typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    animation: bounce 1s infinite;
+  }
+  .bubble.typing span:nth-child(2) { animation-delay: 0.15s; }
+  .bubble.typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
+    40% { transform: translateY(-4px); opacity: 1; }
+  }
+  @keyframes bubble-in {
+    from { transform: translateY(8px) scale(0.9); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  /* INPUT AREA */
+  .input-area {
+    padding: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .suggestions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.4rem;
+    min-height: 44px;
+  }
+  .suggestion {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #eaeaf0;
+    border-radius: 10px;
+    padding: 0.55rem 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: transform 0.06s ease;
+    letter-spacing: 0.02em;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .suggestion:active {
+    transform: scale(0.94);
+    background: rgba(255,90,138,0.35);
+    border-color: rgba(255,90,138,0.7);
+  }
+  .suggestion.spicy {
+    background: rgba(255,90,138,0.10);
+    border-color: rgba(255,90,138,0.35);
+    color: #ffb0c8;
+  }
+  .suggestion.spicy::after {
+    content: ' ✦';
+    color: #ff5a8a;
+  }
+  .suggestions.hidden { opacity: 0.25; pointer-events: none; }
+
+  .input-bubble {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 0.55rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 46px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .input-text {
+    flex: 1;
+    color: #f2f2f6;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    min-width: 0;
+  }
+  .input-text .committed { color: rgba(255,255,255,0.75); }
+  .input-text .current {
+    color: #fff;
+    background: rgba(255,255,255,0.10);
+    padding: 1px 4px;
+    border-radius: 4px;
+    border-bottom: 2px dashed rgba(255,90,138,0.7);
+    margin-right: 2px;
+    display: inline-block;
+    animation: nudge 0.5s ease infinite alternate;
+  }
+  .input-text .current.swapped {
+    background: rgba(255,90,138,0.28);
+    color: #fff;
+    animation: shake 0.35s ease;
+    border-bottom-color: transparent;
+  }
+  @keyframes nudge { from { transform: translateY(0);} to { transform: translateY(-1px);} }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    20% { transform: translateX(-2px) rotate(-2deg); }
+    40% { transform: translateX(2px) rotate(2deg); }
+    60% { transform: translateX(-1px) rotate(-1deg); }
+  }
+
+  .caret {
+    display: inline-block;
+    width: 2px; height: 1.1em;
+    background: #ff5a8a;
+    animation: blink 1s infinite;
+    vertical-align: middle;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .send-btn {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #4a4aff, #6a3aff);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.45rem 1rem;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    opacity: 0.35;
+  }
+  .send-btn.ready { opacity: 1; animation: pulse 1s ease infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(90,90,255,0.5); }
+    50% { box-shadow: 0 0 0 10px rgba(90,90,255,0); }
+  }
+
+  /* TIMER */
+  .word-timer {
+    position: absolute;
+    top: 0; left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #ff5a8a, #ffd25a);
+    transition: width 0.05s linear;
+    box-shadow: 0 0 8px rgba(255,90,138,0.6);
+  }
+
+  /* TITLE SCREEN */
+  .title-screen, .end-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(6,6,12,0.94), rgba(6,6,12,0.98));
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    gap: 1.5rem;
+  }
+  .title-main {
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+    color: #fff;
+    position: relative;
+  }
+  .title-main .glitch {
+    display: inline-block;
+    animation: glitch 3s infinite;
+    color: #ff5a8a;
+  }
+  @keyframes glitch {
+    0%, 90%, 100% { transform: translateX(0); }
+    93% { transform: translate(-2px, 1px); color: #ff5a8a; }
+    96% { transform: translate(2px, -1px); color: #5aaaff; }
+  }
+  .subtitle {
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.5;
+    max-width: 320px;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+  .subtitle .accent { color: #ff90b0; font-weight: 500; }
+
+  .how {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.6;
+    max-width: 320px;
+    padding: 1rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: left;
+  }
+  .how b { color: #ff90b0; }
+
+  .cta {
+    background: linear-gradient(135deg, #ff5a8a, #ff3a70);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.85rem 2rem;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 12px 40px -8px rgba(255,90,138,0.55);
+    transition: transform 0.08s ease;
+  }
+  .cta:active { transform: scale(0.96); }
+
+  .end-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 3.6rem;
+    font-weight: 700;
+    color: #ff5a8a;
+    text-shadow: 0 0 24px rgba(255,90,138,0.5);
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .end-label {
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.5);
+  }
+  .end-rank {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 1.1rem;
+    color: #fff;
+    padding: 0.6rem 1.1rem;
+    background: rgba(255,90,138,0.10);
+    border: 1px solid rgba(255,90,138,0.3);
+    border-radius: 12px;
+    max-width: 320px;
+    line-height: 1.4;
+  }
+
+  .flash {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,90,138,0.15);
+    pointer-events: none;
+    opacity: 0;
+    animation: flash 0.4s ease;
+  }
+  @keyframes flash {
+    0% { opacity: 0.6; }
+    100% { opacity: 0; }
+  }
+
+  .chaos-popup {
+    position: absolute;
+    color: #ff5a8a;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    pointer-events: none;
+    text-shadow: 0 0 10px rgba(255,90,138,0.7);
+    animation: pop-up 0.8s ease-out forwards;
+  }
+  @keyframes pop-up {
+    0% { transform: translateY(0) scale(0.7); opacity: 0; }
+    30% { transform: translateY(-10px) scale(1.15); opacity: 1; }
+    100% { transform: translateY(-40px) scale(0.9); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+  <a id="back-btn" href="../../index.html">← Games</a>
+
+  <div id="app">
+    <div id="hud">
+      <div><span id="chaos-label">CHAOS</span> <span id="chaos-value">0</span></div>
+      <div id="round-info">Msg 1 / 5</div>
+    </div>
+
+    <div class="phone">
+      <div class="phone-header">
+        <div class="avatar" id="avatar">M</div>
+        <div>
+          <div class="recipient-name" id="recipient-name">Mom 💕</div>
+          <div class="recipient-status">online</div>
+        </div>
+      </div>
+
+      <div class="chat-log" id="chat-log"></div>
+
+      <div class="input-area">
+        <div class="suggestions" id="suggestions">
+          <button class="suggestion" data-idx="0">—</button>
+          <button class="suggestion" data-idx="1">—</button>
+          <button class="suggestion" data-idx="2">—</button>
+        </div>
+        <div class="input-bubble">
+          <div class="word-timer" id="word-timer" style="width:0%"></div>
+          <div class="input-text" id="input-text"></div>
+          <span class="caret"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="title-screen" id="title-screen">
+      <div class="title-main">AUTO<span class="glitch">CORRECT</span></div>
+      <div class="subtitle">
+        You are the phone's autocorrect.<br>
+        Your user is trying to send messages.<br>
+        <span class="accent">Sabotage every one.</span>
+      </div>
+      <div class="how">
+        As each word is typed, tap a <b>suggestion</b> to swap it. Pink ✦ swaps hit harder. Chaos = points.<br><br>
+        Miss the timer and the word slips through <b>correctly</b>. Don't let that happen.
+      </div>
+      <button class="cta" id="start-btn">Begin Meddling</button>
+    </div>
+
+    <div class="end-screen" id="end-screen" style="display:none;">
+      <div class="end-label">Final Chaos</div>
+      <div class="end-score" id="end-score">0000</div>
+      <div class="end-rank" id="end-rank">—</div>
+      <button class="cta" id="restart-btn">Sabotage Again</button>
+    </div>
+  </div>
+
+<script>
+  const ORIENTATION = 'PORTRAIT';
+
+  function checkOrientation() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                  (ORIENTATION === 'LANDSCAPE' && isPortrait);
+    let overlay = document.getElementById('orientation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'orientation-overlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:9999;
+        background:#000; color:#fff; flex-direction:column;
+        align-items:center; justify-content:center;
+        font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+      `;
+      overlay.innerHTML = `
+        <div style="font-size:3rem">📱</div>
+        <div>Please rotate your device</div>
+        <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = wrong ? 'flex' : 'none';
+  }
+  window.addEventListener('resize', checkOrientation);
+  checkOrientation();
+
+  async function tryLockOrientation() {
+    try {
+      await document.documentElement.requestFullscreen?.();
+      await screen.orientation?.lock?.(
+        ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+      );
+    } catch (_) { /* not supported */ }
+  }
+  document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+  // ============ GAME DATA ============
+  // alts: [chaos_value, alt_text] — value is 1 (mild) or 2 (spicy)
+  const MESSAGES = [
+    {
+      recipient: 'Mom 💕',
+      avatar: 'M',
+      color: 'linear-gradient(135deg, #ff9aac, #ff5a8a)',
+      words: [
+        { text: 'Hi',    alts: [[1,'Ha'],[1,'Ho'],[2,'H8']] },
+        { text: 'mom',   alts: [[1,'mop'],[2,'mob'],[2,'moist']] },
+        { text: 'I',     alts: null },
+        { text: 'love',  alts: [[2,'lava'],[1,'lobe'],[2,'loathe']] },
+        { text: 'you',   alts: [[1,'yew'],[2,'ewe'],[2,'eww']] }
+      ],
+      replies: [
+        "love you too honey 💕",
+        "sweetie? autocorrect???",
+        "??? did the cat text me",
+        "please call grandma i'm worried",
+        "🚨 CHECKING ON YOU RIGHT NOW"
+      ]
+    },
+    {
+      recipient: 'Boss',
+      avatar: 'B',
+      color: 'linear-gradient(135deg, #6a3aff, #4a4aff)',
+      words: [
+        { text: 'Can',     alts: [[1,'Con'],[2,'Cane'],[2,'Cant']] },
+        { text: 'I',       alts: null },
+        { text: 'get',     alts: [[1,'got'],[2,'gut'],[2,'geld']] },
+        { text: 'a',       alts: null },
+        { text: 'raise',   alts: [[1,'raisin'],[2,'razor'],[2,'ruse']] },
+        { text: 'please',  alts: [[1,'pleats'],[2,'plebs'],[2,'pleas']] }
+      ],
+      replies: [
+        "sure, let's chat monday.",
+        "excuse me?",
+        "have you been drinking",
+        "this is my personal number.",
+        "HR has been notified."
+      ]
+    },
+    {
+      recipient: 'Alex',
+      avatar: 'A',
+      color: 'linear-gradient(135deg, #5aaaff, #7a5aff)',
+      words: [
+        { text: 'Sorry',    alts: [[1,'Story'],[2,'Sarong'],[2,'Sordid']] },
+        { text: 'meeting',  alts: [[2,'meating'],[2,'melting'],[2,'mating']] },
+        { text: 'starts',   alts: [[1,'smarts'],[2,'starves'],[2,'stares']] },
+        { text: 'now',      alts: [[1,'wow'],[2,'cow'],[2,'noe']] }
+      ],
+      replies: [
+        "no worries — on my way",
+        "wait what starts now",
+        "meating? is that a typo",
+        "are you okay to run this?",
+        "i'm calling the CEO."
+      ]
+    },
+    {
+      recipient: 'Sam 🎂',
+      avatar: 'S',
+      color: 'linear-gradient(135deg, #ffd25a, #ff8a3a)',
+      words: [
+        { text: 'Happy',     alts: [[1,'Hoppy'],[2,'Harpy'],[2,'Hairy']] },
+        { text: 'birthday',  alts: [[2,'birdbath'],[2,'birdcage'],[1,'birdday']] },
+        { text: 'hope',      alts: [[1,'hop'],[2,'dope'],[2,'hoof']] },
+        { text: 'you',       alts: [[1,'yew'],[2,'ewe'],[2,'eww']] },
+        { text: 'enjoy',     alts: [[2,'envoy'],[2,'empty'],[1,'emoji']] }
+      ],
+      replies: [
+        "aww thank you!! 🎂",
+        "hoppy birthday to me??",
+        "did you mean to send this",
+        "is this some kind of joke",
+        "we are no longer friends."
+      ]
+    },
+    {
+      recipient: '911 Dispatch',
+      avatar: '!',
+      color: 'linear-gradient(135deg, #ff3a3a, #ff8a3a)',
+      words: [
+        { text: 'Please',  alts: [[1,'Pleats'],[2,'Plebs'],[2,'Please']] },
+        { text: 'send',    alts: [[1,'sand'],[2,'sold'],[2,'send']] },
+        { text: 'help',    alts: [[1,'held'],[2,'helm'],[2,'hell']] },
+        { text: 'to',      alts: null },
+        { text: 'my',      alts: [[1,'me'],[2,'my'],[2,'mu']] },
+        { text: 'house',   alts: [[1,'horse'],[2,'hearse'],[2,'housse']] }
+      ],
+      replies: [
+        "dispatching now, stay on the line.",
+        "sir? please clarify.",
+        "we cannot understand your message.",
+        "is a horse in danger?",
+        "we are unable to help you."
+      ]
+    }
+  ];
+
+  const RANK = (chaos) => {
+    if (chaos <= 0)   return "Minimum Menace. The users won.";
+    if (chaos <= 500) return "Petty Nuisance. Passable.";
+    if (chaos <= 1200) return "Confusing Presence. Well done.";
+    if (chaos <= 2000) return "Nightmare Firmware. Excellent work.";
+    if (chaos <= 3000) return "Regulatory Concern. Chef's kiss.";
+    return "APOCALYPTIC AUTOCORRECT.";
+  };
+
+  const WORD_TIME_MS = 1800;
+  const CHAOS_PER_MILD = 100;
+  const CHAOS_PER_SPICY = 250;
+  const COMBO_BONUS = 50;
+
+  let state = {
+    msgIdx: 0,
+    wordIdx: 0,
+    chaos: 0,
+    combo: 0,
+    swapsInMsg: 0,
+    committedWords: [],
+    currentWordEl: null,
+    timerAF: null,
+    timerStart: 0,
+    running: false
+  };
+
+  const $ = id => document.getElementById(id);
+  const titleScreen = $('title-screen');
+  const endScreen = $('end-screen');
+  const chatLog = $('chat-log');
+  const suggestions = $('suggestions');
+  const inputText = $('input-text');
+  const wordTimer = $('word-timer');
+  const chaosValue = $('chaos-value');
+  const roundInfo = $('round-info');
+  const recipientName = $('recipient-name');
+  const avatar = $('avatar');
+  const app = $('app');
+
+  $('start-btn').addEventListener('click', startGame);
+  $('restart-btn').addEventListener('click', () => { location.reload(); });
+
+  suggestions.addEventListener('click', (e) => {
+    const btn = e.target.closest('.suggestion');
+    if (!btn || btn.classList.contains('empty')) return;
+    if (!state.running) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    commitWord(idx);
+  });
+
+  function startGame() {
+    titleScreen.style.display = 'none';
+    endScreen.style.display = 'none';
+    state.msgIdx = 0;
+    state.chaos = 0;
+    state.combo = 0;
+    chaosValue.textContent = '0';
+    chatLog.innerHTML = '';
+    startMessage();
+  }
+
+  function startMessage() {
+    const msg = MESSAGES[state.msgIdx];
+    recipientName.textContent = msg.recipient;
+    avatar.textContent = msg.avatar;
+    avatar.style.background = msg.color;
+    roundInfo.textContent = `Msg ${state.msgIdx + 1} / ${MESSAGES.length}`;
+    state.wordIdx = 0;
+    state.swapsInMsg = 0;
+    state.committedWords = [];
+    inputText.innerHTML = '';
+    nextWord();
+  }
+
+  function nextWord() {
+    const msg = MESSAGES[state.msgIdx];
+    if (state.wordIdx >= msg.words.length) {
+      finishMessage();
+      return;
+    }
+    const word = msg.words[state.wordIdx];
+
+    // Build input text HTML with committed words + current word
+    renderInputText(word.text);
+
+    if (word.alts === null) {
+      // No suggestions — auto-commit as-is quickly for rhythm variance
+      renderSuggestions(null);
+      wordTimer.style.width = '0%';
+      state.currentWordEl = inputText.querySelector('.current');
+      state.running = true;
+      setTimeout(() => {
+        if (!state.running) return;
+        commitWordSilent(word.text);
+      }, 350);
+      return;
+    }
+
+    // Render suggestion pills
+    renderSuggestions(word.alts);
+
+    // Start timer
+    state.running = true;
+    state.timerStart = performance.now();
+    tickTimer();
+  }
+
+  function tickTimer() {
+    if (!state.running) return;
+    const elapsed = performance.now() - state.timerStart;
+    const frac = Math.min(1, elapsed / WORD_TIME_MS);
+    wordTimer.style.width = (100 - frac * 100) + '%';
+    if (elapsed >= WORD_TIME_MS) {
+      // Time up — word passes through unchanged
+      const msg = MESSAGES[state.msgIdx];
+      const word = msg.words[state.wordIdx];
+      commitWordSilent(word.text);
+      return;
+    }
+    state.timerAF = requestAnimationFrame(tickTimer);
+  }
+
+  function renderInputText(currentWord) {
+    inputText.innerHTML = '';
+    state.committedWords.forEach((w, i) => {
+      const span = document.createElement('span');
+      span.className = 'committed';
+      span.textContent = (i === 0 ? '' : ' ') + w;
+      inputText.appendChild(span);
+    });
+    const cur = document.createElement('span');
+    cur.className = 'current';
+    cur.textContent = (state.committedWords.length === 0 ? '' : ' ') + currentWord;
+    inputText.appendChild(cur);
+  }
+
+  function renderSuggestions(alts) {
+    const btns = suggestions.querySelectorAll('.suggestion');
+    if (!alts) {
+      suggestions.classList.add('hidden');
+      btns.forEach(b => { b.textContent = '—'; b.classList.remove('spicy'); });
+      return;
+    }
+    suggestions.classList.remove('hidden');
+    btns.forEach((btn, i) => {
+      const [value, text] = alts[i];
+      btn.textContent = text;
+      btn.classList.toggle('spicy', value === 2);
+    });
+  }
+
+  function commitWord(altIndex) {
+    if (!state.running) return;
+    const msg = MESSAGES[state.msgIdx];
+    const word = msg.words[state.wordIdx];
+    if (!word.alts) return;
+
+    state.running = false;
+    cancelAnimationFrame(state.timerAF);
+
+    const [value, replaced] = word.alts[altIndex];
+    const chaosGain = (value === 2 ? CHAOS_PER_SPICY : CHAOS_PER_MILD) + state.combo * COMBO_BONUS;
+    state.chaos += chaosGain;
+    state.combo += 1;
+    state.swapsInMsg += 1;
+    updateChaosDisplay();
+
+    // Visual: replace current word with swapped word, animate
+    const cur = inputText.querySelector('.current');
+    if (cur) {
+      cur.textContent = (state.committedWords.length === 0 ? '' : ' ') + replaced;
+      cur.classList.add('swapped');
+    }
+    flashScreen();
+    popChaos(chaosGain);
+
+    state.committedWords.push(replaced);
+    state.wordIdx += 1;
+
+    setTimeout(() => {
+      nextWord();
+    }, 380);
+  }
+
+  function commitWordSilent(text) {
+    if (!state.running) return;
+    state.running = false;
+    cancelAnimationFrame(state.timerAF);
+    state.combo = 0; // broke combo
+    state.committedWords.push(text);
+    state.wordIdx += 1;
+    // small pause so word registers
+    setTimeout(() => {
+      nextWord();
+    }, 220);
+  }
+
+  function updateChaosDisplay() {
+    chaosValue.textContent = state.chaos.toLocaleString();
+  }
+
+  function popChaos(n) {
+    const pop = document.createElement('div');
+    pop.className = 'chaos-popup';
+    pop.textContent = '+' + n;
+    // position over input bubble
+    const rect = inputText.getBoundingClientRect();
+    const appRect = app.getBoundingClientRect();
+    pop.style.left = (rect.left - appRect.left + rect.width / 2 - 20) + 'px';
+    pop.style.top = (rect.top - appRect.top - 4) + 'px';
+    app.appendChild(pop);
+    setTimeout(() => pop.remove(), 850);
+  }
+
+  function flashScreen() {
+    const f = document.createElement('div');
+    f.className = 'flash';
+    app.appendChild(f);
+    setTimeout(() => f.remove(), 400);
+  }
+
+  function finishMessage() {
+    renderSuggestions(null);
+    inputText.innerHTML = '';
+    // Show sent bubble
+    const sentText = state.committedWords.join(' ');
+    const sentBubble = document.createElement('div');
+    sentBubble.className = 'bubble sent';
+    sentBubble.textContent = sentText;
+    chatLog.appendChild(sentBubble);
+    scrollChat();
+
+    // Typing indicator
+    setTimeout(() => {
+      const typing = document.createElement('div');
+      typing.className = 'bubble typing';
+      typing.innerHTML = '<span></span><span></span><span></span>';
+      chatLog.appendChild(typing);
+      scrollChat();
+
+      setTimeout(() => {
+        typing.remove();
+        const msg = MESSAGES[state.msgIdx];
+        const chaosLevel = Math.min(msg.replies.length - 1, state.swapsInMsg);
+        const reply = document.createElement('div');
+        reply.className = 'bubble received';
+        reply.textContent = msg.replies[chaosLevel];
+        chatLog.appendChild(reply);
+        scrollChat();
+
+        setTimeout(() => {
+          state.msgIdx += 1;
+          if (state.msgIdx >= MESSAGES.length) {
+            gameOver();
+          } else {
+            startMessage();
+          }
+        }, 1600);
+      }, 900);
+    }, 700);
+  }
+
+  function scrollChat() {
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function gameOver() {
+    $('end-score').textContent = state.chaos.toLocaleString();
+    $('end-rank').textContent = RANK(state.chaos);
+    endScreen.style.display = 'flex';
+  }
+
+  // Initial state: title visible
+  titleScreen.style.display = 'flex';
+</script>
+</body>
+</html>

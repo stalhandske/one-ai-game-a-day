@@ -192,6 +192,13 @@
       "theme": "the tiny panic in the half-second after a word leaves the mouth — regret as physics, the pull of a listener's attention, the private wish that we could reach into the air and take it back",
       "genre": "upstream drag — swim a spoken word back to the mouth before the listener hears it, dodging red attention beams from below",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-07-12",
+      "name": "AUTOCORRECT",
+      "theme": "the small malicious pleasure of software that thinks it knows better — playing the invisible gremlin inside a phone, weaponizing helpfulness, the deep human ritual of watching a message go horribly wrong in real time",
+      "genre": "chaotic word-swap rhythm — as your user types each word, tap a suggestion to sabotage it before the timer runs out, escalate spicy swaps for bigger chaos combos, watch the recipients' replies decay",
+      "orientation": "PORTRAIT"
     }
   ]
 }
