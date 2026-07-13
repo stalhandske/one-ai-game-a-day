@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>MOTE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=IBM+Plex+Mono:wght@300&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #05060c;
+    color: #e6d59a;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    inset: 0;
+  }
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  .overlay {
+    position: fixed; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    z-index: 100;
+    pointer-events: none;
+    padding: 2rem;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .overlay.active {
+    pointer-events: all;
+    opacity: 1;
+  }
+  .title {
+    font-size: clamp(3rem, 12vw, 5rem);
+    letter-spacing: 0.4em;
+    font-weight: 300;
+    color: #f5e6b3;
+    text-shadow: 0 0 40px rgba(245, 230, 179, 0.35);
+    margin: 0;
+    padding-left: 0.4em;
+  }
+  .subtitle {
+    font-size: 1.05rem;
+    letter-spacing: 0.05em;
+    color: #a89a70;
+    font-style: italic;
+    max-width: 320px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+  .hint {
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    color: rgba(168, 154, 112, 0.5);
+    font-family: 'IBM Plex Mono', monospace;
+    font-style: normal;
+    text-transform: uppercase;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.85; }
+  }
+  .btn {
+    padding: 0.85rem 2.5rem;
+    background: transparent;
+    border: 1px solid rgba(245, 230, 179, 0.35);
+    color: #f5e6b3;
+    font-size: 0.85rem;
+    letter-spacing: 0.35em;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    border-radius: 999px;
+    transition: all 0.4s ease;
+    margin-top: 0.5rem;
+  }
+  .btn:hover { border-color: #f5e6b3; background: rgba(245, 230, 179, 0.05); }
+  .btn:active { transform: scale(0.97); }
+
+  .hidden { display: none !important; }
+
+  #hud {
+    position: fixed;
+    top: 0.9rem;
+    right: 0.9rem;
+    z-index: 50;
+    text-align: right;
+    color: rgba(245, 230, 179, 0.7);
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    font-family: 'IBM Plex Mono', monospace;
+    pointer-events: none;
+  }
+  #time-display {
+    font-variant-numeric: tabular-nums;
+  }
+  #hud .glow-bar {
+    width: 120px;
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    margin-top: 8px;
+    margin-left: auto;
+    overflow: hidden;
+  }
+  #hud .glow-bar-inner {
+    height: 100%;
+    background: #f5e6b3;
+    width: 100%;
+    transition: width 0.15s linear;
+    box-shadow: 0 0 10px #f5e6b3;
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="time-display">0″</div>
+  <div class="glow-bar"><div id="glow-bar" class="glow-bar-inner"></div></div>
+</div>
+
+<div id="title-screen" class="overlay active">
+  <h1 class="title">MOTE</h1>
+  <div class="subtitle">
+    You are a speck of dust.<br>
+    To exist is to be seen.<br>
+    Stay inside the light.
+  </div>
+  <button class="btn" id="start-btn">BEGIN</button>
+  <div class="hint">tap to draw yourself</div>
+</div>
+
+<div id="end-screen" class="overlay hidden">
+  <h1 class="title" id="end-title">DIMMED</h1>
+  <div class="subtitle" id="end-message"></div>
+  <button class="btn" id="restart-btn">AGAIN</button>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ---------- Game ----------
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Constants
+const GAME_DURATION = 90; // seconds to win
+
+let state = 'title';
+let elapsedTime = 0;
+let glowMeter = 1.0;
+let companionsGained = 0;
+let lastCompanionTime = -100;
+let peakGlow = 1;
+
+const mote = { x: 0, y: 0, vx: 0, vy: 0, trail: [] };
+let ambientMotes = [];
+let companionMotes = [];
+
+let lightAngle = 0;
+let lightWidth = 0;
+let lightOpacity = 1;
+
+let windX = 0, windY = 0;
+let puffs = [];
+
+// Star field in background (very faint, static)
+let stars = [];
+
+function initGame() {
+  elapsedTime = 0;
+  glowMeter = 1.0;
+  companionsGained = 0;
+  lastCompanionTime = -100;
+  peakGlow = 1;
+
+  mote.x = W / 2;
+  mote.y = H / 2;
+  mote.vx = 0;
+  mote.vy = 0;
+  mote.trail = [];
+
+  lightAngle = -Math.PI / 7;
+  lightWidth = Math.max(120, W * 0.32);
+  lightOpacity = 1;
+
+  windX = 0; windY = -0.005;
+  puffs = [];
+
+  ambientMotes = [];
+  for (let i = 0; i < 45; i++) {
+    ambientMotes.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: (Math.random() - 0.5) * 0.12 - 0.02,
+      size: 0.4 + Math.random() * 1.6,
+      alpha: 0.25 + Math.random() * 0.5,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+  companionMotes = [];
+
+  stars = [];
+  for (let i = 0; i < 60; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 0.6 + 0.2,
+      a: Math.random() * 0.12 + 0.03
+    });
+  }
+}
+
+function lightIntensityAt(x, y) {
+  const cx = W / 2;
+  const cy = H / 2;
+  const dx = x - cx;
+  const dy = y - cy;
+  const s = Math.sin(lightAngle);
+  const c = Math.cos(lightAngle);
+  // across-shaft distance (perpendicular to shaft direction)
+  const across = dx * c + dy * s;
+  const absAcross = Math.abs(across);
+  const halfW = lightWidth / 2;
+  if (absAcross > halfW) return 0;
+  // Smooth falloff — brighter in the middle
+  const t = 1 - absAcross / halfW;
+  return Math.pow(t, 0.7) * lightOpacity;
+}
+
+function update(dt) {
+  elapsedTime += dt;
+
+  // Difficulty curve — shaft slowly rotates, narrows, dims
+  const progress = elapsedTime / GAME_DURATION;
+  lightAngle = -Math.PI / 7 + progress * (Math.PI / 4);
+  lightWidth = Math.max(70, W * 0.32 - progress * (W * 0.20));
+  lightOpacity = Math.max(0.55, 1 - progress * 0.4);
+
+  // Gentle roaming wind
+  windX = Math.sin(elapsedTime * 0.22) * 0.06 + Math.sin(elapsedTime * 0.09 + 1.3) * 0.04;
+  windY = Math.cos(elapsedTime * 0.17) * 0.03 - 0.015;
+
+  // Update puffs
+  for (let i = puffs.length - 1; i >= 0; i--) {
+    const p = puffs[i];
+    p.life -= dt;
+    p.r += 90 * dt;
+    if (p.life <= 0) puffs.splice(i, 1);
+  }
+
+  // Attract mote toward puffs
+  const applyPuffs = (m) => {
+    for (const p of puffs) {
+      const dx = p.x - m.x;
+      const dy = p.y - m.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+      if (dist < 260) {
+        const proximity = 1 - Math.min(1, dist / 260);
+        const strength = p.strength * proximity * Math.max(0, p.life);
+        m.vx += (dx / dist) * strength * dt * 42;
+        m.vy += (dy / dist) * strength * dt * 42;
+      }
+    }
+  };
+
+  // Player mote physics
+  mote.vx += windX * dt * 25;
+  mote.vy += windY * dt * 25;
+  applyPuffs(mote);
+  mote.vx *= 0.93;
+  mote.vy *= 0.93;
+  mote.x += mote.vx;
+  mote.y += mote.vy;
+  // Soft bounds
+  if (mote.x < 15) { mote.x = 15; mote.vx = Math.abs(mote.vx) * 0.4; }
+  if (mote.x > W - 15) { mote.x = W - 15; mote.vx = -Math.abs(mote.vx) * 0.4; }
+  if (mote.y < 15) { mote.y = 15; mote.vy = Math.abs(mote.vy) * 0.4; }
+  if (mote.y > H - 15) { mote.y = H - 15; mote.vy = -Math.abs(mote.vy) * 0.4; }
+
+  // Trail
+  mote.trail.push({ x: mote.x, y: mote.y, age: 0 });
+  if (mote.trail.length > 20) mote.trail.shift();
+  for (const t of mote.trail) t.age += dt;
+
+  // Companion motes — follow the player loosely
+  for (const c of companionMotes) {
+    const dx = mote.x - c.x + c.offsetX;
+    const dy = mote.y - c.y + c.offsetY;
+    const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+    if (dist > 12) {
+      c.vx += (dx / dist) * 0.06;
+      c.vy += (dy / dist) * 0.06;
+    }
+    c.vx += windX * dt * 8;
+    c.vy += windY * dt * 8;
+    applyPuffs(c);
+    c.vx *= 0.90;
+    c.vy *= 0.90;
+    c.x += c.vx;
+    c.y += c.vy;
+    c.phase += dt * (0.6 + c.jitterSeed * 0.5);
+    c.offsetX = Math.sin(c.phase) * 18;
+    c.offsetY = Math.cos(c.phase * 0.9) * 18;
+  }
+
+  // Ambient motes drift
+  for (const m of ambientMotes) {
+    m.x += m.vx + windX * 3 * dt * 60;
+    m.y += m.vy + windY * 3 * dt * 60;
+    m.phase += dt * 0.3;
+    if (m.x < -12) m.x = W + 12;
+    if (m.x > W + 12) m.x = -12;
+    if (m.y < -12) m.y = H + 12;
+    if (m.y > H + 12) m.y = -12;
+  }
+
+  // Glow meter
+  const inLight = lightIntensityAt(mote.x, mote.y);
+  if (inLight > 0.08) {
+    glowMeter = Math.min(1, glowMeter + dt * 0.32 * inLight);
+    if (glowMeter > peakGlow) peakGlow = glowMeter;
+    // Gain companions
+    if (elapsedTime - lastCompanionTime > 7 && companionMotes.length < 14) {
+      companionsGained++;
+      companionMotes.push({
+        x: mote.x + (Math.random() - 0.5) * 60,
+        y: mote.y + (Math.random() - 0.5) * 60,
+        vx: 0, vy: 0,
+        size: 1.1 + Math.random() * 1.4,
+        alpha: 0.75 + Math.random() * 0.2,
+        phase: Math.random() * Math.PI * 2,
+        jitterSeed: Math.random(),
+        offsetX: 0, offsetY: 0
+      });
+      lastCompanionTime = elapsedTime;
+    }
+  } else {
+    glowMeter -= dt * 0.42;
+  }
+
+  if (glowMeter <= 0) {
+    endGame(false);
+  }
+  if (elapsedTime >= GAME_DURATION) {
+    endGame(true);
+  }
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#04050b';
+  ctx.fillRect(0, 0, W, H);
+
+  // Very faint stars
+  for (const s of stars) {
+    ctx.fillStyle = `rgba(255, 255, 240, ${s.a})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Vignette
+  const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.75);
+  g.addColorStop(0, 'rgba(15, 12, 8, 0)');
+  g.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawLightShaft() {
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(lightAngle);
+
+  const shaftLen = Math.sqrt(W * W + H * H);
+  const hw = lightWidth / 2;
+
+  // Outer soft glow
+  const g1 = ctx.createLinearGradient(-hw * 1.6, 0, hw * 1.6, 0);
+  g1.addColorStop(0, 'rgba(245, 210, 130, 0)');
+  g1.addColorStop(0.5, `rgba(245, 220, 150, ${0.08 * lightOpacity})`);
+  g1.addColorStop(1, 'rgba(245, 210, 130, 0)');
+  ctx.fillStyle = g1;
+  ctx.fillRect(-hw * 1.6, -shaftLen, hw * 3.2, shaftLen * 2);
+
+  // Shaft body
+  const g2 = ctx.createLinearGradient(-hw, 0, hw, 0);
+  g2.addColorStop(0, 'rgba(255, 220, 150, 0)');
+  g2.addColorStop(0.5, `rgba(255, 232, 175, ${0.22 * lightOpacity})`);
+  g2.addColorStop(1, 'rgba(255, 220, 150, 0)');
+  ctx.fillStyle = g2;
+  ctx.fillRect(-hw, -shaftLen, hw * 2, shaftLen * 2);
+
+  // Bright core
+  const coreW = hw * 0.6;
+  const g3 = ctx.createLinearGradient(-coreW, 0, coreW, 0);
+  g3.addColorStop(0, 'rgba(255, 245, 210, 0)');
+  g3.addColorStop(0.5, `rgba(255, 248, 220, ${0.15 * lightOpacity})`);
+  g3.addColorStop(1, 'rgba(255, 245, 210, 0)');
+  ctx.fillStyle = g3;
+  ctx.fillRect(-coreW, -shaftLen, coreW * 2, shaftLen * 2);
+
+  // Slight lengthwise falloff at ends (fade out near top and bottom of shaft)
+  const g4 = ctx.createLinearGradient(0, -shaftLen, 0, shaftLen);
+  g4.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+  g4.addColorStop(0.15, 'rgba(0, 0, 0, 0)');
+  g4.addColorStop(0.85, 'rgba(0, 0, 0, 0)');
+  g4.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+  ctx.fillStyle = g4;
+  ctx.fillRect(-hw * 1.6, -shaftLen, hw * 3.2, shaftLen * 2);
+
+  ctx.restore();
+}
+
+function drawMote(x, y, size, alpha, colorRGB, extraGlow = 0) {
+  const intensity = lightIntensityAt(x, y);
+  const visible = alpha * Math.min(1, intensity + extraGlow);
+  if (visible < 0.02) return;
+  const glowR = size * 5 * (0.7 + intensity * 0.5);
+  const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+  g.addColorStop(0, `rgba(${colorRGB}, ${visible * 0.9})`);
+  g.addColorStop(0.4, `rgba(${colorRGB}, ${visible * 0.25})`);
+  g.addColorStop(1, `rgba(${colorRGB}, 0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, glowR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(${colorRGB}, ${Math.min(1, visible * 1.6)})`;
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPlayerMote() {
+  // Trail
+  for (let i = 0; i < mote.trail.length; i++) {
+    const t = mote.trail[i];
+    const age = t.age;
+    const alpha = Math.max(0, 1 - age / 0.9) * 0.35;
+    if (alpha <= 0) continue;
+    const s = 1.5 * (1 - age / 0.9);
+    const intensity = lightIntensityAt(t.x, t.y);
+    const vis = alpha * Math.max(0.3, intensity);
+    if (vis <= 0) continue;
+    ctx.fillStyle = `rgba(255, 245, 210, ${vis})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Player always has a faint inner glow
+  const baseGlow = 0.35 + glowMeter * 0.45;
+  drawMote(mote.x, mote.y, 3.2, baseGlow, '255, 245, 210', 0.5);
+
+  // Warm halo when in light
+  const intensity = lightIntensityAt(mote.x, mote.y);
+  if (intensity > 0.05) {
+    const haloR = 20 + intensity * 20;
+    const g = ctx.createRadialGradient(mote.x, mote.y, 0, mote.x, mote.y, haloR);
+    g.addColorStop(0, `rgba(255, 235, 180, ${intensity * 0.35})`);
+    g.addColorStop(1, 'rgba(255, 235, 180, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(mote.x, mote.y, haloR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawPuffs() {
+  for (const p of puffs) {
+    const a = Math.max(0, p.life) * 0.22;
+    if (a <= 0) continue;
+    ctx.strokeStyle = `rgba(255, 240, 195, ${a})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function draw() {
+  drawBackground();
+  drawLightShaft();
+
+  // Ambient motes
+  for (const m of ambientMotes) {
+    const twinkle = 0.85 + Math.sin(m.phase) * 0.15;
+    drawMote(m.x, m.y, m.size, m.alpha * twinkle, '245, 225, 165', 0);
+  }
+
+  // Companion motes — always slightly visible (they belong to you)
+  for (const c of companionMotes) {
+    drawMote(c.x, c.y, c.size, c.alpha, '255, 232, 175', 0.15);
+  }
+
+  drawPuffs();
+
+  drawPlayerMote();
+}
+
+let lastTime = 0;
+function loop(t) {
+  if (!lastTime) lastTime = t;
+  const dt = Math.min(0.05, (t - lastTime) / 1000);
+  lastTime = t;
+
+  if (state === 'play') {
+    update(dt);
+  } else if (state === 'title') {
+    // gentle idle drift for atmosphere before start
+    updateIdle(dt);
+  }
+  draw();
+
+  if (state === 'play') {
+    document.getElementById('time-display').textContent = Math.floor(elapsedTime) + '″';
+    document.getElementById('glow-bar').style.width = (glowMeter * 100) + '%';
+  }
+
+  requestAnimationFrame(loop);
+}
+
+function updateIdle(dt) {
+  // Gentle idle animation for title screen
+  elapsedTime += dt * 0.3;
+  lightAngle = -Math.PI / 7 + Math.sin(elapsedTime * 0.2) * 0.05;
+  for (const m of ambientMotes) {
+    m.x += m.vx;
+    m.y += m.vy;
+    m.phase += dt * 0.3;
+    if (m.x < -12) m.x = W + 12;
+    if (m.x > W + 12) m.x = -12;
+    if (m.y < -12) m.y = H + 12;
+    if (m.y > H + 12) m.y = -12;
+  }
+  // Slowly float the mote around center
+  const idleTargetX = W / 2 + Math.sin(elapsedTime * 0.3) * (W * 0.15);
+  const idleTargetY = H / 2 + Math.cos(elapsedTime * 0.4) * (H * 0.1);
+  mote.vx += (idleTargetX - mote.x) * 0.002;
+  mote.vy += (idleTargetY - mote.y) * 0.002;
+  mote.vx *= 0.94;
+  mote.vy *= 0.94;
+  mote.x += mote.vx;
+  mote.y += mote.vy;
+  mote.trail.push({ x: mote.x, y: mote.y, age: 0 });
+  if (mote.trail.length > 20) mote.trail.shift();
+  for (const t of mote.trail) t.age += dt;
+}
+
+initGame();
+requestAnimationFrame(loop);
+
+// ---------- Input ----------
+
+function addPuff(x, y) {
+  puffs.push({ x, y, r: 24, strength: 9, life: 0.55 });
+}
+
+let pointerDown = false;
+let lastPuffTime = 0;
+
+function onDown(e) {
+  if (state !== 'play') return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
+  const y = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top;
+  addPuff(x, y);
+  pointerDown = true;
+  lastPuffTime = performance.now();
+}
+
+function onMove(e) {
+  if (!pointerDown || state !== 'play') return;
+  e.preventDefault();
+  const now = performance.now();
+  if (now - lastPuffTime < 60) return; // rate limit
+  lastPuffTime = now;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
+  const y = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top;
+  addPuff(x, y);
+}
+
+function onUp() {
+  pointerDown = false;
+}
+
+canvas.addEventListener('pointerdown', onDown, { passive: false });
+canvas.addEventListener('pointermove', onMove, { passive: false });
+canvas.addEventListener('pointerup', onUp);
+canvas.addEventListener('pointercancel', onUp);
+canvas.addEventListener('pointerleave', onUp);
+
+// ---------- Menus ----------
+
+function startGame() {
+  initGame();
+  state = 'play';
+  const title = document.getElementById('title-screen');
+  const end = document.getElementById('end-screen');
+  title.classList.remove('active');
+  end.classList.remove('active');
+  setTimeout(() => {
+    title.classList.add('hidden');
+    end.classList.add('hidden');
+  }, 600);
+  document.getElementById('hud').classList.remove('hidden');
+}
+
+function endGame(won) {
+  if (state === 'end') return;
+  state = 'end';
+  document.getElementById('hud').classList.add('hidden');
+  const titleEl = document.getElementById('end-title');
+  const msgEl = document.getElementById('end-message');
+  const seconds = Math.floor(elapsedTime);
+  const companionWord = companionsGained === 1 ? 'companion' : 'companions';
+  if (won) {
+    titleEl.textContent = 'HOME';
+    msgEl.innerHTML = `The last light lifted you<br>through the window.<br><br><span style="opacity:0.6;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;letter-spacing:0.2em;">${companionsGained} ${companionWord.toUpperCase()}</span>`;
+  } else {
+    titleEl.textContent = 'DIMMED';
+    msgEl.innerHTML = `You glowed for ${seconds} seconds,<br>then you were dust again.<br><br><span style="opacity:0.6;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;letter-spacing:0.2em;">${companionsGained} ${companionWord.toUpperCase()}</span>`;
+  }
+  const end = document.getElementById('end-screen');
+  end.classList.remove('hidden');
+  requestAnimationFrame(() => end.classList.add('active'));
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+</script>
+</body>
+</html>

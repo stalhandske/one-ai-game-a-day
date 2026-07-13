@@ -199,6 +199,13 @@
       "theme": "the small malicious pleasure of software that thinks it knows better — playing the invisible gremlin inside a phone, weaponizing helpfulness, the deep human ritual of watching a message go horribly wrong in real time",
       "genre": "chaotic word-swap rhythm — as your user types each word, tap a suggestion to sabotage it before the timer runs out, escalate spicy swaps for bigger chaos combos, watch the recipients' replies decay",
       "orientation": "PORTRAIT"
+    },
+    {
+      "date": "2026-07-13",
+      "name": "MOTE",
+      "theme": "the tender ontology of dust in a sunbeam — to exist is to be seen, the quiet vanity of the barely visible, the way any warm current can be an invitation, the slow arithmetic of an afternoon giving up its light",
+      "genre": "meditative attractor drift — tap to summon warm currents that draw a single mote toward you, keep it inside a rotating shaft of afternoon sun, accumulate companion motes until last light",
+      "orientation": "PORTRAIT"
     }
   ]
 }
