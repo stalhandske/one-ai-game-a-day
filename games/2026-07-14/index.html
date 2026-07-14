@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>STIFLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0a0f; color: #f5f0e6;
+    font-family: 'EB Garamond', serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #stage { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+  #scene {
+    position: relative;
+    flex: 0 0 40%;
+    overflow: hidden;
+    background: #1a1a25;
+    transition: background 0.8s ease;
+  }
+  #scene svg { width: 100%; height: 100%; display: block; }
+
+  #scene-name {
+    padding: 0.55rem 1rem;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.35em;
+    opacity: 0.75;
+    text-transform: uppercase;
+    background: #0a0a0f;
+    border-top: 1px solid rgba(245,240,230,0.06);
+    border-bottom: 1px solid rgba(245,240,230,0.06);
+    flex: 0 0 auto;
+  }
+
+  #chamber-wrap {
+    flex: 1 1 auto;
+    position: relative;
+    background: #08080d;
+    min-height: 100px;
+  }
+  #chamber-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+
+  #stamina-wrap {
+    height: 5px;
+    background: #1a1a25;
+    position: relative;
+    flex: 0 0 auto;
+  }
+  #stamina-fill {
+    height: 100%;
+    background: #f5f0e6;
+    width: 100%;
+    transition: width 0.15s linear, background 0.5s ease;
+  }
+  #stamina-fill.low { background: #d97757; }
+
+  #timer-bar {
+    height: 2px;
+    background: rgba(245,240,230,0.06);
+    position: relative;
+    flex: 0 0 auto;
+  }
+  #timer-fill {
+    height: 100%;
+    background: rgba(245,240,230,0.4);
+    width: 0%;
+    transition: width 0.15s linear;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 10, 15, 0.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    z-index: 100;
+    gap: 1.25rem;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+
+  .overlay .hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    opacity: 0.5;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+
+  .overlay h1 {
+    font-family: 'EB Garamond', serif;
+    font-weight: 500;
+    color: #f5f0e6;
+    line-height: 1;
+    letter-spacing: 0.05em;
+  }
+
+  #title-overlay h1 {
+    font-size: 5rem;
+    letter-spacing: 0.15em;
+    text-indent: 0.15em;
+  }
+
+  .overlay .sub {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    opacity: 0.8;
+    max-width: 22rem;
+    line-height: 1.55;
+  }
+
+  .overlay .btn {
+    background: transparent;
+    color: #f5f0e6;
+    border: 1px solid #f5f0e6;
+    padding: 0.7rem 2rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.25em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s, color 0.2s;
+    margin-top: 0.5rem;
+  }
+  .overlay .btn:hover, .overlay .btn:active { background: #f5f0e6; color: #0a0a0f; }
+  .overlay .btn.ghost {
+    border-color: rgba(245,240,230,0.35);
+    color: rgba(245,240,230,0.6);
+  }
+
+  #achoo {
+    font-family: 'EB Garamond', serif;
+    font-weight: 600;
+    font-size: 4.5rem;
+    letter-spacing: 0.02em;
+    color: #f5f0e6;
+    line-height: 1;
+    animation: sneezePop 0.4s ease-out;
+  }
+  @keyframes sneezePop {
+    0% { transform: scale(0.5); opacity: 0; }
+    40% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .flicker { animation: flicker 4.6s infinite; }
+  @keyframes flicker {
+    0%, 92%, 100% { opacity: 0.6; }
+    93% { opacity: 0.2; }
+    94% { opacity: 0.7; }
+    95% { opacity: 0.3; }
+    96% { opacity: 0.6; }
+  }
+  .petal { animation: fall linear infinite; transform-origin: center; }
+  @keyframes fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+    12% { opacity: 0.9; }
+    85% { opacity: 0.9; }
+    100% { transform: translateY(320px) rotate(280deg); opacity: 0; }
+  }
+  .breathe { transform-origin: 140px 230px; animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.045); }
+  }
+  .smoke { animation: rise 6s linear infinite; transform-origin: center bottom; }
+  @keyframes rise {
+    0% { transform: translateY(0) translateX(0) scale(0.8); opacity: 0; }
+    15% { opacity: 0.55; }
+    100% { transform: translateY(-140px) translateX(10px) scale(2.4); opacity: 0; }
+  }
+  .candle-flame { transform-origin: 50% 100%; animation: candleflicker 0.5s ease-in-out infinite alternate; }
+  @keyframes candleflicker {
+    0% { transform: scale(1, 1) skewX(-3deg); }
+    100% { transform: scale(0.92, 1.08) skewX(3deg); }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-10px, 5px); }
+    30% { transform: translate(10px, -5px); }
+    45% { transform: translate(-8px, -4px); }
+    60% { transform: translate(8px, 4px); }
+    75% { transform: translate(-4px, 2px); }
+    90% { transform: translate(4px, -2px); }
+  }
+  .shake { animation: shake 0.55s ease-in-out; }
+
+  #stage.danger #chamber-wrap {
+    animation: dangerPulse 0.9s ease-in-out infinite;
+  }
+  @keyframes dangerPulse {
+    0%, 100% { box-shadow: inset 0 0 0 rgba(220, 80, 60, 0); }
+    50% { box-shadow: inset 0 0 40px rgba(220, 80, 60, 0.35); }
+  }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="stage">
+  <div id="scene"></div>
+  <div id="scene-name">—</div>
+  <div id="chamber-wrap"><canvas id="chamber-canvas"></canvas></div>
+  <div id="stamina-wrap"><div id="stamina-fill"></div></div>
+  <div id="timer-bar"><div id="timer-fill"></div></div>
+</div>
+
+<div id="title-overlay" class="overlay">
+  <div class="hint">A GAME ABOUT NOT SNEEZING</div>
+  <h1>STIFLE</h1>
+  <div class="sub">You are the sneeze inside a person's face during five moments where releasing it would be catastrophic. Hold to focus — the irritants slow. Tap the dust before it reaches the surface. Your calm is not infinite.</div>
+  <button class="btn" id="start-btn">Begin</button>
+  <div class="hint">Hold to focus · tap dust to clear</div>
+</div>
+
+<div id="result-overlay" class="overlay" style="display:none;">
+  <div id="result-body"></div>
+</div>
+
+<script>
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+/* ================ scenes ================ */
+const SCENES = [
+  {
+    name: 'THE INTERVIEW',
+    duration: 18,
+    spawnEvery: 3.0,
+    fallSpeed: 45,
+    baseRise: 0.014,
+    bg: '#2f3a45',
+    survived: 'They shook your hand. The offer came Thursday.',
+    caught: 'The panel exchanged a single glance. You were not offered the position.',
+    sceneSVG: `
+      <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="300" fill="#2f3a45"/>
+        <rect x="0" y="0" width="400" height="42" fill="#1f2830"/>
+        <rect x="120" y="18" width="160" height="6" fill="#eae4d2" opacity="0.55" class="flicker"/>
+        <rect x="0" y="235" width="400" height="70" fill="#1a2028"/>
+        <line x1="0" y1="235" x2="400" y2="235" stroke="#f5f0e6" stroke-opacity="0.09"/>
+        <g fill="#0d1218">
+          <ellipse cx="80" cy="170" rx="28" ry="30"/>
+          <path d="M52,200 L108,200 L112,255 L48,255 Z"/>
+          <ellipse cx="200" cy="168" rx="30" ry="32"/>
+          <path d="M170,198 L230,198 L235,255 L165,255 Z"/>
+          <ellipse cx="320" cy="172" rx="28" ry="30"/>
+          <path d="M292,202 L348,202 L352,255 L288,255 Z"/>
+        </g>
+        <g fill="#f5f0e6">
+          <circle cx="72" cy="167" r="1.4"/><circle cx="88" cy="167" r="1.4"/>
+          <circle cx="192" cy="165" r="1.4"/><circle cx="208" cy="165" r="1.4"/>
+          <circle cx="312" cy="169" r="1.4"/><circle cx="328" cy="169" r="1.4"/>
+        </g>
+        <rect x="70" y="240" width="30" height="18" fill="#e8dcbd" opacity="0.8"/>
+        <rect x="190" y="240" width="30" height="18" fill="#e8dcbd" opacity="0.8"/>
+        <rect x="310" y="240" width="30" height="18" fill="#e8dcbd" opacity="0.8"/>
+      </svg>
+    `
+  },
+  {
+    name: 'THE VOW',
+    duration: 20,
+    spawnEvery: 2.4,
+    fallSpeed: 55,
+    baseRise: 0.020,
+    bg: '#c68a68',
+    survived: 'The rings were exchanged. No one saw the tears in your eyes.',
+    caught: 'The bride turned. Everyone will remember your name for the wrong reason.',
+    sceneSVG: `
+      <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="vowsky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#e0b48a"/>
+            <stop offset="1" stop-color="#8f5a44"/>
+          </linearGradient>
+        </defs>
+        <rect width="400" height="300" fill="url(#vowsky)"/>
+        <path d="M60,300 L60,180 Q60,80 200,80 Q340,80 340,180 L340,300 Z" fill="none" stroke="#3f1f1a" stroke-width="4" opacity="0.4"/>
+        <path d="M80,300 L80,180 Q80,100 200,100 Q320,100 320,180 L320,300 Z" fill="#3f1f1a" opacity="0.18"/>
+        <ellipse cx="200" cy="152" rx="20" ry="24" fill="#221008"/>
+        <path d="M170,175 Q170,255 200,270 Q230,255 230,175 Z" fill="#221008"/>
+        <g fill="#221008">
+          <ellipse cx="130" cy="200" rx="20" ry="22"/>
+          <path d="M100,220 Q100,300 130,300 L165,300 Q165,220 130,220 Z"/>
+          <ellipse cx="270" cy="200" rx="22" ry="24"/>
+          <path d="M240,220 Q240,300 270,300 L305,300 Q305,220 270,220 Z"/>
+        </g>
+        <ellipse cx="130" cy="200" rx="4" ry="16" fill="#f5f0e6" opacity="0.85"/>
+        <g fill="#f5c4b0">
+          <ellipse class="petal" style="animation-duration:7s;animation-delay:0s" cx="60" cy="20" rx="4" ry="2"/>
+          <ellipse class="petal" style="animation-duration:8s;animation-delay:1.8s" cx="150" cy="10" rx="4" ry="2"/>
+          <ellipse class="petal" style="animation-duration:6s;animation-delay:3.5s" cx="240" cy="15" rx="4" ry="2"/>
+          <ellipse class="petal" style="animation-duration:7.5s;animation-delay:0.9s" cx="330" cy="20" rx="4" ry="2"/>
+          <ellipse class="petal" style="animation-duration:9s;animation-delay:2.6s" cx="380" cy="0" rx="4" ry="2"/>
+          <ellipse class="petal" style="animation-duration:6.8s;animation-delay:4.2s" cx="20" cy="5" rx="4" ry="2"/>
+        </g>
+      </svg>
+    `
+  },
+  {
+    name: 'THE NURSERY',
+    duration: 22,
+    spawnEvery: 2.0,
+    fallSpeed: 65,
+    baseRise: 0.024,
+    bg: '#3a2f47',
+    survived: 'The baby did not stir. You crept out barefoot down the hall.',
+    caught: 'The baby wailed for two hours. Its parents will never forget you.',
+    sceneSVG: `
+      <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="300" fill="#3a2f47"/>
+        <rect x="270" y="30" width="100" height="120" fill="#4a5a80"/>
+        <rect x="270" y="30" width="100" height="120" fill="none" stroke="#1c1826" stroke-width="4"/>
+        <line x1="320" y1="30" x2="320" y2="150" stroke="#1c1826" stroke-width="3"/>
+        <line x1="270" y1="90" x2="370" y2="90" stroke="#1c1826" stroke-width="3"/>
+        <circle cx="345" cy="65" r="14" fill="#f5edd5" opacity="0.92"/>
+        <circle cx="340" cy="60" r="4" fill="#3a2f47" opacity="0.3"/>
+        <circle cx="290" cy="110" r="1.2" fill="#f5edd5"/>
+        <circle cx="360" cy="120" r="1.2" fill="#f5edd5"/>
+        <rect x="40" y="180" width="200" height="90" fill="#5a3a2a"/>
+        <rect x="40" y="180" width="200" height="10" fill="#3f2618"/>
+        <rect x="40" y="260" width="200" height="10" fill="#3f2618"/>
+        <g stroke="#3a2018" stroke-width="3">
+          <line x1="55" y1="190" x2="55" y2="260"/>
+          <line x1="80" y1="190" x2="80" y2="260"/>
+          <line x1="105" y1="190" x2="105" y2="260"/>
+          <line x1="130" y1="190" x2="130" y2="260"/>
+          <line x1="155" y1="190" x2="155" y2="260"/>
+          <line x1="180" y1="190" x2="180" y2="260"/>
+          <line x1="205" y1="190" x2="205" y2="260"/>
+          <line x1="230" y1="190" x2="230" y2="260"/>
+        </g>
+        <g class="breathe">
+          <ellipse cx="140" cy="230" rx="70" ry="22" fill="#d5c5a8"/>
+          <circle cx="180" cy="222" r="12" fill="#f2dabe"/>
+          <circle cx="177" cy="220" r="0.9" fill="#3a2f47"/>
+          <circle cx="183" cy="220" r="0.9" fill="#3a2f47"/>
+        </g>
+      </svg>
+    `
+  },
+  {
+    name: 'THE MEDITATION',
+    duration: 24,
+    spawnEvery: 1.7,
+    fallSpeed: 76,
+    baseRise: 0.028,
+    bg: '#3f4a3a',
+    survived: 'The bell rang. Your teacher inclined his head half a degree.',
+    caught: 'The monk opened one eye. The silence would not return today.',
+    sceneSVG: `
+      <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="medglow" cx="0.5" cy="0.55" r="0.55">
+            <stop offset="0" stop-color="#e8c880" stop-opacity="0.5"/>
+            <stop offset="1" stop-color="#e8c880" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="400" height="300" fill="#3f4a3a"/>
+        <ellipse cx="200" cy="185" rx="180" ry="120" fill="url(#medglow)"/>
+        <line x1="0" y1="260" x2="400" y2="260" stroke="#20261e" stroke-width="2"/>
+        <g fill="#181a15">
+          <path d="M140,260 Q140,180 200,180 Q260,180 260,260 Z"/>
+          <ellipse cx="200" cy="163" rx="26" ry="30"/>
+          <ellipse cx="167" cy="230" rx="12" ry="18" transform="rotate(-25 167 230)"/>
+          <ellipse cx="233" cy="230" rx="12" ry="18" transform="rotate(25 233 230)"/>
+        </g>
+        <line x1="320" y1="260" x2="320" y2="228" stroke="#8a6a3a" stroke-width="2.5"/>
+        <circle cx="320" cy="226" r="2.4" fill="#f08c5a"/>
+        <g fill="#e8e2d0">
+          <circle class="smoke" style="animation-delay:0s" cx="320" cy="218" r="4"/>
+          <circle class="smoke" style="animation-delay:1.5s" cx="322" cy="218" r="5"/>
+          <circle class="smoke" style="animation-delay:3s" cx="318" cy="218" r="4"/>
+          <circle class="smoke" style="animation-delay:4.5s" cx="323" cy="218" r="5"/>
+        </g>
+      </svg>
+    `
+  },
+  {
+    name: 'THE FUNERAL',
+    duration: 26,
+    spawnEvery: 1.4,
+    fallSpeed: 88,
+    baseRise: 0.032,
+    bg: '#1a1d2f',
+    survived: 'The service ended. You had honored the silence.',
+    caught: 'One pew of heads turned. From the front, softly: bless you.',
+    sceneSVG: `
+      <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="300" fill="#1a1d2f"/>
+        <rect x="130" y="20" width="140" height="80" fill="#2a2d45"/>
+        <path d="M130,80 Q200,-10 270,80 Z" fill="#2a2d45"/>
+        <line x1="200" y1="10" x2="200" y2="80" stroke="#f5f0e6" stroke-opacity="0.14"/>
+        <line x1="130" y1="45" x2="270" y2="45" stroke="#f5f0e6" stroke-opacity="0.14"/>
+        <rect x="130" y="20" width="140" height="80" fill="none" stroke="#f5f0e6" stroke-opacity="0.12"/>
+        <rect x="120" y="200" width="160" height="32" fill="#4a3a2a"/>
+        <rect x="120" y="200" width="160" height="6" fill="#6a5540"/>
+        <ellipse cx="200" cy="216" rx="30" ry="6" fill="#c99f68" opacity="0.7"/>
+        <rect x="78" y="220" width="6" height="30" fill="#e8dfc8"/>
+        <ellipse class="candle-flame" cx="81" cy="216" rx="3.2" ry="7" fill="#f5c78a" style="transform-origin:81px 220px"/>
+        <rect x="316" y="220" width="6" height="30" fill="#e8dfc8"/>
+        <ellipse class="candle-flame" cx="319" cy="216" rx="3.2" ry="7" fill="#f5c78a" style="transform-origin:319px 220px;animation-delay:0.25s"/>
+        <g fill="#0a0d1a">
+          <ellipse cx="60" cy="172" rx="15" ry="17"/>
+          <path d="M43,187 Q43,265 60,275 Q77,265 77,187 Z"/>
+          <ellipse cx="112" cy="170" rx="15" ry="17"/>
+          <path d="M95,185 Q95,265 112,275 Q129,265 129,185 Z"/>
+          <ellipse cx="288" cy="170" rx="15" ry="17"/>
+          <path d="M271,185 Q271,265 288,275 Q305,265 305,185 Z"/>
+          <ellipse cx="340" cy="172" rx="15" ry="17"/>
+          <path d="M323,187 Q323,265 340,275 Q357,265 357,187 Z"/>
+        </g>
+      </svg>
+    `
+  }
+];
+
+/* ================ audio ================ */
+let audioCtx = null;
+let ambientGain = null;
+let ambientOsc = null;
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    ambientOsc = audioCtx.createOscillator();
+    ambientOsc.type = 'sine';
+    ambientOsc.frequency.value = 52;
+    ambientGain = audioCtx.createGain();
+    ambientGain.gain.value = 0;
+    ambientOsc.connect(ambientGain);
+    ambientGain.connect(audioCtx.destination);
+    ambientOsc.start();
+  } catch (_) {}
+}
+document.addEventListener('pointerdown', initAudio, { once: true });
+
+function playAchoo() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const noise = audioCtx.createBufferSource();
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.5, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    const env = Math.max(0, 1 - i / data.length);
+    data[i] = (Math.random() * 2 - 1) * env * env;
+  }
+  noise.buffer = buf;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 1800;
+  filter.Q.value = 0.6;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.18;
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  noise.connect(filter);
+  filter.connect(g);
+  g.connect(audioCtx.destination);
+  noise.start(now);
+}
+
+function playTick() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  o.type = 'triangle';
+  o.frequency.value = 640;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.04;
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start(now);
+  o.stop(now + 0.1);
+}
+
+function playDing() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  o.type = 'sine';
+  o.frequency.value = 880;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.08;
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start(now);
+  o.stop(now + 0.85);
+}
+
+/* ================ state ================ */
+let currentScene = 0;
+let pressure = 0;
+let stamina = 1;
+let motes = [];
+let ripples = [];
+let activePointers = new Set();
+let sceneTimer = 0;
+let spawnTimer = 0;
+let gameState = 'title';
+
+const canvas = document.getElementById('chamber-canvas');
+const ctx = canvas.getContext('2d');
+const stageEl = document.getElementById('stage');
+const sceneEl = document.getElementById('scene');
+const sceneNameEl = document.getElementById('scene-name');
+const staminaFillEl = document.getElementById('stamina-fill');
+const timerFillEl = document.getElementById('timer-fill');
+
+let cw = 0, ch = 0;
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cw = rect.width;
+  ch = rect.height;
+  canvas.width = Math.max(1, Math.floor(cw * dpr));
+  canvas.height = Math.max(1, Math.floor(ch * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
+requestAnimationFrame(resizeCanvas);
+
+/* ================ chamber geometry ================ */
+function chamberBounds() {
+  const marginX = Math.max(16, cw * 0.11);
+  const marginY = Math.max(20, ch * 0.10);
+  return {
+    x0: marginX,
+    y0: marginY,
+    x1: cw - marginX,
+    y1: ch - marginY
+  };
+}
+
+function chamberPath() {
+  const { x0, y0, x1, y1 } = chamberBounds();
+  const r = Math.min((x1 - x0), (y1 - y0)) * 0.22;
+  const p = new Path2D();
+  p.moveTo(x0 + r, y0);
+  p.lineTo(x1 - r, y0);
+  p.quadraticCurveTo(x1, y0, x1, y0 + r);
+  p.lineTo(x1, y1 - r);
+  p.quadraticCurveTo(x1, y1, x1 - r, y1);
+  p.lineTo(x0 + r, y1);
+  p.quadraticCurveTo(x0, y1, x0, y1 - r);
+  p.lineTo(x0, y0 + r);
+  p.quadraticCurveTo(x0, y0, x0 + r, y0);
+  p.closePath();
+  return p;
+}
+
+/* ================ drawing ================ */
+function draw(time) {
+  if (!cw || !ch) return;
+  ctx.clearRect(0, 0, cw, ch);
+
+  const bounds = chamberBounds();
+  const path = chamberPath();
+  const chamW = bounds.x1 - bounds.x0;
+  const chamH = bounds.y1 - bounds.y0;
+
+  ctx.save();
+  ctx.fillStyle = '#0d0d15';
+  ctx.fill(path);
+  ctx.restore();
+
+  ctx.save();
+  ctx.clip(path);
+
+  const liquidTop = bounds.y1 - pressure * chamH;
+  const hue = 6;
+  const sat = 62 + pressure * 18;
+  const light = 44 + pressure * 6;
+
+  ctx.beginPath();
+  const wavePhase = time * 0.002;
+  const waveAmp = 2.5 + pressure * 5;
+  ctx.moveTo(bounds.x0 - 5, liquidTop);
+  const step = Math.max(3, cw / 120);
+  for (let x = bounds.x0 - 5; x <= bounds.x1 + 5; x += step) {
+    const y = liquidTop
+      + Math.sin(wavePhase + x * 0.05) * waveAmp
+      + Math.sin(wavePhase * 1.9 + x * 0.09) * waveAmp * 0.35;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(bounds.x1 + 5, bounds.y1);
+  ctx.lineTo(bounds.x0 - 5, bounds.y1);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, liquidTop, 0, bounds.y1);
+  grad.addColorStop(0, `hsla(${hue}, ${sat}%, ${light + 12}%, 0.95)`);
+  grad.addColorStop(1, `hsla(${hue - 4}, ${sat}%, ${Math.max(28, light - 12)}%, 0.95)`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 220, 200, ${0.15 + pressure * 0.15})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(bounds.x0 - 5, liquidTop);
+  for (let x = bounds.x0 - 5; x <= bounds.x1 + 5; x += step) {
+    const y = liquidTop
+      + Math.sin(wavePhase + x * 0.05) * waveAmp
+      + Math.sin(wavePhase * 1.9 + x * 0.09) * waveAmp * 0.35;
+    ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  motes.forEach(m => {
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.rot);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, m.r * 1.15, m.r * 0.8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = m.color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-m.r * 0.3, -m.r * 0.2, m.r * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fill();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(245,240,230,0.14)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  ripples.forEach(r => {
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(245,240,230,${r.alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(245,240,230,0.28)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke(path);
+  ctx.restore();
+
+  const dangerLine = bounds.y0 + Math.min(14, chamH * 0.05);
+  ctx.save();
+  ctx.strokeStyle = pressure > 0.85
+    ? `rgba(220, 80, 60, ${0.6 + Math.sin(time * 0.01) * 0.3})`
+    : 'rgba(220, 80, 60, 0.5)';
+  ctx.setLineDash([5, 5]);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(bounds.x0 + 8, dangerLine);
+  ctx.lineTo(bounds.x1 - 8, dangerLine);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(245,240,230,0.4)';
+  ctx.textAlign = 'center';
+  ctx.font = '10.5px "IBM Plex Mono", monospace';
+  const holding = activePointers.size > 0 && stamina > 0;
+  if (gameState === 'playing') {
+    if (holding) {
+      ctx.fillText('· FOCUS ·', cw / 2, bounds.y0 - 8);
+    } else {
+      ctx.fillStyle = 'rgba(245,240,230,0.28)';
+      ctx.fillText('HOLD TO FOCUS', cw / 2, bounds.y0 - 8);
+    }
+  }
+  ctx.restore();
+}
+
+/* ================ update ================ */
+function update(dt) {
+  if (gameState !== 'playing') return;
+  const scene = SCENES[currentScene];
+  const holding = activePointers.size > 0 && stamina > 0;
+
+  if (holding) stamina -= 0.26 * dt;
+  else stamina += 0.15 * dt;
+  stamina = Math.max(0, Math.min(1, stamina));
+
+  if (holding) {
+    pressure -= 0.055 * dt;
+  } else {
+    pressure += scene.baseRise * dt;
+  }
+
+  spawnTimer += dt;
+  if (spawnTimer >= scene.spawnEvery) {
+    spawnTimer = 0;
+    spawnMote();
+  }
+
+  const fallMul = holding ? 0.42 : 1.0;
+  const bounds = chamberBounds();
+  const chamH = bounds.y1 - bounds.y0;
+  const liquidTop = bounds.y1 - pressure * chamH;
+
+  for (let i = motes.length - 1; i >= 0; i--) {
+    const m = motes[i];
+    m.y += m.vy * dt * fallMul;
+    m.x += Math.sin((m.y * 0.02) + m.phase) * 0.5;
+    m.rot += m.vr * dt;
+    if (m.y >= liquidTop) {
+      pressure += 0.09;
+      spawnSplash(m.x, liquidTop, true);
+      motes.splice(i, 1);
+    }
+  }
+
+  pressure = Math.max(0, Math.min(1, pressure));
+
+  sceneTimer += dt;
+  timerFillEl.style.width = ((sceneTimer / scene.duration) * 100) + '%';
+
+  if (sceneTimer >= scene.duration && pressure < 1) {
+    winScene();
+    return;
+  }
+  if (pressure >= 1) {
+    achoo();
+    return;
+  }
+
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    ripples[i].r += 90 * dt;
+    ripples[i].alpha -= 2.0 * dt;
+    if (ripples[i].alpha <= 0) ripples.splice(i, 1);
+  }
+
+  stageEl.classList.toggle('danger', pressure > 0.85);
+
+  if (ambientGain) {
+    const targetGain = 0.02 + pressure * 0.09;
+    ambientGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.15);
+    if (ambientOsc) {
+      ambientOsc.frequency.setTargetAtTime(48 + pressure * 30, audioCtx.currentTime, 0.25);
+    }
+  }
+}
+
+function spawnMote() {
+  const bounds = chamberBounds();
+  const cx0 = bounds.x0 + 22;
+  const cx1 = bounds.x1 - 22;
+  const x = cx0 + Math.random() * (cx1 - cx0);
+  const y = bounds.y0 + 8 + Math.random() * 12;
+  const speed = SCENES[currentScene].fallSpeed * (0.85 + Math.random() * 0.3);
+  const colors = ['#f5d68a', '#e8b878', '#f5c090', '#e8d6a0', '#f0e5c0', '#f7dda8'];
+  motes.push({
+    x, y,
+    vy: speed,
+    r: 4.5 + Math.random() * 1.8,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    phase: Math.random() * Math.PI * 2,
+    rot: Math.random() * Math.PI * 2,
+    vr: (Math.random() - 0.5) * 2.5
+  });
+}
+
+function spawnSplash(x, y, big) {
+  ripples.push({ x, y, r: big ? 10 : 6, alpha: 0.9 });
+  if (big) ripples.push({ x, y, r: 4, alpha: 0.5 });
+}
+
+/* ================ interaction ================ */
+function pointerXY(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (gameState !== 'playing') return;
+  activePointers.add(e.pointerId);
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  const { x, y } = pointerXY(e);
+  let hit = false;
+  for (let i = motes.length - 1; i >= 0; i--) {
+    const m = motes[i];
+    const dx = x - m.x, dy = y - m.y;
+    if (Math.hypot(dx, dy) < m.r + 26) {
+      motes.splice(i, 1);
+      spawnSplash(m.x, m.y, false);
+      hit = true;
+      break;
+    }
+  }
+  if (hit) playTick();
+});
+function releasePointer(e) {
+  activePointers.delete(e.pointerId);
+  try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+}
+canvas.addEventListener('pointerup', releasePointer);
+canvas.addEventListener('pointercancel', releasePointer);
+
+/* ================ flow ================ */
+function beginScene() {
+  const scene = SCENES[currentScene];
+  sceneNameEl.textContent = scene.name;
+  sceneEl.innerHTML = scene.sceneSVG;
+  sceneEl.style.background = scene.bg;
+  pressure = 0.04;
+  stamina = 1;
+  motes = [];
+  ripples = [];
+  sceneTimer = 0;
+  spawnTimer = -0.8;
+  activePointers.clear();
+  timerFillEl.style.width = '0%';
+  stageEl.classList.remove('danger');
+  gameState = 'playing';
+}
+
+function winScene() {
+  gameState = 'result';
+  playDing();
+  stageEl.classList.remove('danger');
+  const isLast = currentScene >= SCENES.length - 1;
+  const overlay = document.getElementById('result-overlay');
+  const body = document.getElementById('result-body');
+  if (isLast) {
+    body.innerHTML = `
+      <div class="hint">STIFLED × 5</div>
+      <h1 style="font-size:2.4rem;line-height:1.15;max-width:20rem;">You held it in.</h1>
+      <div class="sub">In the car afterward, alone, windows fogged, you released the finest sneeze of your entire life.</div>
+      <button class="btn" onclick="restartGame()">Again</button>
+    `;
+  } else {
+    const scene = SCENES[currentScene];
+    body.innerHTML = `
+      <div class="hint">SURVIVED · ${currentScene + 1} / ${SCENES.length}</div>
+      <div class="sub" style="font-size:1.1rem;opacity:0.9;max-width:22rem;">${scene.survived}</div>
+      <button class="btn" onclick="nextScene()">Continue</button>
+    `;
+  }
+  overlay.style.display = 'flex';
+}
+
+function nextScene() {
+  currentScene++;
+  document.getElementById('result-overlay').style.display = 'none';
+  beginScene();
+}
+
+function achoo() {
+  gameState = 'lose';
+  playAchoo();
+  stageEl.classList.remove('danger');
+  sceneEl.classList.add('shake');
+  const scene = SCENES[currentScene];
+  const overlay = document.getElementById('result-overlay');
+  const body = document.getElementById('result-body');
+  body.innerHTML = `
+    <div id="achoo">AH-CHOO!</div>
+    <div class="sub" style="margin-top:0.3rem;font-size:1.05rem;max-width:22rem;">${scene.caught}</div>
+    <button class="btn" onclick="retryScene()">Try again</button>
+    <button class="btn ghost" onclick="restartGame()">Start over</button>
+  `;
+  overlay.style.display = 'flex';
+  setTimeout(() => sceneEl.classList.remove('shake'), 600);
+}
+
+function retryScene() {
+  document.getElementById('result-overlay').style.display = 'none';
+  beginScene();
+}
+
+function restartGame() {
+  currentScene = 0;
+  document.getElementById('result-overlay').style.display = 'none';
+  beginScene();
+}
+
+window.restartGame = restartGame;
+window.nextScene = nextScene;
+window.retryScene = retryScene;
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  initAudio();
+  document.getElementById('title-overlay').style.display = 'none';
+  currentScene = 0;
+  beginScene();
+});
+
+/* ================ main loop ================ */
+let lastTime = performance.now();
+function loop(time) {
+  const dt = Math.min(0.05, (time - lastTime) / 1000);
+  lastTime = time;
+  update(dt);
+  draw(time);
+
+  const staminaPct = stamina * 100;
+  staminaFillEl.style.width = staminaPct + '%';
+  staminaFillEl.classList.toggle('low', stamina < 0.28);
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ================ preload sizing ================ */
+setTimeout(resizeCanvas, 100);
+setTimeout(resizeCanvas, 400);
+</script>
+</body>
+</html>
