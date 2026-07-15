@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05070c">
+<title>CROP CIRCLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #05070c;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: #d4c896;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #0a0e18 0%, #030509 100%);
+    z-index: 100;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    transition: opacity 0.6s ease;
+  }
+  .screen.hidden { display: none; }
+
+  .title {
+    font-size: clamp(2.6rem, 8vw, 5rem);
+    letter-spacing: 0.35em;
+    font-weight: 300;
+    margin-bottom: 1.5rem;
+    color: #e6d9a3;
+    text-indent: 0.35em;
+  }
+  .subtitle {
+    font-size: clamp(1rem, 2.2vw, 1.25rem);
+    max-width: 560px;
+    opacity: 0.75;
+    line-height: 1.65;
+    margin-bottom: 2.2rem;
+    color: #b8ac8a;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .hint {
+    font-size: 0.9rem;
+    opacity: 0.55;
+    max-width: 480px;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    color: #9c9075;
+    font-style: normal;
+    letter-spacing: 0.02em;
+  }
+  .btn {
+    background: transparent;
+    color: #e6d9a3;
+    border: 1px solid #6b6244;
+    padding: 0.9rem 3rem;
+    font-size: 1.05rem;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    letter-spacing: 0.35em;
+    text-indent: 0.35em;
+    cursor: pointer;
+    transition: all 0.35s;
+    margin-top: 0.5rem;
+    border-radius: 2px;
+  }
+  .btn:hover, .btn:active {
+    background: rgba(230,217,163,0.08);
+    border-color: #b8a874;
+    color: #f4e8b8;
+  }
+
+  #hud {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 500;
+    display: flex;
+    gap: 1.2rem;
+    align-items: center;
+    pointer-events: none;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #hud > div { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .meter {
+    width: 90px;
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .meter-label {
+    font-size: 0.65rem;
+    opacity: 0.55;
+    letter-spacing: 0.2em;
+    color: #cfc3a0;
+  }
+  .meter-fill { height: 100%; width: 0%; transition: width 0.2s; }
+  #dawn-fill { background: linear-gradient(90deg, #4a2c1c 0%, #d64c1c 100%); }
+  #suspicion-fill { background: linear-gradient(90deg, #6b7c1c 0%, #d6a41c 60%, #ff5030 100%); }
+
+  #end-title {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    letter-spacing: 0.4em;
+    text-indent: 0.4em;
+    margin-bottom: 1rem;
+    color: #e6d9a3;
+  }
+  #end-canvas {
+    max-width: min(90%, 640px);
+    max-height: 45vh;
+    margin: 0.6rem 0 1.2rem;
+    border: 1px solid #3a3628;
+    border-radius: 2px;
+    display: block;
+  }
+  #score-display {
+    font-size: clamp(2.4rem, 6vw, 3.4rem);
+    letter-spacing: 0.05em;
+    color: #f4e8b8;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  #score-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #cfc3a0;
+  }
+  #verdict {
+    font-style: italic;
+    opacity: 0.85;
+    max-width: 540px;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+    font-size: clamp(1rem, 2vw, 1.15rem);
+    color: #d4c896;
+  }
+  #stats {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    opacity: 0.4;
+    margin-bottom: 1.2rem;
+    color: #a8a08a;
+  }
+  #stats span { margin: 0 0.6rem; }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<canvas id="game-canvas"></canvas>
+
+<div id="hud" style="display:none;">
+  <div>
+    <span class="meter-label">DAWN</span>
+    <div class="meter"><div id="dawn-fill" class="meter-fill"></div></div>
+  </div>
+  <div>
+    <span class="meter-label">SEEN</span>
+    <div class="meter"><div id="suspicion-fill" class="meter-fill"></div></div>
+  </div>
+</div>
+
+<div id="title-screen" class="screen">
+  <h1 class="title">CROP CIRCLE</h1>
+  <p class="subtitle">You have crossed nine years of empty light<br>to leave one message.</p>
+  <p class="hint">Drag to bend the wheat.<br>Draw circular. Draw symmetric.<br>Stay out of the beams.</p>
+  <button class="btn" id="begin-btn">BEGIN</button>
+</div>
+
+<div id="end-screen" class="screen hidden">
+  <div id="end-title">DAWN</div>
+  <canvas id="end-canvas"></canvas>
+  <div id="score-display">–</div>
+  <div id="score-label">MESSAGE STRENGTH</div>
+  <p id="verdict"></p>
+  <div id="stats">
+    <span id="stat-sym">SYMMETRY —</span>
+    <span id="stat-cov">SHAPE —</span>
+    <span id="stat-com">DETAIL —</span>
+  </div>
+  <button class="btn" id="again-btn">AGAIN</button>
+</div>
+
+<script>
+  // ---- ORIENTATION ----
+  const ORIENTATION = 'LANDSCAPE';
+
+  function checkOrientation() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                  (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+    let overlay = document.getElementById('orientation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'orientation-overlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:9999;
+        background:#000; color:#fff; flex-direction:column;
+        align-items:center; justify-content:center;
+        font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+      `;
+      overlay.innerHTML = `
+        <div style="font-size:3rem">📱</div>
+        <div>Please rotate your device</div>
+        <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = wrong ? 'flex' : 'none';
+  }
+
+  window.addEventListener('resize', checkOrientation);
+  checkOrientation();
+
+  async function tryLockOrientation() {
+    try {
+      await document.documentElement.requestFullscreen?.();
+      await screen.orientation?.lock?.(
+        ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+      );
+    } catch (_) { /* not supported — overlay handles it */ }
+  }
+  document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+  // ---- GAME ----
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (state === 'title') renderTitleField();
+  }
+
+  let state = 'title'; // 'title' | 'playing' | 'ended'
+  let startTime = 0;
+  const DURATION = 62000;
+
+  let suspicion = 0;
+  let drawnPath = [];       // Array<Array<{x, y}>>
+  let currentStroke = null;
+  let pointer = { x: -1000, y: -1000, down: false };
+
+  let wheat = [];
+  let flashlights = [];
+  let stars = [];
+  let bentGrid = null;      // Set of bent-cell keys for fast wheat culling
+  const CELL = 18;
+
+  function initField() {
+    wheat = [];
+    const density = 480;
+    const count = Math.floor(W * H / density);
+    for (let i = 0; i < count; i++) {
+      wheat.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        h: 3 + Math.random() * 5,
+        hue: 42 + Math.random() * 12,
+        light: 22 + Math.random() * 18,
+        lean: (Math.random() - 0.5) * 1.2
+      });
+    }
+    stars = [];
+    for (let i = 0; i < 60; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H * 0.55,
+        s: Math.random() * 1.2 + 0.2,
+        tw: Math.random() * Math.PI * 2
+      });
+    }
+    flashlights = [];
+    bentGrid = new Set();
+  }
+
+  function startGame() {
+    state = 'playing';
+    startTime = performance.now();
+    suspicion = 0;
+    drawnPath = [];
+    currentStroke = null;
+    nextFlashlight = 5000;
+    initField();
+    document.getElementById('title-screen').classList.add('hidden');
+    document.getElementById('end-screen').classList.add('hidden');
+    document.getElementById('hud').style.display = 'flex';
+  }
+
+  function endGame(reason) {
+    if (state === 'ended') return;
+    state = 'ended';
+    document.getElementById('hud').style.display = 'none';
+
+    const s = computeScore();
+
+    const endCanvas = document.getElementById('end-canvas');
+    const targetW = Math.min(640, Math.floor(W * 0.9));
+    const targetH = Math.round(targetW * (H / W));
+    endCanvas.width = targetW;
+    endCanvas.height = targetH;
+    renderDaylight(endCanvas.getContext('2d'), targetW, targetH);
+
+    document.getElementById('score-display').textContent = Math.round(s.total) + '%';
+    document.getElementById('verdict').textContent = getVerdict(s, reason);
+    document.getElementById('end-title').textContent =
+      reason === 'caught' ? 'A FARMER APPROACHED' : 'DAWN';
+
+    document.getElementById('stat-sym').textContent = 'SYMMETRY ' + Math.round(s.symmetry * 100);
+    document.getElementById('stat-cov').textContent = 'SHAPE ' + Math.round(s.coverage * 100);
+    document.getElementById('stat-com').textContent = 'DETAIL ' + Math.round(s.complexity * 100);
+
+    document.getElementById('end-screen').classList.remove('hidden');
+  }
+
+  function computeScore() {
+    // Render drawn strokes to a small offscreen bitmap and analyze pixels
+    const w = 96;
+    const h = Math.max(1, Math.round(w * H / W));
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const oc = off.getContext('2d');
+    oc.fillStyle = '#000';
+    oc.fillRect(0, 0, w, h);
+    oc.strokeStyle = '#fff';
+    oc.lineWidth = 2.2;
+    oc.lineCap = 'round';
+    oc.lineJoin = 'round';
+    const sx = w / W, sy = h / H;
+    for (const stroke of drawnPath) {
+      if (stroke.length < 1) continue;
+      oc.beginPath();
+      oc.moveTo(stroke[0].x * sx, stroke[0].y * sy);
+      if (stroke.length === 1) {
+        oc.lineTo(stroke[0].x * sx + 0.5, stroke[0].y * sy + 0.5);
+      } else {
+        for (let i = 1; i < stroke.length; i++) oc.lineTo(stroke[i].x * sx, stroke[i].y * sy);
+      }
+      oc.stroke();
+    }
+    const data = oc.getImageData(0, 0, w, h).data;
+
+    const cx = w / 2, cy = h / 2;
+    const R = Math.min(w, h) * 0.42;
+    const R2 = R * R;
+
+    let inCircle = 0, coveredInCircle = 0;
+    let coveredLeft = 0, coveredRight = 0, coveredBoth = 0;
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = x - cx, dy = y - cy;
+        if (dx * dx + dy * dy > R2) continue;
+        inCircle++;
+        const covered = data[(y * w + x) * 4] > 100;
+        if (covered) coveredInCircle++;
+
+        if (dx < 0) {
+          const mx = Math.round(cx - dx);
+          if (mx >= 0 && mx < w) {
+            const rCovered = data[(y * w + mx) * 4] > 100;
+            if (covered) coveredLeft++;
+            if (rCovered) coveredRight++;
+            if (covered && rCovered) coveredBoth++;
+          }
+        }
+      }
+    }
+
+    const coverage = Math.min(1, (coveredInCircle / Math.max(1, inCircle)) * 2.4);
+    const totalSide = coveredLeft + coveredRight;
+    const symmetry = totalSide > 0 ? (coveredBoth * 2) / totalSide : 0;
+
+    const totalLen = drawnPath.reduce((s, str) => s + str.length, 0);
+    const complexity = Math.min(1, totalLen / 400);
+
+    const total = (symmetry * 0.5 + coverage * 0.35 + complexity * 0.15) * 100;
+    return { symmetry, coverage, complexity, total };
+  }
+
+  function getVerdict(s, reason) {
+    if (reason === 'caught') {
+      const messages = [
+        'They saw. They will speak of a light in the field. Not of what the light was trying to say.',
+        'A boot broke the last curve. The message stayed with you.',
+        'They shouted. You lifted. The wheat forgot most of it by breakfast.'
+      ];
+      return messages[Math.floor(Math.random() * messages.length)];
+    }
+    if (s.total > 78) return 'A sigil of great weight. Someone will feel it before they see it.';
+    if (s.total > 60) return 'The pattern will be photographed. The photographers will not agree on its meaning.';
+    if (s.total > 42) return 'A gesture in the wheat. A few will notice; most will not look up.';
+    if (s.total > 22) return 'A soft mark. The field will smooth it into a rumor by evening.';
+    if (s.total > 8)  return 'A whisper. Nine years for a whisper. It may still be enough.';
+    return 'Little to read. The stalks will straighten by noon and forget.';
+  }
+
+  // Flashlights spawn timing
+  let nextFlashlight = 5000;
+  function updateFlashlights(dt, elapsed) {
+    if (elapsed > nextFlashlight) {
+      const side = Math.floor(Math.random() * 4);
+      const speed = 45 + Math.random() * 55;
+      const fl = { r: 95 + Math.random() * 40, life: 0, maxLife: 9 + Math.random() * 5 };
+      if (side === 0)      { fl.x = -140; fl.y = Math.random() * H; fl.vx = speed; fl.vy = (Math.random() - 0.5) * 22; }
+      else if (side === 1) { fl.x = W + 140; fl.y = Math.random() * H; fl.vx = -speed; fl.vy = (Math.random() - 0.5) * 22; }
+      else if (side === 2) { fl.x = Math.random() * W; fl.y = -140; fl.vy = speed; fl.vx = (Math.random() - 0.5) * 22; }
+      else                 { fl.x = Math.random() * W; fl.y = H + 140; fl.vy = -speed; fl.vx = (Math.random() - 0.5) * 22; }
+      flashlights.push(fl);
+      const urgency = Math.min(elapsed / 12000, 1.8);
+      nextFlashlight = elapsed + 4200 + Math.random() * 4200 - urgency * 900;
+    }
+    for (const fl of flashlights) {
+      fl.x += fl.vx * dt / 1000;
+      fl.y += fl.vy * dt / 1000;
+      fl.life += dt / 1000;
+    }
+    flashlights = flashlights.filter(fl =>
+      fl.life < fl.maxLife &&
+      fl.x > -240 && fl.x < W + 240 &&
+      fl.y > -240 && fl.y < H + 240
+    );
+  }
+
+  function updateSuspicion(dt) {
+    let inLight = 0;
+    if (pointer.down) {
+      for (const fl of flashlights) {
+        const dx = pointer.x - fl.x, dy = pointer.y - fl.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < fl.r) {
+          inLight = Math.max(inLight, 1 - dist / fl.r);
+        }
+      }
+    }
+    if (inLight > 0) {
+      suspicion += inLight * 0.55 * dt / 1000;
+    } else {
+      suspicion -= 0.08 * dt / 1000;
+    }
+    suspicion = Math.max(0, Math.min(1, suspicion));
+  }
+
+  function markBent(x, y) {
+    const gx = Math.floor(x / CELL);
+    const gy = Math.floor(y / CELL);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        bentGrid.add((gx + dx) + ',' + (gy + dy));
+      }
+    }
+  }
+
+  function isBent(x, y) {
+    return bentGrid.has(Math.floor(x / CELL) + ',' + Math.floor(y / CELL));
+  }
+
+  function render(elapsed) {
+    const dawnT = Math.min(1, elapsed / DURATION);
+    const dawnRise = Math.max(0, (dawnT - 0.55) / 0.45);
+
+    // Sky
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, `rgb(${4 + dawnRise * 30}, ${6 + dawnRise * 12}, ${14 + dawnRise * 5})`);
+    bg.addColorStop(0.55, `rgb(${8 + dawnRise * 55}, ${10 + dawnRise * 22}, ${18 - dawnRise * 4})`);
+    bg.addColorStop(1, `rgb(${16 + dawnRise * 40}, ${18 + dawnRise * 14}, ${22 - dawnRise * 8})`);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars (fade as dawn grows)
+    const starAlpha = 1 - dawnT * 1.1;
+    if (starAlpha > 0.02) {
+      for (const s of stars) {
+        s.tw += 0.02;
+        const a = (0.4 + 0.6 * Math.abs(Math.sin(s.tw))) * starAlpha;
+        ctx.fillStyle = `rgba(220, 220, 240, ${a})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Horizon glow at right side as dawn approaches
+    if (dawnRise > 0) {
+      const dg = ctx.createRadialGradient(W * 0.95, H * 0.75, 0, W * 0.95, H * 0.75, W * 0.85);
+      dg.addColorStop(0, `rgba(240, 140, 70, ${0.55 * dawnRise})`);
+      dg.addColorStop(0.4, `rgba(200, 90, 50, ${0.28 * dawnRise})`);
+      dg.addColorStop(1, `rgba(200, 90, 50, 0)`);
+      ctx.fillStyle = dg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Wheat (skip bent)
+    ctx.lineWidth = 0.75;
+    for (const w of wheat) {
+      if (isBent(w.x, w.y)) continue;
+      ctx.strokeStyle = `hsla(${w.hue}, 30%, ${w.light + dawnRise * 22}%, 0.68)`;
+      ctx.beginPath();
+      ctx.moveTo(w.x, w.y);
+      ctx.lineTo(w.x + w.lean, w.y - w.h);
+      ctx.stroke();
+    }
+
+    // Drawn strokes (bent trail — glowing pale gold)
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const stroke of drawnPath) {
+      if (stroke.length < 1) continue;
+      // Outer glow
+      ctx.strokeStyle = 'rgba(180, 210, 255, 0.14)';
+      ctx.lineWidth = 22;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x, stroke[0].y);
+      if (stroke.length === 1) ctx.lineTo(stroke[0].x + 0.5, stroke[0].y + 0.5);
+      else for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+      ctx.stroke();
+
+      // Inner glow
+      ctx.strokeStyle = 'rgba(210, 230, 255, 0.28)';
+      ctx.lineWidth = 12;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x, stroke[0].y);
+      if (stroke.length === 1) ctx.lineTo(stroke[0].x + 0.5, stroke[0].y + 0.5);
+      else for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+      ctx.stroke();
+
+      // Core (flattened wheat, pale gold)
+      ctx.strokeStyle = `hsla(48, 40%, ${68 + dawnRise * 15}%, 0.92)`;
+      ctx.lineWidth = 5.5;
+      ctx.beginPath();
+      ctx.moveTo(stroke[0].x, stroke[0].y);
+      if (stroke.length === 1) ctx.lineTo(stroke[0].x + 0.5, stroke[0].y + 0.5);
+      else for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+      ctx.stroke();
+    }
+
+    // Flashlight cones
+    for (const fl of flashlights) {
+      const fadeIn = Math.min(1, fl.life / 0.8);
+      const fadeOut = Math.min(1, (fl.maxLife - fl.life) / 0.8);
+      const alpha = Math.max(0, Math.min(fadeIn, fadeOut));
+      const fg = ctx.createRadialGradient(fl.x, fl.y, 0, fl.x, fl.y, fl.r);
+      fg.addColorStop(0, `rgba(255, 225, 130, ${0.42 * alpha})`);
+      fg.addColorStop(0.4, `rgba(255, 200, 90, ${0.20 * alpha})`);
+      fg.addColorStop(1, `rgba(255, 200, 90, 0)`);
+      ctx.fillStyle = fg;
+      ctx.fillRect(fl.x - fl.r, fl.y - fl.r, fl.r * 2, fl.r * 2);
+
+      // Farmer silhouette dot
+      ctx.fillStyle = `rgba(20, 15, 10, ${0.8 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(fl.x, fl.y, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Alien cursor light
+    if (state === 'playing') {
+      const cursorSize = pointer.down ? 22 : 15;
+      const cg = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, cursorSize * 2.5);
+      cg.addColorStop(0, 'rgba(200, 230, 255, 0.95)');
+      cg.addColorStop(0.35, 'rgba(140, 190, 255, 0.5)');
+      cg.addColorStop(1, 'rgba(80, 120, 255, 0)');
+      ctx.fillStyle = cg;
+      ctx.fillRect(pointer.x - cursorSize * 2.5, pointer.y - cursorSize * 2.5, cursorSize * 5, cursorSize * 5);
+
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(pointer.x, pointer.y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Suspicion vignette when being seen
+    if (suspicion > 0.15) {
+      const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+      v.addColorStop(0, 'rgba(255, 40, 20, 0)');
+      v.addColorStop(1, `rgba(255, 40, 20, ${(suspicion - 0.15) * 0.5})`);
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function renderTitleField() {
+    // A softer ambient render behind the title menu (subtle)
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function renderDaylight(dctx, dw, dh) {
+    // Green sunlit field
+    const g = dctx.createLinearGradient(0, 0, 0, dh);
+    g.addColorStop(0, '#c1cd82');
+    g.addColorStop(0.5, '#9eae64');
+    g.addColorStop(1, '#7d8a48');
+    dctx.fillStyle = g;
+    dctx.fillRect(0, 0, dw, dh);
+
+    // Subtle wheat texture (fine noise strokes)
+    dctx.strokeStyle = 'rgba(90, 100, 45, 0.15)';
+    dctx.lineWidth = 0.6;
+    for (let i = 0; i < 700; i++) {
+      const x = Math.random() * dw;
+      const y = Math.random() * dh;
+      dctx.beginPath();
+      dctx.moveTo(x, y);
+      dctx.lineTo(x + (Math.random() - 0.5) * 2, y - 2 - Math.random() * 2);
+      dctx.stroke();
+    }
+
+    // Sun light gradient
+    const s = dctx.createRadialGradient(dw * 0.85, -dh * 0.2, 0, dw * 0.85, -dh * 0.2, dw * 1.1);
+    s.addColorStop(0, 'rgba(255, 240, 180, 0.25)');
+    s.addColorStop(1, 'rgba(255, 240, 180, 0)');
+    dctx.fillStyle = s;
+    dctx.fillRect(0, 0, dw, dh);
+
+    // Draw pattern at daylight — flattened gold stalks with shadow
+    const scx = dw / W, scy = dh / H;
+    dctx.lineCap = 'round';
+    dctx.lineJoin = 'round';
+
+    // Shadow layer
+    dctx.strokeStyle = 'rgba(60, 55, 25, 0.28)';
+    for (const stroke of drawnPath) {
+      if (stroke.length < 1) continue;
+      dctx.lineWidth = Math.max(4, 7 * scx);
+      dctx.beginPath();
+      dctx.moveTo(stroke[0].x * scx, stroke[0].y * scy + 3);
+      if (stroke.length === 1) dctx.lineTo(stroke[0].x * scx + 0.5, stroke[0].y * scy + 3);
+      else for (let i = 1; i < stroke.length; i++) dctx.lineTo(stroke[i].x * scx, stroke[i].y * scy + 3);
+      dctx.stroke();
+    }
+
+    // Bright gold layer
+    dctx.strokeStyle = '#e6d29a';
+    for (const stroke of drawnPath) {
+      if (stroke.length < 1) continue;
+      dctx.lineWidth = Math.max(3, 5 * scx);
+      dctx.beginPath();
+      dctx.moveTo(stroke[0].x * scx, stroke[0].y * scy);
+      if (stroke.length === 1) dctx.lineTo(stroke[0].x * scx + 0.5, stroke[0].y * scy);
+      else for (let i = 1; i < stroke.length; i++) dctx.lineTo(stroke[i].x * scx, stroke[i].y * scy);
+      dctx.stroke();
+    }
+
+    // Vignette
+    const vg = dctx.createRadialGradient(dw / 2, dh / 2, dw * 0.3, dw / 2, dh / 2, dw * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+    dctx.fillStyle = vg;
+    dctx.fillRect(0, 0, dw, dh);
+  }
+
+  // ---- LOOP ----
+  let lastTime = 0;
+  function loop(t) {
+    const dt = lastTime ? Math.min(50, t - lastTime) : 16;
+    lastTime = t;
+
+    if (state === 'playing') {
+      const elapsed = t - startTime;
+      updateFlashlights(dt, elapsed);
+      updateSuspicion(dt);
+
+      // Bend wheat cells under active drawing
+      if (pointer.down && currentStroke) {
+        markBent(pointer.x, pointer.y);
+      }
+
+      document.getElementById('dawn-fill').style.width = Math.min(100, elapsed / DURATION * 100) + '%';
+      document.getElementById('suspicion-fill').style.width = (suspicion * 100) + '%';
+
+      render(elapsed);
+
+      if (suspicion >= 1) { endGame('caught'); return requestAnimationFrame(loop); }
+      if (elapsed >= DURATION) { endGame('dawn'); return requestAnimationFrame(loop); }
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // ---- INPUT ----
+  function localFrom(e) {
+    const rect = canvas.getBoundingClientRect();
+    let x, y;
+    if (e.touches && e.touches.length) {
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
+    } else if (e.changedTouches && e.changedTouches.length) {
+      x = e.changedTouches[0].clientX - rect.left;
+      y = e.changedTouches[0].clientY - rect.top;
+    } else {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    }
+    return { x, y };
+  }
+
+  function down(e) {
+    if (state !== 'playing') return;
+    const p = localFrom(e);
+    pointer.x = p.x; pointer.y = p.y; pointer.down = true;
+    currentStroke = [{ x: p.x, y: p.y }];
+    drawnPath.push(currentStroke);
+    markBent(p.x, p.y);
+    e.preventDefault();
+  }
+  function move(e) {
+    const p = localFrom(e);
+    pointer.x = p.x; pointer.y = p.y;
+    if (state === 'playing' && pointer.down && currentStroke) {
+      const last = currentStroke[currentStroke.length - 1];
+      const dx = p.x - last.x, dy = p.y - last.y;
+      if (dx * dx + dy * dy > 6) {
+        currentStroke.push({ x: p.x, y: p.y });
+        markBent(p.x, p.y);
+      }
+    }
+    e.preventDefault();
+  }
+  function up(e) {
+    pointer.down = false;
+    currentStroke = null;
+    if (e && e.preventDefault) e.preventDefault();
+  }
+
+  // Use both touch and pointer paths for wide device compatibility
+  canvas.addEventListener('touchstart', down, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', up, { passive: false });
+  canvas.addEventListener('touchcancel', up, { passive: false });
+  canvas.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+
+  // ---- BUTTONS ----
+  document.getElementById('begin-btn').addEventListener('click', startGame);
+  document.getElementById('again-btn').addEventListener('click', startGame);
+
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>
