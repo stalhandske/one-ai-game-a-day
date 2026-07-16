@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#d9b078">
+<title>MIRAGE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #c68f57;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: #3b2313;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    transition: opacity 1.2s ease;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(255,238,205,0.7) 0%, rgba(230,190,140,0.6) 40%, rgba(180,110,60,0.75) 100%),
+      linear-gradient(180deg, #f5e6c4 0%, #e6b880 45%, #b56b3a 100%);
+  }
+  .screen.hidden { display: none; }
+
+  .title {
+    font-size: clamp(2.8rem, 10vw, 5rem);
+    letter-spacing: 0.42em;
+    font-weight: 300;
+    color: #3d2513;
+    text-indent: 0.42em;
+    margin-bottom: 1.4rem;
+    text-shadow: 0 2px 12px rgba(255,240,200,0.5);
+  }
+  .subtitle {
+    font-size: clamp(1rem, 2.6vw, 1.2rem);
+    max-width: 520px;
+    color: #4a2f1a;
+    opacity: 0.82;
+    line-height: 1.7;
+    font-style: italic;
+    font-weight: 300;
+    margin-bottom: 2rem;
+  }
+  .instr {
+    max-width: 480px;
+    font-size: clamp(0.9rem, 2.2vw, 1rem);
+    color: #3d2513;
+    opacity: 0.7;
+    line-height: 1.7;
+    margin-bottom: 2rem;
+  }
+  .instr .line { margin: 0.35rem 0; }
+  .instr .k { font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.85em; opacity: 0.85; }
+
+  .btn {
+    background: none;
+    border: 1px solid rgba(60,35,20,0.55);
+    color: #3d2513;
+    padding: 0.9rem 2.6rem;
+    font-family: inherit;
+    font-size: 1rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    background: rgba(255,245,220,0.15);
+  }
+  .btn:hover, .btn:active {
+    background: rgba(60,35,20,0.15);
+    letter-spacing: 0.5em;
+  }
+
+  .end-title {
+    font-size: clamp(1.9rem, 6vw, 3rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.1em;
+    color: #3d2513;
+    margin-bottom: 1.4rem;
+  }
+  .end-body {
+    font-size: clamp(1rem, 2.6vw, 1.2rem);
+    max-width: 520px;
+    color: #4a2f1a;
+    opacity: 0.85;
+    line-height: 1.75;
+    margin-bottom: 2.4rem;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .end-body em { font-style: normal; opacity: 0.7; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 0.9rem 1rem 0 5rem;
+    pointer-events: none;
+    z-index: 20;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+  .meter {
+    font-size: 0.72rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #3d2513;
+    opacity: 0.6;
+    text-align: right;
+    text-shadow: 0 1px 0 rgba(255,240,200,0.4);
+  }
+  .meter .label { margin-bottom: 0.3rem; font-weight: 500; }
+  .meter .bar {
+    width: 90px; height: 4px;
+    background: rgba(60,35,20,0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+  .meter .fill {
+    height: 100%;
+    background: #3d2513;
+    transition: width 0.2s ease, background-color 0.4s ease;
+    width: 100%;
+  }
+  #faith-meter .fill { background: #6b3d1a; }
+  #journey-meter { text-align: left; }
+  #journey-meter .bar { margin-left: 0; }
+  #journey-meter .fill { background: #3d2513; width: 0%; }
+
+  #form-label {
+    position: fixed;
+    bottom: 1.6rem; left: 0; right: 0;
+    text-align: center;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 1rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #3d2513;
+    opacity: 0.55;
+    z-index: 20;
+    pointer-events: none;
+    text-shadow: 0 1px 0 rgba(255,240,200,0.4);
+    transition: opacity 0.4s ease;
+  }
+
+  #warn {
+    position: fixed; top: 40%; left: 0; right: 0;
+    text-align: center;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 1.3rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #7a1a0f;
+    opacity: 0;
+    z-index: 25;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    text-shadow: 0 0 12px rgba(255,220,180,0.8);
+  }
+
+  .fade-in { animation: fadeIn 1.2s ease forwards; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <a id="back-btn" href="../../index.html">← Games</a>
+
+  <div id="hud" style="display:none">
+    <div class="meter" id="journey-meter">
+      <div class="label">journey</div>
+      <div class="bar"><div class="fill"></div></div>
+    </div>
+    <div class="meter" id="faith-meter">
+      <div class="label">faith</div>
+      <div class="bar"><div class="fill"></div></div>
+    </div>
+  </div>
+
+  <div id="form-label" style="display:none">still water</div>
+  <div id="warn">they are almost upon you</div>
+
+  <div id="title-screen" class="screen">
+    <div class="title">MIRAGE</div>
+    <div class="subtitle">A traveler is walking toward you. They must not reach you. They must not stop walking either.</div>
+    <div class="instr">
+      <div class="line"><span class="k">Drag</span> — your image drifts to your finger</div>
+      <div class="line"><span class="k">Tap</span> — become water, palms, or a city</div>
+      <div class="line"><span class="k">Cycle forms</span> to keep them believing</div>
+    </div>
+    <button class="btn" id="start-btn">Begin</button>
+  </div>
+
+  <div id="win-screen" class="screen hidden">
+    <div class="end-title">the well</div>
+    <div class="end-body">
+      They walked far enough. Off to the side, where you had never been,<br>a real spring waited under a real stone.<br><br>
+      <em>You dissolved without being thanked.</em>
+    </div>
+    <button class="btn restart-btn">Again</button>
+  </div>
+
+  <div id="lose-collision-screen" class="screen hidden">
+    <div class="end-title">the reaching</div>
+    <div class="end-body">
+      They walked into you and there was nothing there —<br>only the sand, warm and endless, and the sound<br>of their palms falling open.<br><br>
+      <em>The illusion cannot be embraced.</em>
+    </div>
+    <button class="btn restart-btn">Again</button>
+  </div>
+
+  <div id="lose-faith-screen" class="screen hidden">
+    <div class="end-title">the sitting</div>
+    <div class="end-body">
+      They stopped believing. They sat down in the sand<br>and closed their eyes and the desert accepted them<br>the way it accepts everything, gently and without fuss.<br><br>
+      <em>You should have changed shape.</em>
+    </div>
+    <button class="btn restart-btn">Again</button>
+  </div>
+
+<script>
+'use strict';
+
+// ─── orientation ────────────────────────────────────────────────────────────
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ─── canvas ─────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  regenerateDunes();
+}
+window.addEventListener('resize', resize);
+
+// ─── state ──────────────────────────────────────────────────────────────────
+const STATE = { TITLE: 'TITLE', PLAYING: 'PLAYING', WIN: 'WIN', LOSE_C: 'LOSE_C', LOSE_F: 'LOSE_F' };
+let state = STATE.TITLE;
+
+const FORMS = [
+  { name: 'still water', color: '#a5c8d8', bright: '#e0edf3' },
+  { name: 'green shade', color: '#5a7a44', bright: '#9dbf7a' },
+  { name: 'the far city', color: '#9c8a72', bright: '#cbb894' }
+];
+
+let mirage = {
+  x: 0, y: 0,          // actual rendered position
+  tx: 0, ty: 0,        // target position
+  form: 0,
+  fatigue: 0,          // 0..1, higher = worse regen; resets on form change
+  shimmerPhase: 0
+};
+
+let traveler = {
+  x: 0, y: 0,
+  gait: 0,
+  swayPhase: 0,
+  slump: 0             // 0..1 how much they've slumped from low faith
+};
+
+let faith = 100;
+let journey = 0;
+let faithEmptyTimer = 0;
+let time = 0;
+let winFade = 0;
+let loseFade = 0;
+
+let pointer = {
+  down: false, x: 0, y: 0,
+  startX: 0, startY: 0, downTime: 0,
+  moved: false
+};
+
+// dune silhouettes (regenerated on resize)
+let dunesFar = [], dunesMid = [], dunesNear = [];
+let grains = [];
+
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+function regenerateDunes() {
+  const rnd = seededRand(7);
+  dunesFar = generateDune(rnd, H * 0.34, 18, 0.35);
+  dunesMid = generateDune(rnd, H * 0.42, 26, 0.5);
+  dunesNear = generateDune(rnd, H * 0.62, 44, 0.9);
+  grains = [];
+  for (let i = 0; i < 60; i++) {
+    grains.push({
+      x: Math.random() * W,
+      y: H * 0.55 + Math.random() * (H * 0.45),
+      vx: -8 - Math.random() * 20,
+      vy: -2 + Math.random() * 4,
+      r: 0.4 + Math.random() * 1.1,
+      a: 0.15 + Math.random() * 0.35
+    });
+  }
+}
+
+function generateDune(rnd, baseY, amp, freq) {
+  const pts = [];
+  const segments = 24;
+  for (let i = 0; i <= segments; i++) {
+    const x = (i / segments) * W;
+    const y = baseY + Math.sin(i * freq * 1.4 + rnd() * 6) * amp
+                    + Math.sin(i * freq * 3.1 + rnd() * 6) * amp * 0.3;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+// ─── init / reset ────────────────────────────────────────────────────────────
+function resetGame() {
+  faith = 100;
+  journey = 0;
+  faithEmptyTimer = 0;
+  time = 0;
+  winFade = 0;
+  loseFade = 0;
+  mirage.form = 0;
+  mirage.fatigue = 0;
+  mirage.shimmerPhase = 0;
+  mirage.x = W * 0.5;
+  mirage.y = H * 0.36;
+  mirage.tx = mirage.x;
+  mirage.ty = mirage.y;
+  traveler.x = W * 0.5;
+  traveler.y = H * 0.86;
+  traveler.gait = 0;
+  traveler.swayPhase = 0;
+  traveler.slump = 0;
+}
+
+// ─── input ───────────────────────────────────────────────────────────────────
+function pointerPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+}
+
+function onDown(e) {
+  if (state !== STATE.PLAYING) return;
+  e.preventDefault();
+  const p = pointerPos(e);
+  pointer.down = true;
+  pointer.startX = p.x; pointer.startY = p.y;
+  pointer.x = p.x; pointer.y = p.y;
+  pointer.downTime = performance.now();
+  pointer.moved = false;
+
+  // set target to finger, but clamp to horizon band
+  updateTargetFromPointer();
+}
+
+function onMove(e) {
+  if (!pointer.down || state !== STATE.PLAYING) return;
+  e.preventDefault();
+  const p = pointerPos(e);
+  pointer.x = p.x; pointer.y = p.y;
+  const dx = p.x - pointer.startX, dy = p.y - pointer.startY;
+  if (dx * dx + dy * dy > 14 * 14) pointer.moved = true;
+  updateTargetFromPointer();
+}
+
+function onUp(e) {
+  if (state !== STATE.PLAYING) return;
+  const dt = performance.now() - pointer.downTime;
+  const wasQuick = dt < 260 && !pointer.moved;
+  pointer.down = false;
+  if (wasQuick) cycleForm();
+}
+
+function updateTargetFromPointer() {
+  // horizon band: y from H*0.18 to H*0.55
+  const minY = H * 0.18;
+  const maxY = H * 0.55;
+  mirage.tx = Math.max(40, Math.min(W - 40, pointer.x));
+  mirage.ty = Math.max(minY, Math.min(maxY, pointer.y));
+}
+
+function cycleForm() {
+  mirage.form = (mirage.form + 1) % FORMS.length;
+  mirage.fatigue = 0;
+  updateFormLabel();
+}
+
+function updateFormLabel() {
+  const el = document.getElementById('form-label');
+  el.textContent = FORMS[mirage.form].name;
+  el.style.opacity = '0.85';
+  clearTimeout(updateFormLabel._t);
+  updateFormLabel._t = setTimeout(() => { el.style.opacity = '0.55'; }, 1400);
+}
+
+canvas.addEventListener('pointerdown', onDown, { passive: false });
+canvas.addEventListener('pointermove', onMove, { passive: false });
+canvas.addEventListener('pointerup', onUp, { passive: false });
+canvas.addEventListener('pointercancel', onUp, { passive: false });
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+
+// ─── audio (soft wind) ───────────────────────────────────────────────────────
+let audioCtx = null;
+let windGain = null;
+function startAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const bufferSize = 2 * audioCtx.sampleRate;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer; noise.loop = true;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 420; filter.Q.value = 0.3;
+    windGain = audioCtx.createGain();
+    windGain.gain.value = 0;
+    noise.connect(filter); filter.connect(windGain); windGain.connect(audioCtx.destination);
+    noise.start();
+    // slow fade in
+    windGain.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 3);
+  } catch (_) { /* silent */ }
+}
+
+// ─── game update ────────────────────────────────────────────────────────────
+function update(dt) {
+  time += dt;
+
+  if (state !== STATE.PLAYING) {
+    if (state === STATE.WIN) winFade = Math.min(1, winFade + dt * 0.6);
+    if (state === STATE.LOSE_C || state === STATE.LOSE_F) loseFade = Math.min(1, loseFade + dt * 0.8);
+    return;
+  }
+
+  // Mirage: pointer down → target follows finger. Pointer up → target drifts down (heat gravity).
+  if (!pointer.down) {
+    mirage.ty += 12 * dt; // drift down
+    const maxY = H * 0.55;
+    if (mirage.ty > maxY) mirage.ty = maxY;
+  }
+  // ease actual toward target
+  const easeX = pointer.down ? 0.18 : 0.06;
+  const easeY = pointer.down ? 0.18 : 0.06;
+  mirage.x += (mirage.tx - mirage.x) * easeX;
+  mirage.y += (mirage.ty - mirage.y) * easeY;
+  mirage.shimmerPhase += dt * 2.2;
+
+  // Fatigue on current form
+  mirage.fatigue = Math.min(1, mirage.fatigue + 0.075 * dt);
+
+  // Traveler walks toward mirage.x (horizontal), moves upward
+  const walkSpeed = (16 + (faith / 100) * 10) * (1 - traveler.slump * 0.5); // 16..26 px/sec
+  const dirX = mirage.x - traveler.x;
+  const distX = Math.abs(dirX);
+  if (distX > 1) traveler.x += Math.sign(dirX) * Math.min(distX, walkSpeed * 0.6 * dt);
+  traveler.y -= walkSpeed * dt;
+  traveler.gait += walkSpeed * 0.06 * dt * 60;
+  traveler.swayPhase += dt;
+
+  // Distance mirage↔traveler
+  const dy = traveler.y - mirage.y;
+  const idealDist = H * 0.32;
+  const distScore = Math.max(0, 1 - Math.abs(dy - idealDist) / (H * 0.28));
+
+  // If too close, illusion cracks
+  const tooCloseThreshold = 90;
+  if (dy < tooCloseThreshold) {
+    const closeness = 1 - Math.max(0, dy) / tooCloseThreshold;
+    faith -= (30 * closeness) * dt;
+  }
+  // Physical collision → LOSE
+  if (dy < 12) {
+    endGame(STATE.LOSE_C);
+    return;
+  }
+
+  // Faith regen based on form + distance + fatigue
+  const form = mirage.form;
+  const baseRegen = form === 0 ? 5.2 : (form === 1 ? 6.0 : 4.4); // per second at full effectiveness
+  const regen = baseRegen * (1 - mirage.fatigue) * distScore;
+  const drain = 3.8 + time * 0.02; // creeping baseline drain
+  faith += (regen - drain) * dt;
+  faith = Math.max(0, Math.min(100, faith));
+
+  // Slump: traveler visibly flags at low faith
+  const targetSlump = faith < 40 ? (1 - faith / 40) : 0;
+  traveler.slump += (targetSlump - traveler.slump) * dt * 2;
+
+  // Faith empty → countdown
+  if (faith <= 0) {
+    faithEmptyTimer += dt;
+    if (faithEmptyTimer > 4.5) { endGame(STATE.LOSE_F); return; }
+  } else {
+    faithEmptyTimer = Math.max(0, faithEmptyTimer - dt);
+  }
+
+  // Journey progress from traveler position — they need to walk about 70% of screen
+  const startY = H * 0.86;
+  const endY = H * 0.14;
+  journey = Math.max(0, Math.min(100, ((startY - traveler.y) / (startY - endY)) * 100));
+
+  if (traveler.y <= endY) { endGame(STATE.WIN); return; }
+
+  // grains (wind)
+  for (const g of grains) {
+    g.x += g.vx * dt;
+    g.y += g.vy * dt;
+    if (g.x < -5) { g.x = W + 5; g.y = H * 0.55 + Math.random() * (H * 0.45); }
+  }
+
+  // Warn overlay
+  const warnEl = document.getElementById('warn');
+  const closeWarn = dy < 130 || (faith < 20 && faith > 0);
+  warnEl.style.opacity = closeWarn ? '0.85' : '0';
+
+  // HUD update
+  updateHUD();
+}
+
+function updateHUD() {
+  const fBar = document.querySelector('#faith-meter .fill');
+  const jBar = document.querySelector('#journey-meter .fill');
+  fBar.style.width = faith + '%';
+  jBar.style.width = journey + '%';
+  // faith color shifts from warm brown → red as it drops
+  if (faith < 25) fBar.style.background = '#8a1e10';
+  else if (faith < 55) fBar.style.background = '#a04d1a';
+  else fBar.style.background = '#6b3d1a';
+}
+
+function endGame(newState) {
+  state = newState;
+  document.getElementById('warn').style.opacity = '0';
+  setTimeout(() => {
+    if (newState === STATE.WIN) show('win-screen');
+    else if (newState === STATE.LOSE_C) show('lose-collision-screen');
+    else if (newState === STATE.LOSE_F) show('lose-faith-screen');
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('form-label').style.display = 'none';
+  }, 1400);
+}
+
+// ─── rendering ──────────────────────────────────────────────────────────────
+function heatOffset(y, phase, amp) {
+  return Math.sin(y * 0.06 + phase) * amp + Math.sin(y * 0.14 + phase * 1.7) * amp * 0.35;
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+  g.addColorStop(0, '#f5e6c4');
+  g.addColorStop(0.55, '#e8b880');
+  g.addColorStop(1, '#c68f57');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H * 0.6);
+}
+
+function drawSun() {
+  const cx = W * 0.72;
+  const cy = H * 0.16;
+  const rOuter = Math.min(W, H) * 0.14;
+  const rInner = Math.min(W, H) * 0.055;
+  const glow = ctx.createRadialGradient(cx, cy, rInner * 0.2, cx, cy, rOuter);
+  glow.addColorStop(0, 'rgba(255, 250, 220, 0.95)');
+  glow.addColorStop(0.35, 'rgba(255, 235, 180, 0.35)');
+  glow.addColorStop(1, 'rgba(255, 210, 140, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 252, 232, 0.85)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, rInner, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawDune(pts, fill, shimmerAmp) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (const p of pts) {
+    const off = shimmerAmp > 0 ? heatOffset(p.y, mirage.shimmerPhase, shimmerAmp) : 0;
+    ctx.lineTo(p.x, p.y + off);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawGrains() {
+  ctx.fillStyle = '#3d2513';
+  for (const g of grains) {
+    ctx.globalAlpha = g.a;
+    ctx.beginPath();
+    ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawMirage() {
+  const cx = mirage.x;
+  const cy = mirage.y;
+  const form = FORMS[mirage.form];
+  const shimmer = mirage.shimmerPhase;
+  const fatigue = mirage.fatigue;
+  const alphaBase = 0.55 - fatigue * 0.25;
+
+  ctx.save();
+  // shimmer distortion: sample small vertical bands and offset
+  const w = Math.min(W, H) * 0.42;
+  const h = Math.min(W, H) * 0.18;
+  const x0 = cx - w / 2, y0 = cy - h / 2;
+
+  // draw offscreen shape, then re-blit with per-row distortion for shimmer feel
+  // simpler: draw shape with wavy edges
+  ctx.globalAlpha = alphaBase;
+
+  if (mirage.form === 0) {
+    // still water: horizontal ellipse with reflective sky sheen
+    const grad = ctx.createLinearGradient(cx, y0, cx, y0 + h);
+    grad.addColorStop(0, form.bright);
+    grad.addColorStop(0.5, form.color);
+    grad.addColorStop(1, '#7ba0b3');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const bands = 20;
+    for (let i = 0; i <= bands; i++) {
+      const t = i / bands;
+      const angle = t * Math.PI;
+      const rx = w * 0.5;
+      const ry = h * 0.5;
+      const px = cx + Math.cos(angle) * rx + heatOffset(cy + Math.sin(angle) * ry, shimmer, 3.5);
+      const py = cy + Math.sin(angle) * ry;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    for (let i = bands; i >= 0; i--) {
+      const t = i / bands;
+      const angle = t * Math.PI;
+      const rx = w * 0.5;
+      const ry = h * 0.5;
+      const px = cx + Math.cos(angle) * rx + heatOffset(cy - Math.sin(angle) * ry, shimmer + 1, 3.5);
+      const py = cy - Math.sin(angle) * ry;
+      ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    // ripple highlights
+    ctx.strokeStyle = form.bright;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = alphaBase * 0.6;
+    for (let r = 0; r < 3; r++) {
+      ctx.beginPath();
+      for (let i = 0; i <= 30; i++) {
+        const px = x0 + (i / 30) * w;
+        const py = cy + Math.sin(i * 0.6 + shimmer * 1.3 + r) * 2 - 3 + r * 6;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+  } else if (mirage.form === 1) {
+    // palms: rounded green mound with palm silhouettes rising
+    const grad = ctx.createLinearGradient(cx, y0, cx, y0 + h * 1.1);
+    grad.addColorStop(0, form.bright);
+    grad.addColorStop(1, form.color);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const bands = 24;
+    ctx.moveTo(x0 + heatOffset(cy, shimmer, 3), cy + h * 0.35);
+    for (let i = 0; i <= bands; i++) {
+      const t = i / bands;
+      const px = x0 + t * w + heatOffset(y0 + t * h, shimmer + t * 3, 3);
+      const py = cy + h * 0.35 - Math.sin(t * Math.PI) * h * 0.35;
+      ctx.lineTo(px, py);
+    }
+    ctx.lineTo(x0 + w, cy + h * 0.5);
+    ctx.lineTo(x0, cy + h * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // palms
+    const palmCount = 4;
+    for (let i = 0; i < palmCount; i++) {
+      const px = cx - w * 0.28 + (i / (palmCount - 1)) * w * 0.56 + heatOffset(cy + i, shimmer, 2);
+      const trunkTop = cy - h * 0.4 + Math.sin(i * 1.7) * 6;
+      const trunkBase = cy + h * 0.15;
+      ctx.strokeStyle = '#2f3a1e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px + heatOffset(trunkBase, shimmer, 1.5), trunkBase);
+      ctx.lineTo(px + heatOffset(trunkTop, shimmer, 2), trunkTop);
+      ctx.stroke();
+      // fronds
+      ctx.fillStyle = form.color;
+      for (let f = 0; f < 6; f++) {
+        const ang = (f / 6) * Math.PI * 2 + Math.sin(i + shimmer * 0.3) * 0.2;
+        const fx = px + Math.cos(ang) * 9;
+        const fy = trunkTop + Math.sin(ang) * 5;
+        ctx.beginPath();
+        ctx.ellipse(fx, fy, 7, 2, ang, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else {
+    // city: rectangular skyline silhouettes
+    ctx.fillStyle = form.color;
+    const n = 9;
+    const bw = w / n;
+    for (let i = 0; i < n; i++) {
+      const bx = x0 + i * bw + heatOffset(cy + i * 4, shimmer + i, 3);
+      const bh = h * (0.35 + (Math.sin(i * 1.9) * 0.5 + 0.5) * 0.55);
+      const by = cy + h * 0.4 - bh;
+      ctx.beginPath();
+      ctx.rect(bx, by, bw * 0.85, bh);
+      ctx.fill();
+      // pale top edge → suggests distant light
+      ctx.fillStyle = form.bright;
+      ctx.globalAlpha = alphaBase * 0.5;
+      ctx.fillRect(bx, by, bw * 0.85, 2);
+      ctx.fillStyle = form.color;
+      ctx.globalAlpha = alphaBase;
+    }
+    // horizontal shimmer sheen
+    ctx.fillStyle = form.bright;
+    ctx.globalAlpha = alphaBase * 0.25;
+    ctx.fillRect(x0, cy + h * 0.4 - 2, w, 3);
+    ctx.globalAlpha = alphaBase;
+  }
+
+  // reflection band under mirage (heat effect)
+  const refG = ctx.createLinearGradient(cx, cy + h * 0.4, cx, cy + h * 0.75);
+  refG.addColorStop(0, `rgba(180, 200, 210, ${alphaBase * 0.5})`);
+  refG.addColorStop(1, `rgba(180, 200, 210, 0)`);
+  ctx.fillStyle = refG;
+  ctx.fillRect(x0 - 5, cy + h * 0.4, w + 10, h * 0.35);
+
+  ctx.restore();
+}
+
+function drawTraveler() {
+  const cx = traveler.x;
+  const feetY = traveler.y;
+  const height = Math.min(W, H) * 0.075;
+  const width = height * 0.35;
+  const bob = Math.sin(traveler.gait * 0.35) * height * 0.03;
+  const sway = Math.sin(traveler.swayPhase * 0.7) * traveler.slump * 3;
+
+  ctx.save();
+  ctx.fillStyle = '#2a1808';
+
+  const headR = height * 0.14;
+  const bodyTop = feetY - height + bob + traveler.slump * height * 0.15;
+  const headY = bodyTop + headR;
+
+  // shadow
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.ellipse(cx, feetY + 2, width * 0.9, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // body (a rounded silhouette)
+  ctx.beginPath();
+  ctx.moveTo(cx - width * 0.5 + sway * 0.5, feetY);
+  ctx.lineTo(cx - width * 0.6, headY + headR * 0.3);
+  ctx.quadraticCurveTo(cx - width * 0.4, headY - headR * 0.3, cx - headR + sway, headY);
+  ctx.arc(cx + sway, headY, headR, Math.PI, 0);
+  ctx.quadraticCurveTo(cx + width * 0.4, headY - headR * 0.3, cx + width * 0.6, headY + headR * 0.3);
+  ctx.lineTo(cx + width * 0.5 + sway * 0.5, feetY);
+  ctx.closePath();
+  ctx.fill();
+
+  // walking-stick suggestion at low faith
+  if (traveler.slump > 0.3) {
+    ctx.strokeStyle = '#2a1808';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx + width * 0.55, feetY);
+    ctx.lineTo(cx + width * 0.7, headY + headR);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawOverlayFades() {
+  if (state === STATE.WIN) {
+    ctx.fillStyle = `rgba(255, 245, 220, ${winFade * 0.85})`;
+    ctx.fillRect(0, 0, W, H);
+  } else if (state === STATE.LOSE_C) {
+    ctx.fillStyle = `rgba(120, 60, 30, ${loseFade * 0.7})`;
+    ctx.fillRect(0, 0, W, H);
+  } else if (state === STATE.LOSE_F) {
+    ctx.fillStyle = `rgba(80, 40, 20, ${loseFade * 0.7})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function render() {
+  drawSky();
+  drawSun();
+
+  // Distant dunes (with heat shimmer near horizon)
+  drawDune(dunesFar, '#c88f5c', 4);
+  drawDune(dunesMid, '#b57a48', 2);
+
+  // Mirage sits ON the far horizon, before near dunes
+  drawMirage();
+
+  // Near sand dune covers everything below the horizon band
+  drawDune(dunesNear, '#a06432', 0);
+
+  // Traveler is between us and the near dune, at their y
+  drawTraveler();
+
+  // Wind grains
+  drawGrains();
+
+  drawOverlayFades();
+}
+
+// ─── loop ────────────────────────────────────────────────────────────────────
+let lastT = 0;
+function frame(t) {
+  const now = t / 1000;
+  const dt = Math.min(0.05, lastT ? now - lastT : 0.016);
+  lastT = now;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ─── UI ──────────────────────────────────────────────────────────────────────
+function hideAll() {
+  ['title-screen', 'win-screen', 'lose-collision-screen', 'lose-faith-screen'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+function show(id) {
+  hideAll();
+  const el = document.getElementById(id);
+  el.classList.remove('hidden');
+  el.classList.remove('fade-in');
+  // force reflow
+  void el.offsetWidth;
+  el.classList.add('fade-in');
+}
+
+function beginGame() {
+  hideAll();
+  resetGame();
+  state = STATE.PLAYING;
+  document.getElementById('hud').style.display = 'flex';
+  const fl = document.getElementById('form-label');
+  fl.style.display = 'block';
+  updateFormLabel();
+  updateHUD();
+  startAudio();
+}
+
+document.getElementById('start-btn').addEventListener('click', beginGame);
+document.querySelectorAll('.restart-btn').forEach(b => b.addEventListener('click', beginGame));
+
+// ─── boot ────────────────────────────────────────────────────────────────────
+resize();
+resetGame();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
