@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0e1420" />
+<title>POINTER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%;
+    overflow: hidden;
+    background: #0e1420;
+    color: #eef1f6;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #0e1420;
+  }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 6vw;
+    z-index: 100;
+    background: #0e1420;
+    text-align: center;
+  }
+  .screen.active { display: flex; }
+
+  #title-screen {
+    background: radial-gradient(circle at 30% 45%, #182236 0%, #0e1420 55%);
+  }
+
+  .brand {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.32em;
+    color: #ff3b47;
+    opacity: 0.9;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 700;
+    font-size: clamp(3rem, 9vw, 6rem);
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    color: #eef1f6;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+  }
+  h1 .dot {
+    width: 0.4em;
+    height: 0.4em;
+    border-radius: 50%;
+    background: #ff2f3d;
+    box-shadow: 0 0 24px 4px rgba(255, 47, 61, 0.65);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.18); opacity: 0.85; }
+  }
+
+  .subtitle {
+    margin-top: 1.5rem;
+    max-width: 640px;
+    font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+    line-height: 1.5;
+    color: #b8c1d1;
+  }
+  .subtitle em { color: #ff8891; font-style: normal; }
+
+  .rules {
+    margin-top: 1.6rem;
+    display: flex;
+    gap: clamp(0.7rem, 2vw, 1.6rem);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 720px;
+  }
+  .rule {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 0.7rem 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: #cbd3e2;
+    line-height: 1.45;
+    letter-spacing: 0.02em;
+    max-width: 210px;
+    text-align: left;
+  }
+  .rule strong { color: #ff5661; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; font-size: 0.7rem; display: block; margin-bottom: 0.3rem; }
+
+  .btn {
+    margin-top: 2rem;
+    background: #ff2f3d;
+    color: #fff;
+    border: none;
+    padding: 1rem 2.4rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 8px 32px rgba(255, 47, 61, 0.4);
+    transition: transform 0.15s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.ghost {
+    background: transparent;
+    color: #cbd3e2;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: none;
+  }
+
+  /* HUD */
+  #hud {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: flex-end;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: #cbd3e2;
+    pointer-events: none;
+  }
+  .meter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0,0,0,0.35);
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .meter .lab { opacity: 0.7; text-transform: uppercase; font-size: 0.65rem; }
+  .meter .bar {
+    width: 130px;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .meter .bar > span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    transition: width 0.15s ease-out;
+    border-radius: 3px;
+  }
+  .meter.audience .bar > span { background: linear-gradient(90deg, #ffcf5a, #ffe08c); }
+  .meter.notice .bar > span { background: linear-gradient(90deg, #ff2f3d, #ff6b6b); }
+  .meter .val { min-width: 2.4em; text-align: right; font-variant-numeric: tabular-nums; }
+
+  #slide-info {
+    position: fixed;
+    bottom: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 500;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(203, 211, 226, 0.55);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: rgba(0,0,0,0.35);
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    pointer-events: none;
+  }
+
+  /* End screen */
+  #end-screen h2 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 0.7rem;
+  }
+  #end-screen .verdict-caption {
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.24em;
+    font-size: 0.8rem;
+    color: #cbd3e2;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+    opacity: 0.75;
+  }
+  #end-screen .story {
+    font-family: 'IBM Plex Sans', sans-serif;
+    max-width: 560px;
+    color: #b8c1d1;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    margin: 1rem 0 1.4rem;
+  }
+  .stats {
+    margin: 1rem 0 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    justify-content: center;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .stat .n { font-size: 1.6rem; color: #eef1f6; letter-spacing: -0.02em; }
+  .stat .l { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.16em; color: #7f8ba0; }
+
+  /* Landscape hint on title */
+  .orientation-note {
+    margin-top: 1.4rem;
+    color: #7f8ba0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<div id="stage">
+  <canvas id="c"></canvas>
+</div>
+
+<!-- Title Screen -->
+<div id="title-screen" class="screen active">
+  <div class="brand">Q3 // ALL-HANDS</div>
+  <h1>POINTER<span class="dot"></span></h1>
+  <p class="subtitle">You are the red laser dot in a corporate presentation nobody wanted. The audience is dying. <em>Doodle on the slides</em> to make them laugh — but don't get caught by the presenter.</p>
+  <div class="rules">
+    <div class="rule"><strong>Draw</strong>Drag your finger on the slide. Your laser leaves ink until the slide advances.</div>
+    <div class="rule"><strong>Delight</strong>Rich, varied doodles raise <span style="color:#ffcf5a">AUDIENCE</span> attention. Boring, empty slides sink it.</div>
+    <div class="rule"><strong>Don't get caught</strong>The presenter's gaze sweeps the slide. Do NOT be drawing where they're looking.</div>
+  </div>
+  <button class="btn" id="start-btn">Begin Slide 1</button>
+  <div class="orientation-note">Landscape · 5 slides · ~2 min</div>
+</div>
+
+<!-- HUD -->
+<div id="hud" style="display:none">
+  <div class="meter audience"><span class="lab">Audience</span><div class="bar"><span id="aud-bar"></span></div><span class="val" id="aud-val">0</span></div>
+  <div class="meter notice"><span class="lab">Notice</span><div class="bar"><span id="not-bar"></span></div><span class="val" id="not-val">0</span></div>
+</div>
+<div id="slide-info" style="display:none">Slide <span id="slide-idx">1</span> / 5 · <span id="slide-clock">0:25</span></div>
+
+<!-- End Screen -->
+<div id="end-screen" class="screen">
+  <div class="verdict-caption" id="verdict-caption">POST-MORTEM</div>
+  <h2 id="verdict-title">Presentation over.</h2>
+  <p class="story" id="verdict-story"></p>
+  <div class="stats">
+    <div class="stat"><span class="n" id="final-aud">0</span><span class="l">Audience</span></div>
+    <div class="stat"><span class="n" id="final-slides">0</span><span class="l">Slides Survived</span></div>
+    <div class="stat"><span class="n" id="final-ink">0</span><span class="l">Meters of Ink</span></div>
+  </div>
+  <button class="btn" id="again-btn">Book Another Meeting</button>
+</div>
+
+<script>
+'use strict';
+
+/* =============================================================
+   POINTER
+   You are the red laser dot in a corporate presentation.
+   Doodle on the slides to entertain the audience without
+   the presenter noticing.
+   ============================================================= */
+
+const ORIENTATION = 'LANDSCAPE';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+/* ------------------------------------------------------------
+   Setup canvas
+   ------------------------------------------------------------ */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* ------------------------------------------------------------
+   Game state
+   ------------------------------------------------------------ */
+const SLIDE_DURATION = 25; // seconds per slide
+const NUM_SLIDES = 5;
+const NOTICE_MAX = 100;
+const AUDIENCE_SLIDE_TARGET = 70; // per slide, out of 100
+
+const state = {
+  screen: 'title',   // title | play | end
+  slideIdx: 0,
+  slideT: 0,         // seconds elapsed on this slide
+  audience: 0,       // 0..100 for current slide
+  totalAudience: 0,
+  slidesSurvived: 0,
+  totalInkPx: 0,
+  notice: 0,
+  caught: false,
+  gaze: null,        // {x, y, r, ttl, life, warnTtl, hot}
+  gazeCooldown: 2,
+  strokes: [],       // ink strokes on the current slide: [{pts:[{x,y}], age:0}]
+  currentStroke: null,
+  pointerDown: false,
+  lastPoint: null,
+  audience_people: [], // silhouettes with mood
+  lastT: performance.now(),
+};
+
+/* ------------------------------------------------------------
+   Slides — procedural corporate scenery per slide
+   Each slide has a draw(ctx, rect, t) function.
+   ------------------------------------------------------------ */
+
+// Slide layout inside the safe drawable rectangle.
+// We reserve top-left for the back button, top-right for HUD,
+// bottom-center for slide clock. So keep some margin.
+
+const SLIDE_MARGIN = { top: 60, bottom: 60, left: 60, right: 60 };
+
+function slideRect() {
+  const x = SLIDE_MARGIN.left;
+  const y = SLIDE_MARGIN.top;
+  const w = W - x - SLIDE_MARGIN.right;
+  const h = H - y - SLIDE_MARGIN.bottom;
+  return { x, y, w, h };
+}
+
+const COLORS = {
+  slideBg: '#f4efe2',        // beige "projection" background
+  slideBgDim: '#eae5d6',
+  slideInk: '#233043',
+  slideInkSoft: '#5c6a7d',
+  slideAccent: '#c9432e',
+  slideMuted: '#a8a292',
+  wallDark: '#0a0f18',
+  wallGrad1: '#111a2b',
+  wallGrad2: '#050810',
+  laser: '#ff2f3d',
+  laserGlow: 'rgba(255, 47, 61, 0.35)',
+  audience: '#0a0f18',
+  gazeCone: 'rgba(255, 220, 120, 0.10)',
+  gazeSpot: 'rgba(255, 220, 120, 0.42)',
+  gazeSpotHot: 'rgba(255, 90, 90, 0.55)',
+};
+
+/* ---------- Helpers ---------- */
+
+function rrect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w * 0.5, h * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
+function textCenter(ctx, txt, x, y, size, color, weight) {
+  ctx.fillStyle = color;
+  ctx.font = `${weight || 500} ${size}px 'IBM Plex Sans', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(txt, x, y);
+}
+function textLeft(ctx, txt, x, y, size, color, weight, family) {
+  ctx.fillStyle = color;
+  ctx.font = `${weight || 500} ${size}px ${family || "'IBM Plex Sans', sans-serif"}`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(txt, x, y);
+}
+
+/* ---------- Slide 1: Bar chart ---------- */
+function drawSlide1(ctx, r) {
+  // Title
+  const cx = r.x + r.w * 0.5;
+  textLeft(ctx, 'Q3 Revenue by Region', r.x + r.w * 0.06, r.y + r.h * 0.10, Math.min(r.h*0.075, 28), COLORS.slideInk, 700);
+  textLeft(ctx, 'Confidential · Internal Use Only', r.x + r.w * 0.06, r.y + r.h * 0.17, 12, COLORS.slideInkSoft, 400);
+
+  // Bars
+  const bars = [ ['NA', 0.85], ['EMEA', 0.62], ['APAC', 0.48], ['LATAM', 0.28], ['MEA', 0.19] ];
+  const chartX = r.x + r.w * 0.10;
+  const chartY = r.y + r.h * 0.28;
+  const chartW = r.w * 0.80;
+  const chartH = r.h * 0.55;
+  const barW = chartW / bars.length * 0.55;
+  const gap = chartW / bars.length;
+
+  // Y axis line
+  ctx.strokeStyle = COLORS.slideMuted;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(chartX, chartY);
+  ctx.lineTo(chartX, chartY + chartH);
+  ctx.lineTo(chartX + chartW, chartY + chartH);
+  ctx.stroke();
+
+  // Gridlines
+  ctx.strokeStyle = 'rgba(90,100,120,0.15)';
+  for (let i = 1; i <= 4; i++) {
+    const y = chartY + chartH * (1 - i / 4);
+    ctx.beginPath();
+    ctx.moveTo(chartX, y);
+    ctx.lineTo(chartX + chartW, y);
+    ctx.stroke();
+  }
+
+  // Bars
+  bars.forEach(([label, v], i) => {
+    const bx = chartX + gap * (i + 0.5) - barW / 2;
+    const bh = chartH * v;
+    const by = chartY + chartH - bh;
+    ctx.fillStyle = i === 0 ? COLORS.slideAccent : COLORS.slideInk;
+    ctx.fillRect(bx, by, barW, bh);
+    // Label
+    textCenter(ctx, label, bx + barW / 2, chartY + chartH + 18, 12, COLORS.slideInkSoft, 500);
+  });
+}
+
+/* ---------- Slide 2: Org chart ---------- */
+function drawSlide2(ctx, r) {
+  textLeft(ctx, 'Leadership Team', r.x + r.w * 0.06, r.y + r.h * 0.10, Math.min(r.h*0.075, 28), COLORS.slideInk, 700);
+  textLeft(ctx, 'Meet the people driving synergy in FY26', r.x + r.w * 0.06, r.y + r.h * 0.17, 12, COLORS.slideInkSoft, 400);
+
+  const people = [
+    { name: 'Marlene',  title: 'CEO' },
+    { name: 'Devon',    title: 'CTO' },
+    { name: 'Priya',    title: 'CFO' },
+    { name: 'Reggie',   title: 'CMO' },
+  ];
+  const rowY = r.y + r.h * 0.55;
+  const cellW = r.w * 0.85 / people.length;
+  const startX = r.x + r.w * 0.075 + cellW / 2;
+  const portR = Math.min(cellW * 0.28, r.h * 0.16);
+
+  // Connector line
+  ctx.strokeStyle = COLORS.slideMuted;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(startX, rowY - portR - 20);
+  ctx.lineTo(startX + cellW * (people.length - 1), rowY - portR - 20);
+  ctx.stroke();
+  // "You are here" top block
+  const boxW = 160, boxH = 34;
+  const boxX = startX + cellW * (people.length - 1) / 2 - boxW / 2;
+  const boxY = rowY - portR - 20 - boxH / 2;
+  ctx.fillStyle = COLORS.slideInk;
+  rrect(ctx, boxX, boxY, boxW, boxH, 4);
+  ctx.fill();
+  textCenter(ctx, 'BOARD OF DIRECTORS', boxX + boxW/2, boxY + boxH/2, 11, '#f4efe2', 500);
+
+  people.forEach((p, i) => {
+    const cx = startX + i * cellW;
+    // Connector drop
+    ctx.strokeStyle = COLORS.slideMuted;
+    ctx.beginPath();
+    ctx.moveTo(cx, rowY - portR - 20);
+    ctx.lineTo(cx, rowY - portR);
+    ctx.stroke();
+    // Portrait (silhouette)
+    ctx.fillStyle = COLORS.slideBgDim;
+    ctx.beginPath();
+    ctx.arc(cx, rowY, portR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = COLORS.slideInk;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Head silhouette
+    ctx.fillStyle = COLORS.slideInk;
+    // Body
+    ctx.beginPath();
+    ctx.arc(cx, rowY + portR * 0.35, portR * 0.85, Math.PI, 0);
+    ctx.fill();
+    // Head
+    ctx.beginPath();
+    ctx.arc(cx, rowY - portR * 0.15, portR * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    // Mask to portrait
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.beginPath();
+    ctx.arc(cx, rowY, portR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Redraw portrait outline (composite trimmed it)
+    ctx.strokeStyle = COLORS.slideInk;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, rowY, portR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    textCenter(ctx, p.name, cx, rowY + portR + 18, 14, COLORS.slideInk, 700);
+    textCenter(ctx, p.title, cx, rowY + portR + 34, 11, COLORS.slideInkSoft, 500);
+  });
+}
+
+/* ---------- Slide 3: Roadmap ---------- */
+function drawSlide3(ctx, r) {
+  textLeft(ctx, 'FY26 Roadmap', r.x + r.w * 0.06, r.y + r.h * 0.10, Math.min(r.h*0.075, 28), COLORS.slideInk, 700);
+  textLeft(ctx, 'Where we’re going and why it matters', r.x + r.w * 0.06, r.y + r.h * 0.17, 12, COLORS.slideInkSoft, 400);
+
+  const timelineY = r.y + r.h * 0.55;
+  const startX = r.x + r.w * 0.10;
+  const endX = r.x + r.w * 0.92;
+
+  // Timeline line
+  ctx.strokeStyle = COLORS.slideInkSoft;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(startX, timelineY);
+  ctx.lineTo(endX, timelineY);
+  ctx.stroke();
+
+  // Arrowhead
+  ctx.fillStyle = COLORS.slideInkSoft;
+  ctx.beginPath();
+  ctx.moveTo(endX, timelineY);
+  ctx.lineTo(endX - 12, timelineY - 7);
+  ctx.lineTo(endX - 12, timelineY + 7);
+  ctx.closePath();
+  ctx.fill();
+
+  const milestones = [
+    { q: 'Q1', txt: 'Ideate' },
+    { q: 'Q2', txt: 'Iterate' },
+    { q: 'Q3', txt: 'Ideate again' },
+    { q: 'Q4', txt: 'Pivot' },
+  ];
+  milestones.forEach((m, i) => {
+    const x = startX + (endX - startX - 24) * (i / (milestones.length - 1));
+    // Dot
+    ctx.fillStyle = i === 2 ? COLORS.slideAccent : COLORS.slideInk;
+    ctx.beginPath();
+    ctx.arc(x, timelineY, 8, 0, Math.PI * 2);
+    ctx.fill();
+    // Q label above
+    textCenter(ctx, m.q, x, timelineY - 24, 13, COLORS.slideInkSoft, 500);
+    // Description below
+    textCenter(ctx, m.txt, x, timelineY + 28, 14, COLORS.slideInk, 700);
+  });
+}
+
+/* ---------- Slide 4: Pie chart ---------- */
+function drawSlide4(ctx, r) {
+  textLeft(ctx, 'How We Spend Our Time', r.x + r.w * 0.06, r.y + r.h * 0.10, Math.min(r.h*0.075, 28), COLORS.slideInk, 700);
+  textLeft(ctx, 'A candid look at the work week', r.x + r.w * 0.06, r.y + r.h * 0.17, 12, COLORS.slideInkSoft, 400);
+
+  const cx = r.x + r.w * 0.32;
+  const cy = r.y + r.h * 0.62;
+  const rad = Math.min(r.h * 0.30, r.w * 0.18);
+
+  const slices = [
+    { label: 'Meetings', pct: 0.45, c: COLORS.slideAccent },
+    { label: 'Email',    pct: 0.20, c: '#2c4664' },
+    { label: 'Slack',    pct: 0.15, c: '#5a7a95' },
+    { label: 'Actual work', pct: 0.12, c: '#8ea8c1' },
+    { label: 'Existential dread', pct: 0.08, c: '#c0d0dd' },
+  ];
+  let a0 = -Math.PI / 2;
+  slices.forEach(s => {
+    const a1 = a0 + s.pct * Math.PI * 2;
+    ctx.fillStyle = s.c;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, rad, a0, a1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = COLORS.slideBg;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    a0 = a1;
+  });
+
+  // Legend
+  const lx = r.x + r.w * 0.58;
+  const ly = r.y + r.h * 0.35;
+  slices.forEach((s, i) => {
+    ctx.fillStyle = s.c;
+    ctx.fillRect(lx, ly + i * 30, 14, 14);
+    textLeft(ctx, `${Math.round(s.pct*100)}%  ${s.label}`, lx + 22, ly + i * 30 + 7, 14, COLORS.slideInk, 500);
+  });
+}
+
+/* ---------- Slide 5: Thank You ---------- */
+function drawSlide5(ctx, r) {
+  const cx = r.x + r.w * 0.5;
+  const cy = r.y + r.h * 0.44;
+
+  ctx.fillStyle = COLORS.slideInk;
+  ctx.font = `700 ${Math.min(r.h*0.32, 130)}px 'IBM Plex Sans', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Thank You.', cx, cy);
+
+  ctx.fillStyle = COLORS.slideInkSoft;
+  ctx.font = `400 16px 'IBM Plex Mono', monospace`;
+  ctx.fillText('QUESTIONS?', cx, cy + Math.min(r.h*0.22, 90));
+
+  ctx.fillStyle = COLORS.slideMuted;
+  ctx.font = `400 11px 'IBM Plex Mono', monospace`;
+  ctx.fillText('marlene@company · ext. 4482', cx, cy + Math.min(r.h*0.28, 115));
+}
+
+const SLIDES = [
+  { title: 'Q3 Revenue', draw: drawSlide1 },
+  { title: 'Leadership', draw: drawSlide2 },
+  { title: 'Roadmap',    draw: drawSlide3 },
+  { title: 'Time Study', draw: drawSlide4 },
+  { title: 'Thank You',  draw: drawSlide5 },
+];
+
+/* ------------------------------------------------------------
+   Draw scene: wall + slide + audience silhouettes + presenter
+   ------------------------------------------------------------ */
+
+function drawScene(t, dt) {
+  // Background wall gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, COLORS.wallGrad1);
+  grad.addColorStop(1, COLORS.wallGrad2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  const r = slideRect();
+
+  // Projector "beam" — subtle cone from top of screen fading down onto slide
+  ctx.save();
+  const beam = ctx.createLinearGradient(r.x + r.w/2, 0, r.x + r.w/2, r.y + r.h);
+  beam.addColorStop(0, 'rgba(255, 246, 220, 0.04)');
+  beam.addColorStop(1, 'rgba(255, 246, 220, 0)');
+  ctx.fillStyle = beam;
+  ctx.beginPath();
+  ctx.moveTo(r.x + r.w * 0.35, 0);
+  ctx.lineTo(r.x + r.w * 0.65, 0);
+  ctx.lineTo(r.x + r.w, r.y + r.h);
+  ctx.lineTo(r.x, r.y + r.h);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Slide surface — slight tint variation
+  ctx.save();
+  ctx.fillStyle = COLORS.slideBg;
+  rrect(ctx, r.x, r.y, r.w, r.h, 6);
+  ctx.fill();
+
+  // Subtle projector noise / texture (super light, cheap)
+  ctx.fillStyle = 'rgba(0,0,0,0.02)';
+  for (let i = 0; i < 40; i++) {
+    ctx.fillRect(r.x + Math.random() * r.w, r.y + Math.random() * r.h, 1, 1);
+  }
+
+  // Slide content
+  ctx.save();
+  ctx.beginPath();
+  rrect(ctx, r.x, r.y, r.w, r.h, 6);
+  ctx.clip();
+
+  const slide = SLIDES[state.slideIdx];
+  slide.draw(ctx, r, state.slideT);
+
+  // Draw ink strokes on top of slide
+  drawStrokes(ctx);
+
+  // Draw the gaze spotlight inside the slide clip
+  if (state.gaze) {
+    drawGaze(ctx, state.gaze);
+  }
+
+  ctx.restore(); // end clip
+
+  // Slide frame
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 1;
+  rrect(ctx, r.x, r.y, r.w, r.h, 6);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Audience silhouettes along bottom
+  drawAudience(ctx, r);
+
+  // Presenter silhouette (right side of slide, foreground)
+  drawPresenter(ctx, r, t);
+
+  // Laser dot at cursor position
+  drawLaser(ctx);
+}
+
+function drawStrokes(ctx) {
+  for (const s of state.strokes) {
+    if (s.pts.length < 2) continue;
+    ctx.strokeStyle = `rgba(255, 47, 61, ${Math.max(0.35, 1 - s.age * 0.02)})`;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(s.pts[0].x, s.pts[0].y);
+    for (let i = 1; i < s.pts.length; i++) {
+      ctx.lineTo(s.pts[i].x, s.pts[i].y);
+    }
+    ctx.stroke();
+    // Add a soft halo
+    ctx.strokeStyle = 'rgba(255, 47, 61, 0.10)';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+  }
+}
+
+function drawGaze(ctx, g) {
+  const alphaLife = Math.max(0, Math.min(1, g.life / g.ttl));
+  // Warning phase — small yellow pulsing marker before gaze arrives
+  if (g.warnTtl > 0) {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 220, 120, ${0.35 + pulse * 0.35})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(g.x, g.y, g.r * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  // Active gaze
+  const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
+  const isHot = state.pointerDown && distToGaze() < g.r;
+  const centerColor = isHot ? 'rgba(255,90,90,0.55)' : 'rgba(255, 220, 120, 0.55)';
+  grad.addColorStop(0, centerColor);
+  grad.addColorStop(0.6, isHot ? 'rgba(255,90,90,0.18)' : 'rgba(255, 220, 120, 0.14)');
+  grad.addColorStop(1, 'rgba(255, 220, 120, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rim
+  ctx.strokeStyle = isHot ? 'rgba(255, 90, 90, 0.7)' : 'rgba(255, 220, 120, 0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function distToGaze() {
+  if (!state.gaze || !state.lastPoint) return Infinity;
+  const dx = state.lastPoint.x - state.gaze.x;
+  const dy = state.lastPoint.y - state.gaze.y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function drawAudience(ctx, r) {
+  const y0 = H - 32;
+  const heads = state.audience_people;
+  for (const p of heads) {
+    ctx.fillStyle = COLORS.audience;
+    // Head
+    ctx.beginPath();
+    ctx.arc(p.x, y0 - p.h - p.r, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    // Shoulders
+    ctx.beginPath();
+    ctx.moveTo(p.x - p.r * 1.4, H);
+    ctx.lineTo(p.x - p.r * 1.6, y0 - p.h * 0.6);
+    ctx.quadraticCurveTo(p.x, y0 - p.h * 1.1, p.x + p.r * 1.6, y0 - p.h * 0.6);
+    ctx.lineTo(p.x + p.r * 1.4, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // Mood halo — subtle glow based on audience attention (global)
+    if (state.audience > 40) {
+      const glow = Math.min(1, (state.audience - 40) / 60);
+      ctx.strokeStyle = `rgba(255, 210, 100, ${0.15 + glow * 0.35})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(p.x, y0 - p.h - p.r, p.r + 3 + Math.sin(performance.now() * 0.003 + p.phase) * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPresenter(ctx, r, t) {
+  const px = r.x + r.w + 24;  // to the right of slide
+  const py = H - 40;
+
+  // Base
+  ctx.fillStyle = COLORS.audience;
+
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(px - 20, py);
+  ctx.lineTo(px - 26, py - 90);
+  ctx.quadraticCurveTo(px, py - 130, px + 26, py - 90);
+  ctx.lineTo(px + 20, py);
+  ctx.closePath();
+  ctx.fill();
+
+  // Neck+Head
+  ctx.beginPath();
+  ctx.arc(px, py - 118, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Arm — pointing at the slide (holds a small pointer or clicker)
+  const armSway = Math.sin(t * 0.6) * 0.3;
+  ctx.strokeStyle = COLORS.audience;
+  ctx.lineWidth = 8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(px - 10, py - 100);
+  ctx.lineTo(px - 40 - armSway * 8, py - 80 + armSway * 6);
+  ctx.stroke();
+
+  // Small subtle presenter caption
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.font = "500 10px 'IBM Plex Mono', monospace";
+  ctx.textAlign = 'center';
+  ctx.fillText('MARLENE', px, py + 12);
+}
+
+function drawLaser(ctx) {
+  if (!state.lastPoint) return;
+  const {x, y} = state.lastPoint;
+  // Glow
+  const g = ctx.createRadialGradient(x, y, 0, x, y, 22);
+  g.addColorStop(0, 'rgba(255, 47, 61, 0.9)');
+  g.addColorStop(0.4, 'rgba(255, 47, 61, 0.35)');
+  g.addColorStop(1, 'rgba(255, 47, 61, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, 22, 0, Math.PI * 2);
+  ctx.fill();
+  // Core
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ff2f3d';
+  ctx.beginPath();
+  ctx.arc(x, y, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ------------------------------------------------------------
+   Pointer input — drawing
+   ------------------------------------------------------------ */
+
+function getPoint(e) {
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX, y: t.clientY };
+}
+
+function inSlide(pt) {
+  const r = slideRect();
+  return pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
+}
+
+function onDown(e) {
+  if (state.screen !== 'play') return;
+  e.preventDefault();
+  const p = getPoint(e);
+  state.lastPoint = p;
+  state.pointerDown = true;
+  if (inSlide(p)) {
+    state.currentStroke = { pts: [p], age: 0 };
+    state.strokes.push(state.currentStroke);
+  }
+}
+function onMove(e) {
+  if (state.screen !== 'play') return;
+  e.preventDefault();
+  const p = getPoint(e);
+  state.lastPoint = p;
+  if (state.pointerDown && state.currentStroke && inSlide(p)) {
+    const pts = state.currentStroke.pts;
+    const last = pts[pts.length - 1];
+    const dx = p.x - last.x;
+    const dy = p.y - last.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d >= 2) {
+      pts.push(p);
+      state.totalInkPx += d;
+      // Add to per-slide audience score — richer if you cover new cells
+      addInkRewards(p, d);
+    }
+  } else if (state.pointerDown && !inSlide(p)) {
+    // Ended outside slide, start new stroke on return
+    state.currentStroke = null;
+  } else if (state.pointerDown && !state.currentStroke && inSlide(p)) {
+    state.currentStroke = { pts: [p], age: 0 };
+    state.strokes.push(state.currentStroke);
+  }
+}
+function onUp(e) {
+  if (state.screen !== 'play') return;
+  state.pointerDown = false;
+  state.currentStroke = null;
+}
+
+canvas.addEventListener('pointerdown', onDown, { passive: false });
+canvas.addEventListener('pointermove', onMove, { passive: false });
+canvas.addEventListener('pointerup', onUp, { passive: false });
+canvas.addEventListener('pointercancel', onUp, { passive: false });
+canvas.addEventListener('touchstart', onDown, { passive: false });
+canvas.addEventListener('touchmove', onMove, { passive: false });
+canvas.addEventListener('touchend', onUp, { passive: false });
+
+/* ------------------------------------------------------------
+   Ink reward — spatial grid so audience score rewards variety
+   ------------------------------------------------------------ */
+
+const GRID = { cols: 8, rows: 5, visited: null };
+
+function resetGrid() {
+  GRID.visited = new Uint8Array(GRID.cols * GRID.rows);
+}
+
+function addInkRewards(p, d) {
+  const r = slideRect();
+  const gx = Math.max(0, Math.min(GRID.cols - 1, Math.floor((p.x - r.x) / r.w * GRID.cols)));
+  const gy = Math.max(0, Math.min(GRID.rows - 1, Math.floor((p.y - r.y) / r.h * GRID.rows)));
+  const idx = gy * GRID.cols + gx;
+  const newCell = GRID.visited[idx] === 0;
+  GRID.visited[idx] = 1;
+
+  // Small distance reward
+  let gain = d * 0.05;
+  if (newCell) gain += 5; // bonus for new area
+  // Diminishing returns
+  gain *= (1 - state.audience / 130);
+  state.audience = Math.min(100, state.audience + gain);
+}
+
+/* ------------------------------------------------------------
+   Gaze — presenter looks at slide, penalize drawing there
+   ------------------------------------------------------------ */
+
+function scheduleGaze() {
+  const r = slideRect();
+  const gx = r.x + r.w * (0.15 + Math.random() * 0.7);
+  const gy = r.y + r.h * (0.15 + Math.random() * 0.7);
+  const gr = 55 + Math.random() * 40;
+  state.gaze = {
+    x: gx, y: gy, r: gr,
+    ttl: 2.2, life: 2.2,
+    warnTtl: 1.0, // warning duration
+  };
+}
+
+function updateGaze(dt) {
+  if (!state.gaze) {
+    state.gazeCooldown -= dt;
+    if (state.gazeCooldown <= 0) {
+      scheduleGaze();
+      // Cooldown shortens as slides advance
+      state.gazeCooldown = Math.max(2.0, 4.5 - state.slideIdx * 0.4) + Math.random() * 2;
+    }
+    return;
+  }
+  const g = state.gaze;
+  if (g.warnTtl > 0) {
+    g.warnTtl -= dt;
+    return;
+  }
+  g.life -= dt;
+  // If pointer is down AND cursor is inside gaze, increase notice
+  if (state.pointerDown && state.lastPoint && distToGaze() < g.r) {
+    state.notice = Math.min(NOTICE_MAX, state.notice + 55 * dt);
+  }
+  if (g.life <= 0) {
+    state.gaze = null;
+  }
+}
+
+/* ------------------------------------------------------------
+   Loop
+   ------------------------------------------------------------ */
+
+function update(dt, t) {
+  if (state.screen !== 'play') return;
+  state.slideT += dt;
+
+  // Audience decays if idle
+  const decay = state.pointerDown ? 1.5 : 4.5;
+  state.audience = Math.max(0, state.audience - decay * dt);
+
+  // Notice slowly relaxes when not being tripped
+  if (!(state.pointerDown && state.gaze && distToGaze() < state.gaze.r && state.gaze.warnTtl <= 0)) {
+    state.notice = Math.max(0, state.notice - 4 * dt);
+  }
+
+  if (state.notice >= NOTICE_MAX) {
+    state.caught = true;
+    finishPresentation();
+    return;
+  }
+
+  updateGaze(dt);
+
+  // Age strokes
+  for (const s of state.strokes) s.age += dt * 3;
+
+  // Slide advance
+  if (state.slideT >= SLIDE_DURATION) {
+    // Score this slide
+    const slideScore = Math.round(state.audience);
+    state.totalAudience += slideScore;
+    if (slideScore >= AUDIENCE_SLIDE_TARGET * 0.4) state.slidesSurvived++;
+
+    state.slideIdx++;
+    if (state.slideIdx >= NUM_SLIDES) {
+      finishPresentation();
+      return;
+    }
+    // Reset slide state
+    state.slideT = 0;
+    state.audience = 0;
+    state.strokes = [];
+    state.currentStroke = null;
+    resetGrid();
+  }
+
+  updateHUD();
+}
+
+function loop() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - state.lastT) / 1000);
+  state.lastT = now;
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  update(dt, now / 1000);
+  drawScene(now / 1000, dt);
+
+  requestAnimationFrame(loop);
+}
+
+/* ------------------------------------------------------------
+   HUD
+   ------------------------------------------------------------ */
+
+const audBar = document.getElementById('aud-bar');
+const audVal = document.getElementById('aud-val');
+const notBar = document.getElementById('not-bar');
+const notVal = document.getElementById('not-val');
+const slideIdxEl = document.getElementById('slide-idx');
+const slideClock = document.getElementById('slide-clock');
+const hudEl = document.getElementById('hud');
+const slideInfoEl = document.getElementById('slide-info');
+
+function updateHUD() {
+  audBar.style.width = state.audience + '%';
+  audVal.textContent = Math.round(state.audience);
+  notBar.style.width = state.notice + '%';
+  notVal.textContent = Math.round(state.notice);
+  slideIdxEl.textContent = state.slideIdx + 1;
+  const remain = Math.max(0, SLIDE_DURATION - state.slideT);
+  const s = Math.ceil(remain);
+  slideClock.textContent = '0:' + String(s).padStart(2, '0');
+}
+
+/* ------------------------------------------------------------
+   Audience silhouettes
+   ------------------------------------------------------------ */
+
+function generateAudience() {
+  const heads = [];
+  const count = Math.max(6, Math.floor(W / 90));
+  for (let i = 0; i < count; i++) {
+    heads.push({
+      x: (W / (count + 1)) * (i + 1) + (Math.random() - 0.5) * 14,
+      r: 10 + Math.random() * 4,
+      h: 10 + Math.random() * 22,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+  state.audience_people = heads;
+}
+
+/* ------------------------------------------------------------
+   Screens
+   ------------------------------------------------------------ */
+
+const titleScreen = document.getElementById('title-screen');
+const endScreen = document.getElementById('end-screen');
+
+function showTitle() {
+  state.screen = 'title';
+  titleScreen.classList.add('active');
+  endScreen.classList.remove('active');
+  hudEl.style.display = 'none';
+  slideInfoEl.style.display = 'none';
+}
+function startGame() {
+  titleScreen.classList.remove('active');
+  endScreen.classList.remove('active');
+  hudEl.style.display = 'flex';
+  slideInfoEl.style.display = 'block';
+  state.screen = 'play';
+  state.slideIdx = 0;
+  state.slideT = 0;
+  state.audience = 0;
+  state.totalAudience = 0;
+  state.slidesSurvived = 0;
+  state.totalInkPx = 0;
+  state.notice = 0;
+  state.caught = false;
+  state.gaze = null;
+  state.gazeCooldown = 3;
+  state.strokes = [];
+  state.currentStroke = null;
+  state.pointerDown = false;
+  state.lastPoint = { x: W * 0.5, y: H * 0.5 };
+  resetGrid();
+  generateAudience();
+  updateHUD();
+}
+function finishPresentation() {
+  // Roll over current slide's audience into total, if not already
+  if (state.slideIdx < NUM_SLIDES && !state.caught) {
+    state.totalAudience += Math.round(state.audience);
+  } else if (state.caught) {
+    // Also count partial
+    state.totalAudience += Math.round(state.audience);
+  }
+  state.screen = 'end';
+  hudEl.style.display = 'none';
+  slideInfoEl.style.display = 'none';
+  populateEnd();
+  endScreen.classList.add('active');
+}
+
+function populateEnd() {
+  const maxAudience = NUM_SLIDES * 100;
+  const audiencePct = state.totalAudience / maxAudience;
+
+  let verdict, verdictCap, story;
+  if (state.caught) {
+    verdictCap = 'INCIDENT REPORT';
+    verdict = 'You were caught.';
+    story = 'Marlene’s eyes locked onto the moving red dot right as you were drawing devil horns on the CFO. She stopped mid-sentence. IT was called. Somebody muttered about “professionalism.”';
+  } else if (audiencePct < 0.30) {
+    verdictCap = 'POST-MORTEM';
+    verdict = 'Nobody remembers a thing.';
+    story = 'The presentation ended. People filed out to their desks. In three weeks, one attendee will vaguely recall that “there was a slide about revenue, or something.” You could have done more.';
+  } else if (audiencePct < 0.55) {
+    verdictCap = 'POST-MORTEM';
+    verdict = 'A pleasant surprise.';
+    story = 'A handful of people leaned toward their screens. Someone actually laughed out loud during the pie chart. Marlene took it as a compliment. You did some good.';
+  } else if (audiencePct < 0.80) {
+    verdictCap = 'POST-MORTEM';
+    verdict = 'The room woke up.';
+    story = 'Word travels fast. Two attendees were seen giggling on the way to lunch. Someone screenshotted the org chart. Marlene has already asked for the deck to be re-recorded.';
+  } else {
+    verdictCap = 'CULT CLASSIC';
+    verdict = 'You made the meeting worth attending.';
+    story = 'A quiet legend forms among the interns. The presentation is now referenced in Slack as “that one.” Marlene believes the audience simply loves her charts. The pointer, mysteriously, still hasn’t been found.';
+  }
+
+  document.getElementById('verdict-caption').textContent = verdictCap;
+  document.getElementById('verdict-title').textContent = verdict;
+  document.getElementById('verdict-story').textContent = story;
+  document.getElementById('final-aud').textContent = state.totalAudience;
+  document.getElementById('final-slides').textContent = state.slidesSurvived + ' / ' + NUM_SLIDES;
+  document.getElementById('final-ink').textContent = (state.totalInkPx / 1000).toFixed(1);
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('again-btn').addEventListener('click', startGame);
+
+/* ------------------------------------------------------------
+   Boot
+   ------------------------------------------------------------ */
+
+generateAudience();
+state.lastPoint = { x: W * 0.5, y: H * 0.5 };
+resetGrid();
+requestAnimationFrame(loop);
+
+// If resize during game, regenerate audience positions
+window.addEventListener('resize', () => {
+  resize();
+  generateAudience();
+});
+
+</script>
+</body>
+</html>
