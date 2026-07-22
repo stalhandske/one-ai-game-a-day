@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>PLANCHETTE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:#e6cf9f;
+  --paper-dim:#c9a668;
+  --paper-dark:#7a5a30;
+  --ink:#2b1a08;
+  --candle:#ffbe5c;
+  --ghost:#a8b8ff;
+  --bg:#08050d;
+}
+* { box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+html, body {
+  width:100%; height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:#eee;
+  font-family:'IM Fell English', serif;
+  touch-action:none;
+}
+body { position:fixed; inset:0; }
+#game { position:fixed; inset:0; }
+canvas { position:absolute; inset:0; width:100%; height:100%; touch-action:none; display:block; }
+
+.hud {
+  position:absolute; top:0; left:0; right:0;
+  padding:0.55rem 3.5rem 0.4rem 3.5rem;
+  display:flex; justify-content:center; align-items:center; gap:1.4rem;
+  color:var(--paper);
+  pointer-events:none;
+  z-index:5;
+  font-family:'IM Fell English', serif;
+}
+.hud .msg {
+  font-size:clamp(0.9rem, 2.6vw, 1.4rem);
+  letter-spacing:0.32em;
+  text-shadow:0 0 8px rgba(168,184,255,0.4);
+}
+.hud .letter { opacity:0.35; transition:opacity 0.4s, color 0.4s, text-shadow 0.4s; }
+.hud .letter.done { opacity:1; color:var(--ghost); text-shadow:0 0 12px var(--ghost); }
+.hud .meter {
+  width:5.5rem; height:0.35rem;
+  background:rgba(230,207,159,0.18);
+  border-radius:2px; overflow:hidden;
+  border:1px solid rgba(230,207,159,0.15);
+}
+.hud .meter-fill {
+  height:100%;
+  background:linear-gradient(90deg, var(--candle), var(--paper));
+  transition:width 0.3s, background 0.3s;
+}
+.hud .meter-fill.low {
+  background:linear-gradient(90deg, #d24040, var(--candle));
+}
+
+.chatter {
+  position:absolute; top:2.8rem; left:0; right:0;
+  text-align:center;
+  font-family:'IM Fell English', serif; font-style:italic;
+  font-size:0.85rem;
+  color:rgba(230,207,159,0.45);
+  pointer-events:none;
+  z-index:5;
+  letter-spacing:0.15em;
+  min-height:1.2rem;
+}
+
+.overlay {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:1.5rem;
+  background:radial-gradient(ellipse at center, rgba(30,15,10,0.85) 0%, rgba(5,2,10,0.96) 70%);
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  text-align:center;
+  z-index:10;
+}
+.overlay h1 {
+  font-family:'Cinzel', serif;
+  font-size:clamp(2rem, 7vh, 3.6rem);
+  letter-spacing:0.55em;
+  font-weight:500;
+  color:var(--paper);
+  margin-bottom:1rem;
+  padding-left:0.55em;
+  text-shadow:0 0 24px rgba(255, 180, 80, 0.25);
+}
+.overlay p {
+  font-size:clamp(0.9rem, 2.4vh, 1.1rem);
+  opacity:0.72;
+  max-width:34rem;
+  line-height:1.55;
+  margin-bottom:0.7rem;
+  font-style:italic;
+}
+.overlay p.hint {
+  font-family:'Cinzel', serif; font-style:normal;
+  font-size:0.75rem; letter-spacing:0.28em;
+  opacity:0.42; margin-bottom:1.6rem; margin-top:0.8rem;
+}
+.overlay button {
+  background:transparent;
+  border:1px solid var(--paper);
+  color:var(--paper);
+  padding:0.7rem 2.4rem;
+  font-family:'Cinzel', serif;
+  font-size:0.9rem;
+  letter-spacing:0.32em;
+  cursor:pointer;
+  transition:all 0.3s;
+  font-weight:500;
+}
+.overlay button:hover, .overlay button:active {
+  background:var(--paper);
+  color:#05020a;
+}
+
+#back-btn {
+  position:fixed; top:0.75rem; left:0.75rem; z-index:9998;
+  background:rgba(0,0,0,0.5); color:#fff;
+  border:1px solid rgba(255,255,255,0.2); border-radius:8px;
+  padding:0.4rem 0.75rem; font-size:0.85rem;
+  cursor:pointer; text-decoration:none;
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+  font-family:sans-serif;
+}
+#back-btn:hover { background:rgba(0,0,0,0.75); }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<div id="game">
+  <canvas id="canvas"></canvas>
+  <div class="hud" id="hud">
+    <div class="msg" id="msg"></div>
+    <div class="meter"><div class="meter-fill" id="meter" style="width:100%"></div></div>
+  </div>
+  <div class="chatter" id="chatter"></div>
+
+  <div class="overlay" id="title-screen">
+    <h1>PLANCHETTE</h1>
+    <p>Two skeptics rest their fingers on the board. You have something urgent to say.</p>
+    <p>They only want to spell &ldquo;pizza.&rdquo;</p>
+    <p class="hint">DRAG TO PUSH · REST ON EACH LETTER · AVOID GOODBYE</p>
+    <button id="start-btn">SUMMON</button>
+  </div>
+
+  <div class="overlay" id="win-screen" style="display:none">
+    <h1 id="win-title">SEEN</h1>
+    <p id="win-msg">The word held. The room went cold.</p>
+    <button id="next-btn">SPEAK AGAIN</button>
+  </div>
+
+  <div class="overlay" id="lose-screen" style="display:none">
+    <h1 id="lose-title">SLEEP</h1>
+    <p id="lose-msg">Their eyes drifted shut. You will wait until next weekend.</p>
+    <button id="retry-btn">TRY AGAIN</button>
+  </div>
+</div>
+<script>
+// ---------- Required orientation handling ----------
+const ORIENTATION = 'LANDSCAPE';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ---------- Game ----------
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const MESSAGES = [
+  { word: 'RUN',    winMsg: 'The word held. The room went cold. But there is more.' },
+  { word: 'HELP',   winMsg: 'They stopped giggling. Their thumbs are shaking now.' },
+  { word: 'HELPME', winMsg: 'The candles guttered. One of them said your name aloud.' },
+  { word: 'SHELIES',winMsg: 'They understood. The candles go out on their own.' }
+];
+const SILLY_TARGETS = 'PIZZAFARTBOOBSYOLOLOL'.split('');
+
+const board = { letters: [], goodbye: null, yes: null, no: null };
+const planchette = { x: 0, y: 0, vx: 0, vy: 0, r: 40, angle: 0, wobble: 0 };
+let dragActive = false;
+let dragPt = { x: 0, y: 0 };
+
+let gameState = 'title';
+let messageIdx = 0;
+let target = '';
+let spelled = 0;
+let attention = 100;
+let sessionTime = 0;
+
+let prankTargetLetter = null;
+let prankTimer = 0;
+let prankIdx = 0;
+let prankLog = '';
+
+let candleFlickerT = 0;
+let goodbyeHoverT = 0;
+
+let particles = [];
+let letterFontSize = 24;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  buildBoard();
+  // recenter planchette if not yet placed
+  if (planchette.x === 0 && planchette.y === 0) {
+    planchette.x = W / 2;
+    planchette.y = H / 2;
+  }
+}
+window.addEventListener('resize', resize);
+
+function buildBoard() {
+  board.letters = [];
+  const topPad = 82;
+  const bottomPad = 92;
+  const sidePad = Math.max(50, W * 0.06);
+  const rowH = (H - topPad - bottomPad) / 2;
+  const rows = [LETTERS.slice(0, 13), LETTERS.slice(13)];
+  rows.forEach((row, ri) => {
+    const y = topPad + rowH * (ri + 0.5);
+    const totalW = W - sidePad * 2;
+    const spacing = totalW / row.length;
+    row.forEach((ch, ci) => {
+      const x = sidePad + spacing * (ci + 0.5);
+      board.letters.push({ ch, x, y, r: Math.min(spacing, rowH) * 0.42, hover: 0 });
+    });
+  });
+  letterFontSize = Math.round(board.letters[0].r * 1.15);
+
+  board.yes     = { x: 34,      y: 44, label: 'YES' };
+  board.no      = { x: W - 34,  y: 44, label: 'NO' };
+  board.goodbye = { x: W / 2, y: H - 42, w: 240, h: 44, label: 'GOODBYE' };
+}
+
+// ---------- Prankster logic ----------
+function pickPrankTarget() {
+  // Occasionally aim for GOODBYE — sudden panic.
+  if (Math.random() < 0.12 && sessionTime > 8) {
+    return {
+      x: board.goodbye.x,
+      y: board.goodbye.y,
+      ch: '',
+      isGoodbye: true
+    };
+  }
+  const ch = SILLY_TARGETS[prankIdx++ % SILLY_TARGETS.length];
+  const currentTargetCh = target[spelled];
+  let letter = board.letters.find(l => l.ch === ch);
+  if (!letter || letter.ch === currentTargetCh) {
+    const others = board.letters.filter(l => l.ch !== currentTargetCh);
+    letter = others[Math.floor(Math.random() * others.length)];
+  }
+  return letter;
+}
+
+// ---------- State transitions ----------
+function startGame(fresh) {
+  if (fresh) messageIdx = 0;
+  gameState = 'play';
+  target = MESSAGES[messageIdx].word;
+  spelled = 0;
+  attention = 100;
+  sessionTime = 0;
+  prankTargetLetter = null;
+  prankTimer = 0;
+  prankIdx = 0;
+  prankLog = '';
+  goodbyeHoverT = 0;
+  particles = [];
+  board.letters.forEach(l => l.hover = 0);
+  planchette.x = W / 2;
+  planchette.y = H / 2;
+  planchette.vx = planchette.vy = 0;
+  updateHUD();
+  document.getElementById('title-screen').style.display = 'none';
+  document.getElementById('win-screen').style.display = 'none';
+  document.getElementById('lose-screen').style.display = 'none';
+  document.getElementById('chatter').textContent = '';
+}
+
+function updateHUD() {
+  const msgEl = document.getElementById('msg');
+  msgEl.innerHTML = target.split('').map((c, i) =>
+    `<span class="letter ${i < spelled ? 'done' : ''}">${c}</span>`
+  ).join('');
+  const meter = document.getElementById('meter');
+  meter.style.width = attention + '%';
+  meter.classList.toggle('low', attention < 30);
+}
+
+function endGame(win, reason) {
+  gameState = win ? 'win' : 'lose';
+  if (win) {
+    const winTitle = document.getElementById('win-title');
+    const winMsg = document.getElementById('win-msg');
+    const winBtn = document.getElementById('next-btn');
+    if (messageIdx < MESSAGES.length - 1) {
+      messageIdx++;
+      winTitle.textContent = 'SEEN';
+      winMsg.textContent = MESSAGES[messageIdx - 1].winMsg;
+      winBtn.textContent = 'SPEAK AGAIN';
+    } else {
+      winTitle.textContent = 'HEARD';
+      winMsg.textContent = MESSAGES[messageIdx].winMsg;
+      winBtn.textContent = 'BEGIN AGAIN';
+      messageIdx = 0;
+    }
+    document.getElementById('win-screen').style.display = 'flex';
+  } else {
+    const loseTitle = document.getElementById('lose-title');
+    const loseMsg = document.getElementById('lose-msg');
+    if (reason === 'goodbye') {
+      loseTitle.textContent = 'GOODBYE';
+      loseMsg.textContent = 'They jerked the planchette to GOODBYE. The board closed. The room emptied out.';
+    } else {
+      loseTitle.textContent = 'SLEEP';
+      loseMsg.textContent = 'Their eyes drifted shut. You will wait until next weekend.';
+    }
+    document.getElementById('lose-screen').style.display = 'flex';
+  }
+}
+
+// ---------- Input ----------
+function ptFrom(e) {
+  const t = e.touches?.[0] || e;
+  return { x: t.clientX, y: t.clientY };
+}
+canvas.addEventListener('pointerdown', (e) => {
+  if (gameState !== 'play') return;
+  dragActive = true;
+  dragPt = ptFrom(e);
+  e.preventDefault();
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragActive) return;
+  dragPt = ptFrom(e);
+  e.preventDefault();
+});
+canvas.addEventListener('pointerup', () => { dragActive = false; });
+canvas.addEventListener('pointercancel', () => { dragActive = false; });
+canvas.addEventListener('pointerleave', () => { dragActive = false; });
+
+document.getElementById('start-btn').addEventListener('click', () => startGame(true));
+document.getElementById('next-btn').addEventListener('click', () => startGame(false));
+document.getElementById('retry-btn').addEventListener('click', () => startGame(true));
+
+// ---------- Particles ----------
+function spawnSpellBurst(x, y) {
+  for (let i = 0; i < 18; i++) {
+    const a = (Math.PI * 2) * (i / 18) + Math.random() * 0.4;
+    const s = 1.4 + Math.random() * 2.4;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s - 0.6,
+      life: 1,
+      color: 'rgba(168, 184, 255,'
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    p.vy += 0.05;
+    p.life -= dt * 1.2;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.fillStyle = p.color + ' ' + p.life.toFixed(2) + ')';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2 + p.life * 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ---------- Update ----------
+function update(dt) {
+  candleFlickerT += dt;
+  updateParticles(dt);
+  if (gameState !== 'play') return;
+
+  sessionTime += dt;
+  attention -= dt * 2.0;
+  if (attention < 0) { attention = 0; updateHUD(); endGame(false); return; }
+
+  const escalate = 1 + Math.min(0.7, sessionTime * 0.014);
+
+  // Forces
+  let ax = 0, ay = 0;
+  if (dragActive) {
+    const dx = dragPt.x - planchette.x;
+    const dy = dragPt.y - planchette.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 1) {
+      // Spring-like: proportional to distance, capped strong.
+      // At d>=20 gives 3.0 (dominant over prank force). At small d, decays smoothly to 0.
+      const strength = Math.min(3.0, d * 0.15);
+      ax += (dx / d) * strength;
+      ay += (dy / d) * strength;
+    }
+  }
+
+  prankTimer -= dt;
+  if (prankTimer <= 0 || !prankTargetLetter) {
+    prankTargetLetter = pickPrankTarget();
+    prankTimer = 1.8 + Math.random() * 1.6;
+  }
+  if (prankTargetLetter) {
+    const dx = prankTargetLetter.x - planchette.x;
+    const dy = prankTargetLetter.y - planchette.y;
+    const d = Math.hypot(dx, dy);
+    if (d > 2) {
+      const s = 1.1 * escalate * (prankTargetLetter.isGoodbye ? 0.85 : 1);
+      ax += (dx / d) * s;
+      ay += (dy / d) * s;
+    }
+  }
+
+  // Spirit tremble (small ambient jitter)
+  ax += (Math.sin(sessionTime * 6.1) + Math.sin(sessionTime * 11.7)) * 0.05;
+  ay += (Math.sin(sessionTime * 5.3) + Math.sin(sessionTime * 9.9)) * 0.05;
+
+  const timeMul = dt * 60;
+  const damping = Math.pow(0.90, timeMul);
+  planchette.vx = (planchette.vx + ax * timeMul) * damping;
+  planchette.vy = (planchette.vy + ay * timeMul) * damping;
+
+  const speed = Math.hypot(planchette.vx, planchette.vy);
+  const maxSpeed = 13;
+  if (speed > maxSpeed) {
+    planchette.vx = planchette.vx / speed * maxSpeed;
+    planchette.vy = planchette.vy / speed * maxSpeed;
+  }
+
+  planchette.x += planchette.vx * timeMul;
+  planchette.y += planchette.vy * timeMul;
+  planchette.x = Math.max(planchette.r, Math.min(W - planchette.r, planchette.x));
+  planchette.y = Math.max(planchette.r + 40, Math.min(H - planchette.r, planchette.y));
+  planchette.angle += planchette.vx * 0.004;
+  planchette.wobble = Math.sin(sessionTime * 4) * 2;
+
+  // Letter hovers
+  const currentTargetCh = target[spelled];
+  const nearlyStill = Math.hypot(planchette.vx, planchette.vy) < 8;
+  for (let i = 0; i < board.letters.length; i++) {
+    const l = board.letters[i];
+    const dx = planchette.x - l.x;
+    const dy = planchette.y - l.y;
+    const d = Math.hypot(dx, dy);
+    if (d < l.r + 6 && nearlyStill) {
+      l.hover += dt;
+      if (l.hover >= 0.62) {
+        if (l.ch === currentTargetCh) {
+          spelled++;
+          attention = Math.min(100, attention + 12);
+          spawnSpellBurst(l.x, l.y);
+          updateHUD();
+          if (spelled >= target.length) { endGame(true); return; }
+        } else {
+          prankLog += l.ch;
+          if (prankLog.length > 14) prankLog = prankLog.slice(-14);
+          document.getElementById('chatter').textContent =
+            prankLog.length > 1 ? 'they spell &nbsp;"' + prankLog + '"' : '';
+          document.getElementById('chatter').innerHTML =
+            prankLog.length > 1 ? 'they spell &nbsp;&ldquo;' + prankLog + '&rdquo;' : '';
+        }
+        l.hover = 0;
+      }
+    } else {
+      l.hover = Math.max(0, l.hover - dt * 1.8);
+    }
+  }
+
+  // GOODBYE — needs sustained hover
+  const g = board.goodbye;
+  if (Math.abs(planchette.x - g.x) < g.w / 2 && Math.abs(planchette.y - g.y) < g.h / 2) {
+    goodbyeHoverT += dt;
+    if (goodbyeHoverT >= 0.5) { endGame(false, 'goodbye'); return; }
+  } else {
+    goodbyeHoverT = Math.max(0, goodbyeHoverT - dt * 2);
+  }
+
+  updateHUD();
+}
+
+// ---------- Render ----------
+function drawBackground() {
+  // Deep velvet
+  ctx.fillStyle = '#12070c';
+  ctx.fillRect(0, 0, W, H);
+
+  // Vignette
+  const vg = ctx.createRadialGradient(W/2, H/2, Math.min(W, H) * 0.15, W/2, H/2, Math.max(W, H) * 0.75);
+  vg.addColorStop(0, 'rgba(80, 30, 20, 0.15)');
+  vg.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawBoard() {
+  const bx = 20, by = 56, bw = W - 40, bh = H - 88;
+  const rad = 22;
+
+  // Paper board
+  const grad = ctx.createRadialGradient(W/2, H/2, 40, W/2, H/2, Math.max(W, H) * 0.65);
+  grad.addColorStop(0, '#eddaa8');
+  grad.addColorStop(0.55, '#c9a668');
+  grad.addColorStop(0.9, '#8a5f2e');
+  grad.addColorStop(1, '#442a12');
+  ctx.fillStyle = grad;
+  roundRect(ctx, bx, by, bw, bh, rad);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(20, 8, 3, 0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Aged stains (deterministic pseudo-random)
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  for (let i = 0; i < 40; i++) {
+    const sx = bx + ((i * 137) % bw);
+    const sy = by + ((i * 271) % bh);
+    ctx.fillStyle = 'rgba(70, 35, 12, 0.7)';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 4 + (i % 5), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Sun / moon flourishes
+  ctx.font = "italic 28px 'IM Fell English', serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(50, 25, 10, 0.55)';
+  ctx.fillText('☾', bx + 42, by + 44);
+  ctx.fillText('☼', bx + bw - 42, by + 44);
+
+  // Corners: YES / NO
+  ctx.font = "italic 20px 'IM Fell English', serif";
+  ctx.fillStyle = 'rgba(50, 25, 10, 0.7)';
+  ctx.fillText('YES', bx + 100, by + 44);
+  ctx.fillText('NO', bx + bw - 100, by + 44);
+
+  // Letters
+  ctx.font = "600 " + letterFontSize + "px 'IM Fell English', serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const currentTarget = target[spelled];
+  board.letters.forEach(l => {
+    // pulsing glow on current target
+    if (gameState === 'play' && l.ch === currentTarget) {
+      const pulse = 0.5 + 0.5 * Math.sin(candleFlickerT * 3.6);
+      const gg = ctx.createRadialGradient(l.x, l.y, 2, l.x, l.y, l.r + 16);
+      gg.addColorStop(0, 'rgba(168, 184, 255, ' + (0.28 + pulse * 0.18).toFixed(3) + ')');
+      gg.addColorStop(1, 'rgba(168, 184, 255, 0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, l.r + 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // hover progress ring
+    if (l.hover > 0) {
+      const isTarget = l.ch === currentTarget;
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, l.r + 5, -Math.PI/2, -Math.PI/2 + (Math.PI * 2 * (l.hover / 0.62)));
+      ctx.strokeStyle = isTarget ? 'rgba(168, 184, 255, 0.9)' : 'rgba(210, 80, 60, 0.75)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#2b1a08';
+    ctx.fillText(l.ch, l.x, l.y);
+  });
+
+  // GOODBYE (with warning tint if being dragged there)
+  const g = board.goodbye;
+  ctx.font = "italic 22px 'IM Fell English', serif";
+  const warn = goodbyeHoverT > 0 ? Math.min(1, goodbyeHoverT * 2) : 0;
+  const r = 80 + warn * 175;
+  const b = 20;
+  ctx.fillStyle = 'rgba(' + Math.round(r) + ', 30, ' + b + ', 0.8)';
+  ctx.fillText('GOODBYE', g.x, g.y);
+  if (warn > 0.05) {
+    ctx.strokeStyle = 'rgba(220, 70, 40, ' + (warn * 0.8) + ')';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(g.x - g.w / 2, g.y - g.h / 2, g.w, g.h);
+  }
+}
+
+function drawHands() {
+  const lb = { x: -30, y: H * 0.88 };
+  const rb = { x: W + 30, y: H * 0.88 };
+
+  // Forearm shadows
+  ctx.save();
+  ctx.filter = 'blur(4px)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = 34;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(lb.x, lb.y + 8);
+  ctx.lineTo(planchette.x - planchette.r * 0.55, planchette.y + 20);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rb.x, rb.y + 8);
+  ctx.lineTo(planchette.x + planchette.r * 0.55, planchette.y + 20);
+  ctx.stroke();
+  ctx.restore();
+
+  // Forearms (silhouette)
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#0a0308';
+  ctx.lineWidth = 24;
+  ctx.beginPath();
+  ctx.moveTo(lb.x, lb.y);
+  ctx.lineTo(planchette.x - planchette.r * 0.55, planchette.y + 14);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rb.x, rb.y);
+  ctx.lineTo(planchette.x + planchette.r * 0.55, planchette.y + 14);
+  ctx.stroke();
+
+  // Fingertips
+  ctx.fillStyle = '#0a0308';
+  ctx.beginPath();
+  ctx.arc(planchette.x - planchette.r * 0.55, planchette.y + 14, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(planchette.x + planchette.r * 0.55, planchette.y + 14, 14, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Faint nail glints
+  ctx.fillStyle = 'rgba(220, 200, 180, 0.35)';
+  ctx.beginPath();
+  ctx.arc(planchette.x - planchette.r * 0.55, planchette.y + 10, 3, 0, Math.PI * 2);
+  ctx.arc(planchette.x + planchette.r * 0.55, planchette.y + 10, 3, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPlanchette() {
+  ctx.save();
+  ctx.translate(planchette.x, planchette.y);
+  ctx.rotate(planchette.angle + Math.sin(candleFlickerT * 5) * 0.02);
+
+  // Ghost aura when hovering target
+  const currentTarget = target[spelled];
+  const currentHoverL = board.letters.find(l => l.ch === currentTarget);
+  if (currentHoverL && currentHoverL.hover > 0.05) {
+    const alpha = Math.min(0.55, currentHoverL.hover * 1.1);
+    const auraGrad = ctx.createRadialGradient(0, 0, 5, 0, 0, planchette.r + 32);
+    auraGrad.addColorStop(0, 'rgba(168, 184, 255, ' + alpha.toFixed(3) + ')');
+    auraGrad.addColorStop(1, 'rgba(168, 184, 255, 0)');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, planchette.r + 32, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Body
+  ctx.fillStyle = 'rgba(45, 25, 15, 0.92)';
+  ctx.strokeStyle = '#c9a668';
+  ctx.lineWidth = 2;
+  drawHeart(ctx, 0, 0, planchette.r);
+  ctx.fill();
+  ctx.stroke();
+
+  // Inner window
+  const wx = 0, wy = -planchette.r * 0.15, wr = planchette.r * 0.28;
+  ctx.beginPath();
+  ctx.arc(wx, wy, wr, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 240, 210, 0.18)';
+  ctx.fill();
+  ctx.strokeStyle = '#c9a668';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  // Spike detail
+  ctx.strokeStyle = 'rgba(230, 200, 150, 0.5)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, wy + wr + 2);
+  ctx.lineTo(0, planchette.r * 0.9);
+  ctx.stroke();
+
+  // Filigree curls
+  ctx.strokeStyle = 'rgba(201, 166, 104, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-planchette.r * 0.5, planchette.r * 0.1);
+  ctx.quadraticCurveTo(-planchette.r * 0.3, planchette.r * 0.4, -planchette.r * 0.05, planchette.r * 0.55);
+  ctx.moveTo(planchette.r * 0.5, planchette.r * 0.1);
+  ctx.quadraticCurveTo(planchette.r * 0.3, planchette.r * 0.4, planchette.r * 0.05, planchette.r * 0.55);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawHeart(ctx, cx, cy, size) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + size);
+  ctx.bezierCurveTo(cx - size * 1.2, cy + size * 0.18, cx - size * 1.1, cy - size * 0.85, cx, cy - size * 0.3);
+  ctx.bezierCurveTo(cx + size * 1.1, cy - size * 0.85, cx + size * 1.2, cy + size * 0.18, cx, cy + size);
+  ctx.closePath();
+}
+
+function drawCandles() {
+  const flick = 0.7 +
+    (Math.sin(candleFlickerT * 8) + Math.sin(candleFlickerT * 14.3) + Math.sin(candleFlickerT * 22.1)) * 0.09;
+  const positions = [
+    { x: 26, y: 62, r: 220 },
+    { x: W - 26, y: 62, r: 220 },
+    { x: W / 2, y: H + 30, r: 300 }
+  ];
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  positions.forEach(pos => {
+    const grad = ctx.createRadialGradient(pos.x, pos.y, 10, pos.x, pos.y, pos.r);
+    grad.addColorStop(0, 'rgba(255, 200, 120, ' + (0.30 * flick).toFixed(3) + ')');
+    grad.addColorStop(0.45, 'rgba(255, 140, 60, ' + (0.10 * flick).toFixed(3) + ')');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(pos.x - pos.r, pos.y - pos.r, pos.r * 2, pos.r * 2);
+  });
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function render() {
+  drawBackground();
+  drawBoard();
+  drawHands();
+  drawPlanchette();
+  drawParticles();
+  drawCandles();
+}
+
+let lastT = 0;
+function frame(t) {
+  const dt = Math.min(0.05, (t - lastT) / 1000);
+  lastT = t;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
