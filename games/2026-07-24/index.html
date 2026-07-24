@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#050813">
+<title>BORNE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-a: #050813;
+    --sky-b: #0d1230;
+    --sky-c: #1a1b4b;
+    --amber: #ffcf7a;
+    --amber-soft: #f6a45a;
+    --stage-pink: #ff5db7;
+    --stage-teal: #4affe0;
+    --stage-violet: #8a63ff;
+    --panic: #ff5f57;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 50% 30%, var(--sky-c) 0%, var(--sky-b) 40%, var(--sky-a) 100%);
+    transform-origin: 50% 50%;
+    transition: transform 0.25s ease-out, filter 0.25s ease-out;
+  }
+  #sky-canvas, #fx-canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  #fx-canvas { z-index: 2; }
+  #sky-canvas { z-index: 1; }
+
+  /* Support zones — placed at the visual "edges" where hands would be */
+  .zone {
+    position: absolute;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .zone .halo {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(255,207,122,0.32) 0%,
+      rgba(255,207,122,0.12) 40%,
+      rgba(255,207,122,0) 70%);
+    filter: blur(2px);
+    transform: scale(1);
+    transition: transform 0.15s ease-out, opacity 0.3s;
+  }
+  .zone .ring {
+    position: absolute;
+    width: 74%; height: 74%;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 207, 122, 0.75);
+    box-shadow: 0 0 24px rgba(255, 207, 122, 0.15) inset;
+  }
+  .zone .meter {
+    position: absolute;
+    width: 74%; height: 74%;
+    border-radius: 50%;
+    background: conic-gradient(from -90deg,
+      var(--amber) 0deg,
+      var(--amber-soft) var(--fill, 360deg),
+      rgba(255,255,255,0.06) var(--fill, 360deg));
+    -webkit-mask: radial-gradient(circle, transparent 60%, #000 62%, #000 100%);
+            mask: radial-gradient(circle, transparent 60%, #000 62%, #000 100%);
+    transition: filter 0.2s;
+  }
+  .zone .label {
+    position: relative;
+    z-index: 2;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: rgba(255, 240, 220, 0.85);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 8px rgba(0,0,0,0.6);
+    pointer-events: none;
+  }
+  .zone.tapped .halo { transform: scale(1.35); }
+  .zone.low .ring { border-color: rgba(255,95,87,0.9); animation: pulseLow 0.9s ease-in-out infinite; }
+  .zone.low .label { color: #ffdcd7; }
+  body.overlay-active .zone { opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+  body.overlay-active #hud { opacity: 0; transition: opacity 0.4s; }
+  @keyframes pulseLow {
+    0%, 100% { box-shadow: 0 0 24px rgba(255,95,87,0.2) inset, 0 0 12px rgba(255,95,87,0.1); }
+    50% { box-shadow: 0 0 32px rgba(255,95,87,0.6) inset, 0 0 24px rgba(255,95,87,0.35); }
+  }
+
+  /* HUD (song progress and phase) */
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 6;
+    padding: 0.6rem 4.5rem 0.4rem 4.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+  }
+  #progress {
+    width: 100%;
+    max-width: 260px;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--amber), var(--stage-pink));
+    transition: width 0.2s linear;
+  }
+  #phase-label {
+    margin-top: 0.35rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    color: rgba(255, 240, 220, 0.55);
+    text-transform: uppercase;
+  }
+
+  /* Overlays */
+  .overlay {
+    position: fixed; inset: 0;
+    z-index: 9997;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(12, 8, 26, 0.94) 0%, rgba(0,0,0,0.98) 90%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    opacity: 1;
+    transition: opacity 0.5s;
+  }
+  .overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .overlay h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: 4rem;
+    letter-spacing: 0.35em;
+    margin: 0 0 0.5rem 0;
+    padding-left: 0.35em;
+    color: var(--amber);
+    text-shadow: 0 0 24px rgba(255, 207, 122, 0.4);
+  }
+  .overlay h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.4rem;
+    letter-spacing: 0.05em;
+    color: #fff;
+    margin: 0 0 1.5rem 0;
+    line-height: 1.4;
+    max-width: 22ch;
+  }
+  .overlay p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.7);
+    max-width: 28ch;
+    margin: 0 0 2rem 0;
+  }
+  .overlay button {
+    background: transparent;
+    color: var(--amber);
+    border: 1px solid rgba(255, 207, 122, 0.7);
+    border-radius: 999px;
+    padding: 0.85rem 2.2rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  }
+  .overlay button:hover, .overlay button:active {
+    background: var(--amber);
+    color: #1a1230;
+    box-shadow: 0 0 32px rgba(255, 207, 122, 0.4);
+  }
+  .overlay .hint {
+    margin-top: 1.4rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: rgba(255,255,255,0.5);
+    font-size: 0.95rem;
+    max-width: 26ch;
+    line-height: 1.5;
+  }
+
+  /* Back button */
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: 'Inter', sans-serif;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  /* Vignette when falling */
+  #vignette {
+    position: fixed; inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%,
+      transparent 30%,
+      rgba(0,0,0,var(--vignette, 0.2)) 100%);
+    transition: background 0.4s;
+  }
+</style>
+</head>
+<body class="overlay-active">
+
+<div id="stage">
+  <canvas id="sky-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- 5 support zones positioned around the body (which lies horizontally across the frame in first-person) -->
+  <div class="zone" id="zone-head"     data-label="head">     <div class="halo"></div><div class="meter"></div><div class="ring"></div><span class="label">head</span></div>
+  <div class="zone" id="zone-shoulder" data-label="shoulder"> <div class="halo"></div><div class="meter"></div><div class="ring"></div><span class="label">shoulders</span></div>
+  <div class="zone" id="zone-back"     data-label="back">     <div class="halo"></div><div class="meter"></div><div class="ring"></div><span class="label">back</span></div>
+  <div class="zone" id="zone-hips"     data-label="hips">     <div class="halo"></div><div class="meter"></div><div class="ring"></div><span class="label">hips</span></div>
+  <div class="zone" id="zone-feet"     data-label="feet">     <div class="halo"></div><div class="meter"></div><div class="ring"></div><span class="label">feet</span></div>
+</div>
+
+<div id="vignette"></div>
+
+<div id="hud">
+  <div id="progress"><div id="progress-fill"></div></div>
+  <div id="phase-label">—</div>
+</div>
+
+<a id="back-btn" href="../../index.html">← Games</a>
+
+<!-- Title screen -->
+<div class="overlay" id="title-screen">
+  <h1>BORNE</h1>
+  <h2>you are being carried by strangers</h2>
+  <p>Hands appear and disappear beneath you. Tap each part of yourself to summon more hands there. Stay aloft until the song ends.</p>
+  <button id="start-btn">Begin</button>
+  <div class="hint">the sky is huge<br>when you stop trying to walk</div>
+</div>
+
+<!-- Fall screen -->
+<div class="overlay hidden" id="fall-screen">
+  <h1 style="font-size: 2.6rem; letter-spacing: 0.3em;">FALLEN</h1>
+  <h2 id="fall-line">— you slipped through them</h2>
+  <p id="fall-stat">you were held for <span id="fall-time">0</span>s</p>
+  <button id="retry-btn">Again</button>
+</div>
+
+<!-- Win screen -->
+<div class="overlay hidden" id="win-screen">
+  <h1 style="font-size: 2.6rem; letter-spacing: 0.3em;">DELIVERED</h1>
+  <h2>you crossed the crowd<br><em>and no one dropped you</em></h2>
+  <p>they set you down gently<br>at the edge of the light</p>
+  <button id="win-retry-btn">Once More</button>
+</div>
+
+<script>
+'use strict';
+
+const ORIENTATION = 'PORTRAIT';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ---------------------------------------------------------------------------
+// Game state
+// ---------------------------------------------------------------------------
+
+const stage = document.getElementById('stage');
+const skyCanvas = document.getElementById('sky-canvas');
+const fxCanvas = document.getElementById('fx-canvas');
+const skyCtx = skyCanvas.getContext('2d');
+const fxCtx = fxCanvas.getContext('2d');
+const vignette = document.getElementById('vignette');
+const progressFill = document.getElementById('progress-fill');
+const phaseLabel = document.getElementById('phase-label');
+
+const titleScreen = document.getElementById('title-screen');
+const fallScreen = document.getElementById('fall-screen');
+const winScreen = document.getElementById('win-screen');
+const fallTimeEl = document.getElementById('fall-time');
+const fallLineEl = document.getElementById('fall-line');
+
+const ZONE_IDS = ['head', 'shoulder', 'back', 'hips', 'feet'];
+// Each zone has a position expressed as normalized viewport coords (0..1)
+// and a tilt vector — the direction the body sags when this zone empties.
+const ZONE_LAYOUT = {
+  head:     { pos: [0.5,  0.12], tilt: [ 0,   -1] },
+  shoulder: { pos: [0.5,  0.30], tilt: [ 0,   -0.5] },
+  back:     { pos: [0.5,  0.50], tilt: [ 0,    0] },  // center
+  hips:     { pos: [0.5,  0.70], tilt: [ 0,    0.5] },
+  feet:     { pos: [0.5,  0.88], tilt: [ 0,    1] },
+};
+
+const zoneEls = {};
+const zoneMeterEls = {};
+for (const id of ZONE_IDS) {
+  const el = document.getElementById('zone-' + id);
+  zoneEls[id] = el;
+  zoneMeterEls[id] = el.querySelector('.meter');
+}
+
+// Runtime state
+let state = 'title'; // 'title' | 'playing' | 'falling' | 'fallen' | 'won'
+let meters = {};      // 0..1
+let lastTapTime = {}; // for tap cooldown / feedback
+let stars = [];
+let handClusters = []; // hands rising into view at each zone
+let stageLights = [];
+let songTime = 0;      // seconds into song
+const SONG_LENGTH = 78; // seconds
+let tilt = { x: 0, y: 0 };
+let tiltVel = { x: 0, y: 0 };
+let sagTimer = 0;      // seconds of "everything is empty" — a secondary fall trigger
+let lastFrame = 0;
+let audioCtx = null;
+let masterGain = null;
+let bassOsc = null;
+let noiseSrc = null;
+let currentPhase = 'intro';
+let handsSurgeUntil = 0; // time (s) when tapped zone gets bonus hands
+let tapBoosts = {};      // zone -> {until: t, strength}
+let survivalStart = 0;
+
+// ---------------------------------------------------------------------------
+// Canvas sizing
+// ---------------------------------------------------------------------------
+
+function resizeCanvases() {
+  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  for (const c of [skyCanvas, fxCanvas]) {
+    c.width  = Math.floor(w * dpr);
+    c.height = Math.floor(h * dpr);
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+    c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  placeZones();
+  seedStars();
+}
+
+function placeZones() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  // Zone diameter scales with viewport
+  const dia = Math.max(72, Math.min(w * 0.28, 130));
+  for (const id of ZONE_IDS) {
+    const el = zoneEls[id];
+    const [nx, ny] = ZONE_LAYOUT[id].pos;
+    el.style.width  = dia + 'px';
+    el.style.height = dia + 'px';
+    el.style.left = (nx * w - dia / 2) + 'px';
+    el.style.top  = (ny * h - dia / 2) + 'px';
+  }
+}
+
+window.addEventListener('resize', resizeCanvases);
+
+// ---------------------------------------------------------------------------
+// Visuals
+// ---------------------------------------------------------------------------
+
+function seedStars() {
+  stars = [];
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const count = Math.floor((w * h) / 6000);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.4 + 0.2,
+      base: 0.3 + Math.random() * 0.7,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 1.5,
+    });
+  }
+}
+
+function drawSky(t) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  skyCtx.clearRect(0, 0, w, h);
+  // Aurora hint
+  const grad = skyCtx.createRadialGradient(w * 0.5, h * 0.3, 0, w * 0.5, h * 0.3, Math.max(w, h) * 0.6);
+  const auroraA = `hsla(${220 + Math.sin(t * 0.05) * 20}, 60%, 22%, 0.35)`;
+  const auroraB = `hsla(${300 + Math.cos(t * 0.03) * 30}, 40%, 12%, 0)`;
+  grad.addColorStop(0, auroraA);
+  grad.addColorStop(1, auroraB);
+  skyCtx.fillStyle = grad;
+  skyCtx.fillRect(0, 0, w, h);
+
+  for (const s of stars) {
+    const twinkle = s.base + Math.sin(t * s.speed + s.phase) * 0.3;
+    skyCtx.beginPath();
+    skyCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    skyCtx.fillStyle = `rgba(255, 245, 220, ${Math.max(0, twinkle)})`;
+    skyCtx.fill();
+  }
+}
+
+function drawFX(t) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  fxCtx.clearRect(0, 0, w, h);
+
+  // 1. Silhouette hands rising at edges of viewport
+  drawEdgeHands(t);
+  // 2. Sweeping stage lights (subtle)
+  drawStageLights(t);
+  // 3. Ambient hand shadows around zones
+  drawZoneHandShadows(t);
+}
+
+function drawEdgeHands(t) {
+  // Draw a horizon of raised arms silhouettes at bottom AND sides,
+  // simulating a crowd around/below the surfed body.
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  fxCtx.save();
+  fxCtx.fillStyle = 'rgba(3, 5, 20, 0.85)';
+  // Bottom crowd
+  const armCountBottom = Math.floor(w / 18);
+  fxCtx.beginPath();
+  fxCtx.moveTo(0, h);
+  for (let i = 0; i <= armCountBottom; i++) {
+    const x = (i / armCountBottom) * w;
+    const seed = Math.sin(i * 12.9898) * 43758.5453;
+    const jitter = (seed - Math.floor(seed));
+    const armH = h * (0.08 + jitter * 0.05) + Math.sin(t * 1.6 + i * 0.9) * 6;
+    fxCtx.lineTo(x, h - armH);
+  }
+  fxCtx.lineTo(w, h);
+  fxCtx.closePath();
+  fxCtx.fill();
+
+  // Top crowd (further away, dimmer)
+  fxCtx.fillStyle = 'rgba(6, 8, 30, 0.7)';
+  const armCountTop = Math.floor(w / 22);
+  fxCtx.beginPath();
+  fxCtx.moveTo(0, 0);
+  for (let i = 0; i <= armCountTop; i++) {
+    const x = (i / armCountTop) * w;
+    const seed = Math.sin(i * 78.233) * 43758.5453;
+    const jitter = (seed - Math.floor(seed));
+    const armH = h * (0.05 + jitter * 0.035) + Math.sin(t * 1.2 + i * 0.7) * 5;
+    fxCtx.lineTo(x, armH);
+  }
+  fxCtx.lineTo(w, 0);
+  fxCtx.closePath();
+  fxCtx.fill();
+
+  fxCtx.restore();
+}
+
+function drawZoneHandShadows(t) {
+  // Around each zone, draw upward-reaching "hands" whose intensity depends on the meter.
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  for (const id of ZONE_IDS) {
+    const [nx, ny] = ZONE_LAYOUT[id].pos;
+    const cx = nx * w;
+    const cy = ny * h;
+    const m = meters[id];
+    const boost = (tapBoosts[id] && tapBoosts[id].until > songTime)
+      ? (tapBoosts[id].until - songTime) / tapBoosts[id].dur
+      : 0;
+
+    const alpha = Math.min(1, m * 0.55 + boost * 0.6);
+    if (alpha <= 0.05) continue;
+
+    fxCtx.save();
+    fxCtx.translate(cx, cy);
+    fxCtx.globalAlpha = alpha;
+
+    const hands = 7;
+    for (let i = 0; i < hands; i++) {
+      const a = (i / hands) * Math.PI * 2 + t * 0.15;
+      const rad = 42 + Math.sin(t * 2 + i) * 4;
+      const hx = Math.cos(a) * rad;
+      const hy = Math.sin(a) * rad;
+      fxCtx.beginPath();
+      fxCtx.arc(hx, hy, 5 + Math.sin(t * 3 + i * 1.7) * 1.5, 0, Math.PI * 2);
+      fxCtx.fillStyle = 'rgba(255, 207, 122, 0.55)';
+      fxCtx.fill();
+    }
+    fxCtx.restore();
+  }
+}
+
+function drawStageLights(t) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const beams = 3;
+  const colors = ['rgba(255, 93, 183, 0.10)', 'rgba(74, 255, 224, 0.08)', 'rgba(138, 99, 255, 0.10)'];
+  fxCtx.save();
+  fxCtx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < beams; i++) {
+    const angle = Math.sin(t * 0.4 + i * 2.1) * 0.7 + (i - 1) * 0.25;
+    const originX = w * 0.5 + Math.cos(t * 0.3 + i) * w * 0.15;
+    const originY = -20;
+    fxCtx.save();
+    fxCtx.translate(originX, originY);
+    fxCtx.rotate(angle);
+    const grad = fxCtx.createLinearGradient(0, 0, 0, h * 1.2);
+    grad.addColorStop(0, colors[i]);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    fxCtx.fillStyle = grad;
+    fxCtx.beginPath();
+    fxCtx.moveTo(-8, 0);
+    fxCtx.lineTo(8, 0);
+    fxCtx.lineTo(140, h * 1.3);
+    fxCtx.lineTo(-140, h * 1.3);
+    fxCtx.closePath();
+    fxCtx.fill();
+    fxCtx.restore();
+  }
+  fxCtx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Audio (subtle procedural throb)
+// ---------------------------------------------------------------------------
+
+function ensureAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.0;
+    masterGain.connect(audioCtx.destination);
+
+    // Bass drone
+    bassOsc = audioCtx.createOscillator();
+    bassOsc.type = 'sine';
+    bassOsc.frequency.value = 55;
+    const bassGain = audioCtx.createGain();
+    bassGain.gain.value = 0.35;
+    bassOsc.connect(bassGain).connect(masterGain);
+    bassOsc.start();
+
+    // Pad — a second oscillator slightly detuned
+    const padOsc = audioCtx.createOscillator();
+    padOsc.type = 'triangle';
+    padOsc.frequency.value = 110.5;
+    const padGain = audioCtx.createGain();
+    padGain.gain.value = 0.08;
+    padOsc.connect(padGain).connect(masterGain);
+    padOsc.start();
+
+    // Noise (crowd hush)
+    const bufferSize = 2 * audioCtx.sampleRate;
+    const noiseBuf = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.5;
+    noiseSrc = audioCtx.createBufferSource();
+    noiseSrc.buffer = noiseBuf;
+    noiseSrc.loop = true;
+    const noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 400;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0.12;
+    noiseSrc.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+    noiseSrc.start();
+  } catch (_) { /* audio not available */ }
+}
+
+function playTapSound(strength) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, t);
+  osc.frequency.exponentialRampToValueAtTime(440, t + 0.25);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.15 * strength, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+  osc.connect(g).connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.4);
+}
+
+function playFallSound() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(220, t);
+  osc.frequency.exponentialRampToValueAtTime(40, t + 1.2);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.35, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+  osc.connect(g).connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 1.5);
+}
+
+function playWinSound() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const notes = [523.25, 659.25, 783.99]; // C E G
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t + i * 0.15);
+    g.gain.exponentialRampToValueAtTime(0.2, t + i * 0.15 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.15 + 1.6);
+    osc.connect(g).connect(masterGain);
+    osc.start(t + i * 0.15);
+    osc.stop(t + i * 0.15 + 1.7);
+  });
+}
+
+function setMusicIntensity(target) {
+  if (!audioCtx || !masterGain) return;
+  masterGain.gain.linearRampToValueAtTime(target, audioCtx.currentTime + 0.6);
+}
+
+// ---------------------------------------------------------------------------
+// Interaction
+// ---------------------------------------------------------------------------
+
+function tapZone(id) {
+  if (state !== 'playing') return;
+  meters[id] = Math.min(1, meters[id] + 0.42);
+  tapBoosts[id] = { until: songTime + 1.2, dur: 1.2 };
+  lastTapTime[id] = performance.now();
+  const el = zoneEls[id];
+  el.classList.add('tapped');
+  setTimeout(() => el.classList.remove('tapped'), 180);
+  playTapSound(0.7);
+}
+
+for (const id of ZONE_IDS) {
+  const el = zoneEls[id];
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    tapZone(id);
+  }, { passive: false });
+}
+
+// ---------------------------------------------------------------------------
+// Game loop
+// ---------------------------------------------------------------------------
+
+function currentPhaseInfo(t) {
+  // Song timeline:
+  // 0-15s: intro (calm)
+  // 15-35s: build
+  // 35-58s: chorus (intense)
+  // 58-70s: bridge (slight ease)
+  // 70-78s: outro (settle)
+  if (t < 15) return { name: 'intro',   decay: 0.055, tiltSpeed: 1.1, music: 0.08 };
+  if (t < 35) return { name: 'build',   decay: 0.085, tiltSpeed: 1.4, music: 0.14 };
+  if (t < 58) return { name: 'chorus',  decay: 0.135, tiltSpeed: 1.9, music: 0.22 };
+  if (t < 70) return { name: 'bridge',  decay: 0.09,  tiltSpeed: 1.4, music: 0.14 };
+  return                { name: 'outro',   decay: 0.06,  tiltSpeed: 1.1, music: 0.08 };
+}
+
+function startGame() {
+  ensureAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  for (const id of ZONE_IDS) {
+    meters[id] = 0.85;
+    lastTapTime[id] = 0;
+    tapBoosts[id] = null;
+  }
+  songTime = 0;
+  tilt = { x: 0, y: 0 };
+  tiltVel = { x: 0, y: 0 };
+  sagTimer = 0;
+  currentPhase = 'intro';
+  survivalStart = performance.now();
+  stage.style.transform = '';
+  stage.style.filter = '';
+  vignette.style.setProperty('--vignette', '0.25');
+  state = 'playing';
+  titleScreen.classList.add('hidden');
+  fallScreen.classList.add('hidden');
+  winScreen.classList.add('hidden');
+  document.body.classList.remove('overlay-active');
+  lastFrame = performance.now();
+  setMusicIntensity(0.08);
+  requestAnimationFrame(loop);
+}
+
+function fall() {
+  state = 'fallen';
+  playFallSound();
+  setMusicIntensity(0.0);
+  // Reset stage transform so the "fallen" overlay reads clean on a settled canvas
+  stage.style.transform = '';
+  stage.style.filter = '';
+  vignette.style.setProperty('--vignette', '0.5');
+  const seconds = Math.floor((performance.now() - survivalStart) / 1000);
+  fallTimeEl.textContent = seconds;
+  // Choose a poetic fall line based on how far you got
+  const lines = [
+    { max: 12, text: '— you slipped through them before the song began' },
+    { max: 25, text: '— the crowd forgot the shape of you' },
+    { max: 45, text: '— the chorus was too much to hold' },
+    { max: 65, text: '— you almost made it to the door' },
+    { max: 999, text: '— one hand let go a beat too soon' },
+  ];
+  fallLineEl.textContent = lines.find(l => seconds <= l.max).text;
+  fallScreen.classList.remove('hidden');
+  document.body.classList.add('overlay-active');
+}
+
+function win() {
+  state = 'won';
+  playWinSound();
+  setMusicIntensity(0.02);
+  // Straighten out for the win overlay
+  stage.style.transform = '';
+  stage.style.filter = '';
+  winScreen.classList.remove('hidden');
+  document.body.classList.add('overlay-active');
+}
+
+function loop(now) {
+  if (state !== 'playing' && state !== 'falling') return;
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+  const t = songTime;
+
+  // Decorative canvas anims run whether or not we're falling
+  drawSky(t);
+  drawFX(t);
+
+  if (state === 'playing') {
+    songTime += dt;
+    const phase = currentPhaseInfo(songTime);
+    if (phase.name !== currentPhase) {
+      currentPhase = phase.name;
+      phaseLabel.textContent = phase.name;
+      setMusicIntensity(phase.music);
+    }
+    progressFill.style.width = Math.min(100, (songTime / SONG_LENGTH) * 100) + '%';
+
+    // Decay each meter and compute tilt contribution.
+    // Different zones have slightly different natural decay to force spreading of attention.
+    const decayMod = { head: 1.15, shoulder: 1.05, back: 0.85, hips: 1.0, feet: 1.15 };
+    let tiltX = 0, tiltY = 0;
+    let sumMeters = 0;
+    for (const id of ZONE_IDS) {
+      meters[id] -= phase.decay * decayMod[id] * dt;
+      if (meters[id] < 0) meters[id] = 0;
+      sumMeters += meters[id];
+
+      // Visual meter fill
+      const deg = Math.max(0, Math.min(360, meters[id] * 360));
+      zoneMeterEls[id].style.setProperty('--fill', deg + 'deg');
+      // Low-warning class
+      const el = zoneEls[id];
+      if (meters[id] < 0.22) el.classList.add('low');
+      else el.classList.remove('low');
+
+      // Tilt contribution: an empty zone pulls the body in its tilt direction
+      const deficit = 1 - meters[id];  // 0 (full) .. 1 (empty)
+      // Only meaningful when below ~60%
+      const push = Math.max(0, deficit - 0.4);
+      const [tx, ty] = ZONE_LAYOUT[id].tilt;
+      tiltX += tx * push;
+      tiltY += ty * push;
+    }
+
+    // Overall sag — if total support drops severely, you slip through the crowd
+    // regardless of directional balance.
+    const avgMeter = sumMeters / ZONE_IDS.length;
+    if (avgMeter < 0.2) sagTimer += dt;
+    else sagTimer = Math.max(0, sagTimer - dt * 1.5);
+
+    // Smooth tilt physics
+    const targetTiltX = tiltX * 10;   // degrees
+    const targetTiltY = tiltY * 10;
+    tiltVel.x += (targetTiltX - tilt.x) * dt * 4.5;
+    tiltVel.y += (targetTiltY - tilt.y) * dt * 4.5;
+    tiltVel.x *= 0.86;
+    tiltVel.y *= 0.86;
+    tilt.x += tiltVel.x * dt * phase.tiltSpeed;
+    tilt.y += tiltVel.y * dt * phase.tiltSpeed;
+
+    const total = Math.hypot(tilt.x, tilt.y);
+    // Vignette darkens with panic
+    const vig = 0.2 + Math.min(0.55, total / 30);
+    vignette.style.setProperty('--vignette', vig.toFixed(3));
+
+    // Apply visual tilt (scale up so it feels dizzy)
+    stage.style.transform = `rotate(${tilt.y * 0.6}deg) translate(${tilt.x * 0.4}%, ${tilt.y * 0.4}%)`;
+    // Slight blur when close to falling
+    if (total > 18) stage.style.filter = `blur(${Math.min(3, (total - 18) * 0.15)}px)`;
+    else stage.style.filter = '';
+
+    // Fall condition: either tilted too far, or you've been unsupported everywhere for too long
+    if (total > 28 || sagTimer > 1.6) {
+      fall();
+      return;
+    }
+
+    // Win condition
+    if (songTime >= SONG_LENGTH) {
+      win();
+      return;
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------------------
+// Wire buttons
+// ---------------------------------------------------------------------------
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('retry-btn').addEventListener('click', startGame);
+document.getElementById('win-retry-btn').addEventListener('click', startGame);
+
+// Initial layout & idle sky animation
+resizeCanvases();
+phaseLabel.textContent = '—';
+
+function idleTick() {
+  if (state === 'title' || state === 'fallen' || state === 'won') {
+    const t = performance.now() / 1000;
+    drawSky(t);
+    // On title screen, still animate the ambient crowd but no HUD/tilt
+    drawFX(t);
+  }
+  requestAnimationFrame(idleTick);
+}
+requestAnimationFrame(idleTick);
+
+// Reduce browser gestures interfering with taps
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('touchmove', (e) => {
+  if (state === 'playing') e.preventDefault();
+}, { passive: false });
+
+</script>
+</body>
+</html>
