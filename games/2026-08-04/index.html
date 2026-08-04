@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0405">
+<title>CURTAIN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #08040a;
+    color: #f4ecd8;
+    font-family: 'Cormorant Garamond', 'Georgia', serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    overscroll-behavior: none;
+  }
+
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    font-family: inherit;
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+  canvas {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    background: #08040a;
+  }
+
+  .overlay {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 1.5rem;
+    z-index: 100;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at center, rgba(90,20,20,0.55), rgba(8,4,10,0.97) 70%);
+    pointer-events: auto;
+  }
+  .overlay.hidden { display: none; }
+  .overlay .actInfo {
+    color: rgba(244,236,216,0.55);
+    font-size: 0.9rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .overlay h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+    font-size: clamp(2.5rem, 9vw, 5rem);
+    letter-spacing: 0.35em;
+    margin: 0 0 0.6rem;
+    color: #f4ecd8;
+    text-shadow: 0 2px 30px rgba(200,60,60,0.35);
+  }
+  .overlay p {
+    font-size: clamp(1rem, 2.3vw, 1.3rem);
+    font-style: italic;
+    max-width: 30rem;
+    margin: 0.35rem 0;
+    color: rgba(244, 236, 216, 0.82);
+    line-height: 1.55;
+  }
+  .overlay .hint {
+    font-style: normal;
+    font-size: clamp(0.85rem, 1.8vw, 1rem);
+    color: rgba(244, 236, 216, 0.48);
+    letter-spacing: 0.05em;
+    margin-top: 0.75rem;
+    max-width: 32rem;
+  }
+  .overlay button {
+    margin-top: 1.6rem;
+    background: transparent;
+    color: #f4ecd8;
+    border: 1px solid rgba(244,236,216,0.4);
+    padding: 0.75rem 1.75rem;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 0.25em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .overlay button:hover, .overlay button:active {
+    background: rgba(244,236,216,0.14);
+    border-color: rgba(244,236,216,0.75);
+    color: #fff8e0;
+  }
+  #restartBtn, #beginBtn {
+    letter-spacing: 0.3em;
+  }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="stage"></canvas>
+
+<div id="titleOverlay" class="overlay">
+  <div class="actInfo">A play in five acts</div>
+  <h1>CURTAIN</h1>
+  <p>Tonight, you are the curtain of a small opera house.</p>
+  <p><em>Press &amp; hold</em> to open. <em>Release</em> to close. The audience trusts you to know when a moment ends.</p>
+  <div class="hint">The final line of each act is the moment. Fall on it.</div>
+  <button id="beginBtn">RAISE THE HOUSELIGHTS</button>
+</div>
+
+<div id="actIntroOverlay" class="overlay hidden">
+  <div class="actInfo" id="actNumber">ACT I</div>
+  <h1 id="actTitle"></h1>
+  <p id="actNote"></p>
+  <button id="actBeginBtn">BEGIN</button>
+</div>
+
+<div id="actResultOverlay" class="overlay hidden">
+  <h1 id="resultVerdict"></h1>
+  <p id="resultLine"></p>
+  <p id="tallyLine" class="actInfo"></p>
+  <button id="nextActBtn">CONTINUE</button>
+</div>
+
+<div id="endOverlay" class="overlay hidden">
+  <div class="actInfo">FINIS</div>
+  <h1 id="endVerdict"></h1>
+  <p id="endLine"></p>
+  <p id="endTally" class="actInfo"></p>
+  <button id="restartBtn">ANOTHER PERFORMANCE</button>
+</div>
+
+<script>
+// ============================================================
+// CURTAIN — a play in five acts
+// ============================================================
+
+const ORIENTATION = 'LANDSCAPE';
+
+function checkOrientation() {
+  const isPortrait = window.innerHeight > window.innerWidth;
+  const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+  let overlay = document.getElementById('orientation-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'orientation-overlay';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:#000; color:#fff; flex-direction:column;
+      align-items:center; justify-content:center;
+      font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:3rem">📱</div>
+      <div>Please rotate your device</div>
+      <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = wrong ? 'flex' : 'none';
+}
+
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
+
+async function tryLockOrientation() {
+  try {
+    await document.documentElement.requestFullscreen?.();
+    await screen.orientation?.lock?.(
+      ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+    );
+  } catch (_) { /* not supported — overlay handles it */ }
+}
+document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+// ============================================================
+// Canvas
+// ============================================================
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ============================================================
+// Play data — five acts of an absurd tragedy
+// ============================================================
+// Each act:
+//   openCue: ms — curtain SHOULD be open by then (else penalty)
+//   climax:  ms — the closing beat
+//   duration:ms — the moment after which the act auto-ends
+//   script:  [{t, text, actor: 'A' | 'B' | null}]
+
+const ACTS = [
+  {
+    title: "THE LETTER",
+    note: "A lady, alone in her drawing room. A messenger arrives from the war.",
+    openCue: 1400,
+    climax: 12500,
+    duration: 15500,
+    palette: 'warm',
+    script: [
+      { t: 1700,  text: "Madam. I have news from the front.",       actor: 'B' },
+      { t: 4700,  text: "Then speak it, and let the day break me.", actor: 'A' },
+      { t: 8400,  text: "He is not dead. He was never sent.",       actor: 'B' },
+      { t: 12200, text: "…",                                        actor: 'A', climaxLine: true },
+    ],
+    stage: {
+      A: { x: 0.40, kind: 'lady'       },
+      B: { x: 0.62, kind: 'messenger'  },
+    },
+  },
+  {
+    title: "THE DUEL",
+    note: "Two men, misted heath, dawn. Words have failed.",
+    openCue: 1200,
+    climax: 10300,
+    duration: 13200,
+    palette: 'cool',
+    script: [
+      { t: 1400,  text: "You said her name. In your sleep.",   actor: 'A' },
+      { t: 4200,  text: "Then I shall not sleep again.",       actor: 'B' },
+      { t: 7100,  text: "(the pistol is raised)",              actor: null },
+      { t: 9900,  text: "Bang.",                               actor: null, climaxLine: true },
+    ],
+    stage: {
+      A: { x: 0.34, kind: 'duelist' },
+      B: { x: 0.66, kind: 'duelist' },
+    },
+  },
+  {
+    title: "THE REVERSAL",
+    note: "One candle. The letter was real. So was the trick.",
+    openCue: 1200,
+    climax: 11100,
+    duration: 14200,
+    palette: 'candle',
+    script: [
+      { t: 1400,  text: "The seal is forged. But the words are his.", actor: 'A' },
+      { t: 5100,  text: "How can both be true?",                       actor: 'B' },
+      { t: 8300,  text: "He wrote the letter that killed him.",        actor: 'A' },
+      { t: 10800, text: "(the candle gutters)",                        actor: null, climaxLine: true },
+    ],
+    stage: {
+      A: { x: 0.44, kind: 'lady' },
+      B: { x: 0.62, kind: 'man'  },
+    },
+  },
+  {
+    title: "THE GHOST",
+    note: "A garden. The dead visit at the strangest hours.",
+    openCue: 1100,
+    climax: 12900,
+    duration: 15800,
+    palette: 'moon',
+    script: [
+      { t: 1400,  text: "I thought you were the wind.",            actor: 'A' },
+      { t: 4400,  text: "I am. Now. Wasn't I always.",             actor: 'B' },
+      { t: 8100,  text: "Do you forgive me?",                       actor: 'A' },
+      { t: 12500, text: "Nothing to forgive. I never arrived.",    actor: 'B', climaxLine: true },
+    ],
+    stage: {
+      A: { x: 0.40, kind: 'lady'  },
+      B: { x: 0.62, kind: 'ghost' },
+    },
+  },
+  {
+    title: "THE CURTAIN SPEAKS",
+    note: "The play knows you now. Choose your final moment carefully.",
+    openCue: 1100,
+    climax: 11800,
+    duration: 15200,
+    palette: 'gold',
+    script: [
+      { t: 1400,  text: "So — you are still holding, then.",             actor: 'A' },
+      { t: 4400,  text: "It has been many acts. Your hand must ache.",   actor: 'A' },
+      { t: 7500,  text: "Do not close on us too soon. Or too late.",     actor: 'B' },
+      { t: 10200, text: "There is a moment. You will know it.",           actor: 'B' },
+      { t: 11700, text: "…now.",                                          actor: null, climaxLine: true },
+    ],
+    stage: {
+      A: { x: 0.40, kind: 'lady' },
+      B: { x: 0.62, kind: 'man'  },
+    },
+  },
+];
+
+// ============================================================
+// State
+// ============================================================
+let scene = 'title'; // 'title' | 'actIntro' | 'playing' | 'result' | 'end'
+let actIndex = 0;
+let actStart = 0;
+let curtainT = 1;    // 0 = fully open, 1 = fully closed
+let holding = false;
+let openedAt = null; // ms after act start (first open)
+let closedAt = null; // ms after act start (release that ends the act)
+let actJudgment = null;
+let bravos = 0;
+let jeers = 0;
+
+let lastFrame = performance.now();
+
+// ============================================================
+// Input
+// ============================================================
+function onPointerDown(e) {
+  e.preventDefault();
+  if (scene !== 'playing') return;
+  holding = true;
+  const now = performance.now() - actStart;
+  if (openedAt === null) openedAt = now;
+}
+function onPointerUp(e) {
+  e.preventDefault();
+  if (scene !== 'playing') return;
+  if (!holding) return;
+  holding = false;
+  const now = performance.now() - actStart;
+  // Only count a release as "closing" if the curtain was meaningfully open,
+  // so the player can't be punished for a mis-tap before the show begins.
+  if (openedAt !== null && closedAt === null && (now - openedAt) > 400 && curtainT < 0.55) {
+    closedAt = now;
+    judgeAct(now);
+  }
+}
+canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+canvas.addEventListener('pointerup',   onPointerUp,   { passive: false });
+canvas.addEventListener('pointercancel', onPointerUp, { passive: false });
+canvas.addEventListener('pointerleave', onPointerUp,  { passive: false });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ============================================================
+// Judgment
+// ============================================================
+function judgeAct(closeTimeMs) {
+  const act = ACTS[actIndex];
+  const diff = closeTimeMs - act.climax; // negative = early, positive = late
+  const absDiff = Math.abs(diff);
+
+  const PERFECT = 380;
+  const BRAVO   = 950;
+  const OK      = 1750;
+
+  const openMissed = openedAt > act.openCue + 900;
+  let verdict, line, bravoChange = 0, jeerChange = 0;
+
+  if (openMissed) {
+    verdict = "A LATE CURTAIN";
+    line = "The audience saw the actors marking their spots.";
+    jeerChange = 1;
+  } else if (diff < -OK) {
+    verdict = "CUT SHORT";
+    line = "You closed on the line before its last.";
+    jeerChange = 1;
+  } else if (diff > OK) {
+    verdict = "LINGERED";
+    line = "The stagehands were seen resetting the chairs.";
+    jeerChange = 1;
+  } else if (absDiff <= PERFECT) {
+    verdict = "BRAVO";
+    line = "A hush. Then thunder. The moment was yours.";
+    bravoChange = 2;
+  } else if (absDiff <= BRAVO) {
+    verdict = "A GOOD CLOSE";
+    line = "Applause — warm, even, sincere.";
+    bravoChange = 1;
+  } else {
+    verdict = "POLITE";
+    line = "A few claps. Some coughs. It was not the moment.";
+  }
+
+  bravos += bravoChange;
+  jeers  += jeerChange;
+  actJudgment = { verdict, line, bravoChange, jeerChange, diff };
+  scene = 'result';
+  showResultOverlay();
+}
+
+function forceJudge() {
+  if (openedAt === null) {
+    actJudgment = {
+      verdict: "THE CURTAIN NEVER ROSE",
+      line: "The audience left. Some asked for refunds.",
+      bravoChange: 0, jeerChange: 3,
+    };
+    jeers += 3;
+  } else if (closedAt === null) {
+    actJudgment = {
+      verdict: "IT NEVER ENDED",
+      line: "The actors froze, then walked off. You held on.",
+      bravoChange: 0, jeerChange: 2,
+    };
+    jeers += 2;
+  } else {
+    return;
+  }
+  scene = 'result';
+  showResultOverlay();
+}
+
+// ============================================================
+// UI overlays
+// ============================================================
+const titleOverlay      = document.getElementById('titleOverlay');
+const actIntroOverlay   = document.getElementById('actIntroOverlay');
+const actResultOverlay  = document.getElementById('actResultOverlay');
+const endOverlay        = document.getElementById('endOverlay');
+const beginBtn          = document.getElementById('beginBtn');
+const actBeginBtn       = document.getElementById('actBeginBtn');
+const nextActBtn        = document.getElementById('nextActBtn');
+const restartBtn        = document.getElementById('restartBtn');
+const actNumberEl       = document.getElementById('actNumber');
+const actTitleEl        = document.getElementById('actTitle');
+const actNoteEl         = document.getElementById('actNote');
+const resultVerdictEl   = document.getElementById('resultVerdict');
+const resultLineEl      = document.getElementById('resultLine');
+const tallyLineEl       = document.getElementById('tallyLine');
+const endVerdictEl      = document.getElementById('endVerdict');
+const endLineEl         = document.getElementById('endLine');
+const endTallyEl        = document.getElementById('endTally');
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V'];
+
+function hideAllOverlays() {
+  titleOverlay.classList.add('hidden');
+  actIntroOverlay.classList.add('hidden');
+  actResultOverlay.classList.add('hidden');
+  endOverlay.classList.add('hidden');
+}
+
+function showActIntro() {
+  const act = ACTS[actIndex];
+  actNumberEl.textContent = `ACT ${ROMAN[actIndex]}`;
+  actTitleEl.textContent = act.title;
+  actNoteEl.textContent = act.note;
+  hideAllOverlays();
+  actIntroOverlay.classList.remove('hidden');
+  scene = 'actIntro';
+}
+
+function beginAct() {
+  hideAllOverlays();
+  scene = 'playing';
+  actStart = performance.now();
+  openedAt = null;
+  closedAt = null;
+  actJudgment = null;
+  curtainT = 1;
+  holding = false;
+}
+
+function showResultOverlay() {
+  const j = actJudgment;
+  resultVerdictEl.textContent = j.verdict;
+  resultLineEl.textContent = j.line;
+  const parts = [];
+  if (j.bravoChange > 0) parts.push(`+${j.bravoChange} bravo${j.bravoChange > 1 ? 's' : ''}`);
+  if (j.jeerChange > 0)  parts.push(`+${j.jeerChange} jeer${j.jeerChange > 1 ? 's' : ''}`);
+  tallyLineEl.textContent = parts.length ? parts.join(' · ') : 'no change';
+  hideAllOverlays();
+  actResultOverlay.classList.remove('hidden');
+  nextActBtn.textContent = (actIndex >= ACTS.length - 1) ? 'THE FINALE' : 'NEXT ACT';
+}
+
+function goNextAct() {
+  actIndex++;
+  if (actIndex >= ACTS.length) {
+    showEndOverlay();
+  } else {
+    showActIntro();
+  }
+}
+
+function showEndOverlay() {
+  const net = bravos - jeers;
+  let verdict, line;
+  if (bravos >= 8 && jeers === 0) {
+    verdict = "A MASTERPIECE";
+    line = "They stand. They will speak of this night for years.";
+  } else if (net >= 5) {
+    verdict = "A GREAT NIGHT";
+    line = "The papers will be kind. You will sleep well.";
+  } else if (net >= 1) {
+    verdict = "A DECENT SHOW";
+    line = "They filed out slowly, murmuring. It could have been worse.";
+  } else if (net >= -2) {
+    verdict = "A ROUGH PERFORMANCE";
+    line = "The manager wishes to speak with you after.";
+  } else {
+    verdict = "A DISASTER";
+    line = "The curtain, they said, was the worst part.";
+  }
+  endVerdictEl.textContent = verdict;
+  endLineEl.textContent = line;
+  endTallyEl.textContent = `${bravos} bravo${bravos===1?'':'s'} · ${jeers} jeer${jeers===1?'':'s'}`;
+  hideAllOverlays();
+  endOverlay.classList.remove('hidden');
+  scene = 'end';
+}
+
+function restartGame() {
+  actIndex = 0;
+  bravos = 0;
+  jeers = 0;
+  showActIntro();
+}
+
+beginBtn.addEventListener('click', () => {
+  actIndex = 0;
+  bravos = 0;
+  jeers = 0;
+  showActIntro();
+});
+actBeginBtn.addEventListener('click', beginAct);
+nextActBtn.addEventListener('click', goNextAct);
+restartBtn.addEventListener('click', restartGame);
+
+// ============================================================
+// Palettes for act atmospheres
+// ============================================================
+const PALETTES = {
+  warm:   { inner: '#4a2f18', mid: '#1f0f08', outer: '#08040a', light: '#f6c274' },
+  cool:   { inner: '#243a4a', mid: '#0e1620', outer: '#04070a', light: '#8fbfe4' },
+  candle: { inner: '#3a2510', mid: '#180b04', outer: '#050202', light: '#ffb060' },
+  moon:   { inner: '#2b2d3e', mid: '#0d0e17', outer: '#04040a', light: '#c9d6ff' },
+  gold:   { inner: '#4d3b12', mid: '#221706', outer: '#0a0602', light: '#ffdd88' },
+};
+
+// ============================================================
+// Rendering
+// ============================================================
+function drawStage(nowActMs) {
+  ctx.clearRect(0, 0, W, H);
+
+  // Overall backdrop
+  ctx.fillStyle = '#08040a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stage rectangle
+  const stageX = W * 0.06;
+  const stageY = H * 0.10;
+  const stageW = W * 0.88;
+  const stageH = H * 0.74;
+
+  const act = (scene === 'playing') ? ACTS[actIndex] : null;
+  const palette = act ? PALETTES[act.palette] : PALETTES.warm;
+
+  drawStageInterior(stageX, stageY, stageW, stageH, palette, nowActMs, act);
+
+  if (act) {
+    drawActors(act, nowActMs, stageX, stageY, stageW, stageH, palette);
+  }
+
+  drawSubtitle(act, nowActMs, stageX, stageY, stageW, stageH);
+
+  // Curtains overlay
+  drawCurtains(stageX, stageY, stageW, stageH, curtainT);
+
+  // Proscenium frame on top of everything
+  drawProscenium(stageX, stageY, stageW, stageH);
+
+  // HUD
+  drawHUD();
+
+  // Audience
+  drawAudience(stageX, stageY + stageH, stageW, H - (stageY + stageH));
+}
+
+function drawStageInterior(x, y, w, h, palette, t, act) {
+  // Deep stage backdrop with radial warmth
+  const cx = x + w / 2;
+  const cy = y + h * 0.55;
+  const grad = ctx.createRadialGradient(cx, cy, w * 0.03, cx, cy, w * 0.72);
+  grad.addColorStop(0, palette.inner);
+  grad.addColorStop(0.55, palette.mid);
+  grad.addColorStop(1, palette.outer);
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+
+  // Subtle vignette from top (light rig shadow)
+  const topGrad = ctx.createLinearGradient(0, y, 0, y + h * 0.5);
+  topGrad.addColorStop(0, 'rgba(0,0,0,0.35)');
+  topGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(x, y, w, h * 0.5);
+
+  // Stage floor (wooden boards)
+  const floorY = y + h * 0.72;
+  const floorH = h * 0.28;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, floorY, w, floorH);
+  ctx.clip();
+
+  // Floor base
+  const floorGrad = ctx.createLinearGradient(0, floorY, 0, floorY + floorH);
+  floorGrad.addColorStop(0, 'rgba(75, 45, 25, 0.85)');
+  floorGrad.addColorStop(1, 'rgba(30, 15, 8, 0.95)');
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(x, floorY, w, floorH);
+
+  // Board lines
+  ctx.strokeStyle = 'rgba(20, 10, 5, 0.55)';
+  ctx.lineWidth = 1;
+  const boards = 9;
+  for (let i = 1; i < boards; i++) {
+    const bx = x + (i / boards) * w;
+    ctx.beginPath();
+    ctx.moveTo(bx, floorY);
+    ctx.lineTo(bx, floorY + floorH);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Footlights glow along the front edge
+  const footGrad = ctx.createLinearGradient(0, floorY - 4, 0, floorY + 26);
+  footGrad.addColorStop(0, 'rgba(255, 210, 130, 0.55)');
+  footGrad.addColorStop(1, 'rgba(255, 210, 130, 0)');
+  ctx.fillStyle = footGrad;
+  ctx.fillRect(x, floorY - 4, w, 30);
+
+  // Climax pulse: subtle golden shimmer at proscenium top when climax is close
+  if (act) {
+    const dt = act.climax - t;
+    const pulse = Math.max(0, 1 - Math.abs(dt) / 1200);
+    if (pulse > 0.02) {
+      const shimmerGrad = ctx.createLinearGradient(0, y - 4, 0, y + 40);
+      const alpha = 0.35 * pulse;
+      shimmerGrad.addColorStop(0, `rgba(255, 220, 140, ${alpha})`);
+      shimmerGrad.addColorStop(1, 'rgba(255, 220, 140, 0)');
+      ctx.fillStyle = shimmerGrad;
+      ctx.fillRect(x, y - 4, w, 44);
+    }
+  }
+}
+
+function drawActors(act, t, stageX, stageY, stageW, stageH, palette) {
+  const floorY = stageY + stageH * 0.72;
+
+  // Determine which actor last spoke (for subtle highlight)
+  let speaking = null;
+  for (const s of act.script) {
+    if (s.t <= t && s.t + 1400 > t) speaking = s.actor;
+  }
+
+  const A = act.stage.A;
+  const B = act.stage.B;
+
+  if (A) drawActor(stageX + A.x * stageW, floorY, stageH * 0.34, A.kind, palette, speaking === 'A', t);
+  if (B) drawActor(stageX + B.x * stageW, floorY, stageH * 0.34, B.kind, palette, speaking === 'B', t);
+}
+
+function drawActor(x, groundY, size, kind, palette, isSpeaking, t) {
+  // A soft warm halo when speaking
+  if (isSpeaking) {
+    const g = ctx.createRadialGradient(x, groundY - size * 0.4, 2, x, groundY - size * 0.4, size * 1.2);
+    g.addColorStop(0, `${palette.light}55`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, groundY - size * 0.4, size * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Subtle breathing / sway
+  const sway = Math.sin(t * 0.001 + x * 0.01) * 1.5;
+
+  ctx.save();
+  ctx.translate(x + sway, groundY);
+  ctx.fillStyle = kind === 'ghost' ? 'rgba(230, 235, 255, 0.5)' : '#0a0605';
+
+  // Body (silhouette)
+  const bodyW = size * 0.42;
+  const bodyH = size * 0.72;
+  ctx.beginPath();
+  ctx.moveTo(-bodyW * 0.5, 0);
+  ctx.lineTo(-bodyW * 0.4, -bodyH * 0.9);
+  ctx.quadraticCurveTo(0, -bodyH, bodyW * 0.4, -bodyH * 0.9);
+  ctx.lineTo(bodyW * 0.5, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Head
+  const headR = size * 0.13;
+  ctx.beginPath();
+  ctx.arc(0, -bodyH - headR * 0.9, headR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Kind-specific extras
+  if (kind === 'lady') {
+    // Long skirt widens at ground
+    ctx.beginPath();
+    ctx.moveTo(-bodyW * 0.7, 0);
+    ctx.lineTo(-bodyW * 0.42, -bodyH * 0.35);
+    ctx.lineTo(bodyW * 0.42, -bodyH * 0.35);
+    ctx.lineTo(bodyW * 0.7, 0);
+    ctx.closePath();
+    ctx.fill();
+    // A hint of hair
+    ctx.beginPath();
+    ctx.arc(0, -bodyH - headR * 0.9, headR * 1.15, Math.PI * 0.85, Math.PI * 0.15, true);
+    ctx.fill();
+  } else if (kind === 'duelist') {
+    // Extended arm holding pistol
+    const armDir = x > W / 2 ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(armDir * bodyW * 0.2, -bodyH * 0.75);
+    ctx.lineTo(armDir * (bodyW * 0.2 + size * 0.42), -bodyH * 0.62);
+    ctx.lineTo(armDir * (bodyW * 0.2 + size * 0.42), -bodyH * 0.55);
+    ctx.lineTo(armDir * bodyW * 0.2, -bodyH * 0.68);
+    ctx.closePath();
+    ctx.fill();
+    // Top hat
+    ctx.fillRect(-headR * 0.9, -bodyH - headR * 2.35, headR * 1.8, headR * 0.9);
+    ctx.fillRect(-headR * 1.15, -bodyH - headR * 1.45, headR * 2.3, headR * 0.18);
+  } else if (kind === 'messenger') {
+    // Tall boots (leg lines)
+    ctx.strokeStyle = '#0a0605';
+    ctx.lineWidth = size * 0.03;
+    ctx.beginPath();
+    ctx.moveTo(-bodyW * 0.2, 0);
+    ctx.lineTo(-bodyW * 0.2, -bodyH * 0.4);
+    ctx.moveTo(bodyW * 0.2, 0);
+    ctx.lineTo(bodyW * 0.2, -bodyH * 0.4);
+    ctx.stroke();
+    // Satchel across chest
+    ctx.fillRect(-bodyW * 0.15, -bodyH * 0.55, bodyW * 0.55, bodyW * 0.16);
+  } else if (kind === 'ghost') {
+    // Slight upward drift, translucent
+    ctx.globalAlpha = 0.75;
+    // Trailing veil
+    ctx.beginPath();
+    ctx.moveTo(-bodyW * 0.55, -bodyH * 0.05);
+    ctx.quadraticCurveTo(0, -bodyH * 0.3 + Math.sin(t * 0.003) * 4, bodyW * 0.55, -bodyH * 0.05);
+    ctx.lineTo(bodyW * 0.6, -bodyH * 0.1);
+    ctx.lineTo(-bodyW * 0.6, -bodyH * 0.1);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(230, 235, 255, 0.35)';
+    ctx.fill();
+  } else if (kind === 'man') {
+    // Simple coat outline
+    ctx.beginPath();
+    ctx.moveTo(-bodyW * 0.5, 0);
+    ctx.lineTo(-bodyW * 0.5, -bodyH * 0.6);
+    ctx.lineTo(0, -bodyH * 0.55);
+    ctx.lineTo(bodyW * 0.5, -bodyH * 0.6);
+    ctx.lineTo(bodyW * 0.5, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawSubtitle(act, t, stageX, stageY, stageW, stageH) {
+  if (!act || curtainT > 0.55) return; // only when curtain is meaningfully open
+
+  // Find the most recent line whose t <= now
+  let current = null;
+  for (const s of act.script) {
+    if (s.t <= t) current = s;
+    else break;
+  }
+  if (!current) return;
+
+  // Fade in briefly after each line begins, and out before next
+  const age = t - current.t;
+  let alpha = 1;
+  const fadeIn = 300;
+  const life = 3200;
+  if (age < fadeIn) alpha = age / fadeIn;
+  else if (age > life) alpha = Math.max(0, 1 - (age - life) / 800);
+  if (alpha <= 0) return;
+
+  ctx.save();
+  const size = Math.min(stageW * 0.032, 28);
+  const italic = current.text.startsWith('(') || current.text === '…' || current.text.startsWith('…');
+  ctx.font = `${italic ? 'italic ' : ''}${current.climaxLine ? '600 ' : '400 '}${size}px 'Cormorant Garamond', serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Climax line: subtle pulsing warmth
+  let color = `rgba(244, 236, 216, ${alpha * 0.92})`;
+  if (current.climaxLine) {
+    const p = 0.5 + 0.5 * Math.sin(t * 0.008);
+    color = `rgba(255, ${200 + p * 40}, ${140 + p * 60}, ${alpha})`;
+  }
+
+  const y = stageY + stageH * 0.18;
+  // Shadow for readability
+  ctx.fillStyle = `rgba(0,0,0,${alpha * 0.7})`;
+  ctx.fillText(current.text, stageX + stageW / 2 + 1, y + 2);
+  ctx.fillStyle = color;
+  ctx.fillText(current.text, stageX + stageW / 2, y);
+
+  ctx.restore();
+}
+
+function drawCurtains(x, y, w, h, tClosed) {
+  // Two curtain panels that meet in the middle when tClosed=1
+  // and retreat to the sides when tClosed=0
+  const panelWFull = w * 0.55;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  // Left panel
+  const leftEnd = x + panelWFull * tClosed;
+  drawCurtainPanel(x - panelWFull * (1 - tClosed), y, panelWFull, h, 'left');
+
+  // Right panel
+  drawCurtainPanel(x + w - panelWFull * tClosed, y, panelWFull, h, 'right');
+
+  ctx.restore();
+}
+
+function drawCurtainPanel(x, y, w, h, side) {
+  // Rich velvet gradient
+  const grad = ctx.createLinearGradient(x, 0, x + w, 0);
+  if (side === 'left') {
+    grad.addColorStop(0, '#3b0808');
+    grad.addColorStop(0.5, '#7a1414');
+    grad.addColorStop(0.95, '#4a0a0a');
+    grad.addColorStop(1, '#280505');
+  } else {
+    grad.addColorStop(0, '#280505');
+    grad.addColorStop(0.05, '#4a0a0a');
+    grad.addColorStop(0.5, '#7a1414');
+    grad.addColorStop(1, '#3b0808');
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+
+  // Vertical velvet folds
+  const folds = 10;
+  for (let i = 0; i < folds; i++) {
+    const fx = x + (i / (folds - 1)) * w;
+    const foldW = w / folds * 0.8;
+    const foldGrad = ctx.createLinearGradient(fx - foldW / 2, 0, fx + foldW / 2, 0);
+    foldGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    foldGrad.addColorStop(0.5, 'rgba(0,0,0,0.22)');
+    foldGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = foldGrad;
+    ctx.fillRect(fx - foldW / 2, y, foldW, h);
+  }
+
+  // Highlight ridges (soft)
+  for (let i = 0; i < folds; i++) {
+    const fx = x + ((i + 0.5) / folds) * w;
+    ctx.strokeStyle = 'rgba(255, 200, 180, 0.06)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(fx, y);
+    ctx.lineTo(fx, y + h);
+    ctx.stroke();
+  }
+
+  // Bottom drape scallops
+  ctx.beginPath();
+  const scallops = 5;
+  const scallopH = 22;
+  ctx.moveTo(x, y + h);
+  for (let i = 0; i < scallops; i++) {
+    const sx1 = x + (i / scallops) * w;
+    const sx2 = x + ((i + 1) / scallops) * w;
+    ctx.quadraticCurveTo((sx1 + sx2) / 2, y + h + scallopH, sx2, y + h);
+  }
+  ctx.lineTo(x + w, y + h + scallopH * 1.4);
+  ctx.lineTo(x, y + h + scallopH * 1.4);
+  ctx.closePath();
+  ctx.fillStyle = '#4a0a0a';
+  ctx.fill();
+
+  // Gold tassel trim highlight
+  ctx.strokeStyle = 'rgba(210, 170, 90, 0.5)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i <= scallops; i++) {
+    const sx = x + (i / scallops) * w;
+    ctx.moveTo(sx, y + h + 2);
+    ctx.lineTo(sx, y + h + scallopH * 1.3);
+  }
+  ctx.stroke();
+}
+
+function drawProscenium(x, y, w, h) {
+  // Vertical side pilasters
+  const pilW = w * 0.045;
+  const pilGrad = ctx.createLinearGradient(x - pilW, 0, x + pilW, 0);
+  pilGrad.addColorStop(0, '#3b2510');
+  pilGrad.addColorStop(0.5, '#9b7736');
+  pilGrad.addColorStop(1, '#3b2510');
+  ctx.fillStyle = pilGrad;
+  ctx.fillRect(x - pilW * 0.8, y - h * 0.03, pilW * 1.4, h + h * 0.06);
+  const pilGradR = ctx.createLinearGradient(x + w - pilW, 0, x + w + pilW, 0);
+  pilGradR.addColorStop(0, '#3b2510');
+  pilGradR.addColorStop(0.5, '#9b7736');
+  pilGradR.addColorStop(1, '#3b2510');
+  ctx.fillStyle = pilGradR;
+  ctx.fillRect(x + w - pilW * 0.6, y - h * 0.03, pilW * 1.4, h + h * 0.06);
+
+  // Top valance (fabric drape above stage)
+  const valH = h * 0.11;
+  const valGrad = ctx.createLinearGradient(0, y - valH, 0, y + 4);
+  valGrad.addColorStop(0, '#5a0d0d');
+  valGrad.addColorStop(1, '#8a1a1a');
+  ctx.fillStyle = valGrad;
+  ctx.beginPath();
+  const scallops = 7;
+  ctx.moveTo(x - pilW, y - valH);
+  ctx.lineTo(x + w + pilW, y - valH);
+  ctx.lineTo(x + w + pilW, y);
+  for (let i = scallops; i > 0; i--) {
+    const sx1 = x + ((i - 1) / scallops) * w;
+    const sx2 = x + (i / scallops) * w;
+    ctx.quadraticCurveTo((sx1 + sx2) / 2, y + valH * 0.65, sx1, y);
+  }
+  ctx.lineTo(x - pilW, y);
+  ctx.closePath();
+  ctx.fill();
+
+  // Gold trim along valance
+  ctx.strokeStyle = 'rgba(220, 180, 100, 0.75)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x - pilW, y);
+  for (let i = 0; i < scallops; i++) {
+    const sx1 = x + (i / scallops) * w;
+    const sx2 = x + ((i + 1) / scallops) * w;
+    ctx.quadraticCurveTo((sx1 + sx2) / 2, y + valH * 0.65, sx2, y);
+  }
+  ctx.lineTo(x + w + pilW, y);
+  ctx.stroke();
+
+  // Top ornament (centered medallion)
+  const mx = x + w / 2;
+  const my = y - valH * 0.85;
+  ctx.fillStyle = '#c99a3f';
+  ctx.beginPath();
+  ctx.arc(mx, my, valH * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#5a3d10';
+  ctx.beginPath();
+  ctx.arc(mx, my, valH * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawAudience(x, y, w, h) {
+  // Silhouette heads of the audience beneath the stage
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  // Dark base
+  const grad = ctx.createLinearGradient(0, y, 0, y + h);
+  grad.addColorStop(0, 'rgba(30, 10, 10, 0.9)');
+  grad.addColorStop(1, 'rgba(5, 2, 4, 1)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+
+  // Rows of heads
+  const rows = Math.max(2, Math.floor(h / 22));
+  for (let r = 0; r < rows; r++) {
+    const ry = y + 12 + r * ((h - 8) / rows);
+    const headSize = 6 + r * 1.4;
+    const spacing = headSize * 2.2;
+    const offset = (r % 2) * spacing / 2;
+    for (let hx = x - spacing; hx < x + w + spacing; hx += spacing) {
+      ctx.beginPath();
+      ctx.arc(hx + offset, ry, headSize, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.55 + r * 0.05})`;
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawHUD() {
+  ctx.save();
+  ctx.font = "600 12px 'Cormorant Garamond', serif";
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(244, 236, 216, 0.55)';
+  const rightX = W - 14;
+  ctx.fillText(`ACT ${ROMAN[actIndex] || '·'}`, rightX, 12);
+  ctx.font = "italic 12px 'Cormorant Garamond', serif";
+  ctx.fillText(`bravos ${bravos}  ·  jeers ${jeers}`, rightX, 30);
+  ctx.restore();
+}
+
+// ============================================================
+// Main loop
+// ============================================================
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  lastFrame = now;
+
+  // Update curtain animation
+  const openSpeed = 1.7;
+  const closeSpeed = 2.4;
+  if (holding) curtainT -= openSpeed * dt;
+  else         curtainT += closeSpeed * dt;
+  curtainT = Math.max(0, Math.min(1, curtainT));
+
+  const nowActMs = scene === 'playing' ? now - actStart : 0;
+
+  // Auto-end if the act runs past its duration without judgment
+  if (scene === 'playing') {
+    const act = ACTS[actIndex];
+    if (nowActMs > act.duration && actJudgment === null) {
+      forceJudge();
+    }
+  }
+
+  drawStage(nowActMs);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
