@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<title>RESERVE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a0806;
+    color: #e6dccb;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+  #ui-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    text-align: center;
+    pointer-events: auto;
+    background: radial-gradient(circle at 50% 40%, rgba(30,20,12,0.85), rgba(10,8,6,0.97));
+  }
+  .screen.active { display: flex; }
+  h1.title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(2.4rem, 12vw, 4rem);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: #ffb35a;
+    text-shadow: 0 0 40px rgba(255,179,90,0.45);
+    margin-bottom: 0.5rem;
+  }
+  h2.end-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(1.6rem, 8vw, 2.6rem);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.35em;
+    color: rgba(255,179,90,0.6);
+    margin-bottom: 1.8rem;
+  }
+  .body {
+    font-size: 0.95rem;
+    max-width: 22rem;
+    line-height: 1.6;
+    opacity: 0.78;
+    margin-bottom: 1.6rem;
+  }
+  .hint {
+    font-size: 0.8rem;
+    opacity: 0.5;
+    max-width: 20rem;
+    line-height: 1.55;
+    margin-top: 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .btn {
+    background: transparent;
+    border: 1px solid #ffb35a;
+    color: #ffb35a;
+    padding: 0.85rem 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 120ms;
+  }
+  .btn:hover, .btn:active { background: rgba(255,179,90,0.15); }
+  .message-final {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(0.95rem, 4vw, 1.1rem);
+    line-height: 1.7;
+    color: #ffd9a3;
+    max-width: 22rem;
+    margin: 1.2rem 0 1.4rem;
+    padding: 1.2rem 1.4rem;
+    border-left: 2px solid rgba(255,179,90,0.5);
+    background: rgba(255,217,163,0.03);
+    text-align: left;
+  }
+  .end-detail {
+    opacity: 0.65;
+    font-size: 0.85rem;
+    margin-bottom: 1.6rem;
+    max-width: 20rem;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+  #back-btn {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 9998;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #back-btn:hover { background: rgba(0,0,0,0.75); }
+</style>
+</head>
+<body>
+<a id="back-btn" href="../../index.html">← Games</a>
+<canvas id="canvas"></canvas>
+<div id="ui-overlay">
+  <div id="title-screen" class="screen active">
+    <div class="subtitle">A GAME ABOUT DYING BATTERIES</div>
+    <h1 class="title">RESERVE</h1>
+    <p class="body">You are the last of a phone's battery. Someone is typing you a message they need to send.<br><br>Feed the three organs — <b style="color:#8ec6ff">SEE</b>, <b style="color:#8fdca8">WRITE</b>, <b style="color:#ff9d92">SEND</b> — one finger, or two. Keep them alive until the words go.</p>
+    <button class="btn" id="start-btn">BEGIN</button>
+    <p class="hint">HOLD an organ to power it.<br>YOU DO NOT KNOW WHAT THE MESSAGE SAYS UNTIL IT IS SENT.</p>
+  </div>
+  <div id="end-screen" class="screen">
+    <h2 class="end-title" id="end-title"></h2>
+    <div id="end-detail" class="end-detail"></div>
+    <div class="message-final" id="end-message"></div>
+    <button class="btn" id="restart-btn">AGAIN</button>
+  </div>
+</div>
+<script>
+  const ORIENTATION = 'PORTRAIT';
+
+  function checkOrientation() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                  (ORIENTATION === 'LANDSCAPE' && isPortrait);
+    let overlay = document.getElementById('orientation-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'orientation-overlay';
+      overlay.style.cssText = `
+        display:none; position:fixed; inset:0; z-index:9999;
+        background:#000; color:#fff; flex-direction:column;
+        align-items:center; justify-content:center;
+        font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+      `;
+      overlay.innerHTML = `
+        <div style="font-size:3rem">📱</div>
+        <div>Please rotate your device</div>
+        <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display = wrong ? 'flex' : 'none';
+  }
+  window.addEventListener('resize', checkOrientation);
+  checkOrientation();
+
+  async function tryLockOrientation() {
+    try {
+      await document.documentElement.requestFullscreen?.();
+      await screen.orientation?.lock?.(
+        ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+      );
+    } catch (_) { /* not supported — overlay handles it */ }
+  }
+  document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  let W = 0, H = 0;
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layout();
+  }
+  window.addEventListener('resize', resize);
+
+  const MESSAGES = [
+    "I forgive you. I should have said it years ago. I love you.",
+    "The spare key is under the loose stone by the roses. Feed the cat.",
+    "I lost the ring in the river. I'll find another before Sunday. Sorry.",
+    "I'm going to say yes. Tell them I love them. Tell them I'm coming home.",
+    "Don't wait up. The show ran long and the trains are stopped. Sleep well.",
+    "It was me who kept the letters. They are in the attic in mom's blue box.",
+    "I picked the wrong flowers. I hope you know I tried. I always tried.",
+    "I made it out of the water. I am okay. Tell mom I will call tomorrow.",
+    "The baby is here. She has your hands and your ears. Please come now.",
+    "Yes. A thousand times yes. Meet me at the pier before the tide goes out.",
+    "I never mailed the letter you asked me to. I read it. I am so sorry.",
+    "There is a fox on the porch. She is calm. I think she is here to stay."
+  ];
+
+  const ORGAN_KEYS = ['SEE', 'WRITE', 'SEND'];
+  const ORGAN_INFO = {
+    SEE:   { hue: 210, symbol: '◉', name: 'SEE' },
+    WRITE: { hue: 140, symbol: '✎', name: 'WRITE' },
+    SEND:  { hue: 358, symbol: '⟟', name: 'SEND' }
+  };
+
+  let state = null;
+  let organRegions = {};
+  let poolRegion = null;
+
+  function initState() {
+    const msg = MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
+    state = {
+      battery: 100,
+      passiveDrain: 0.55,
+      chargeCost: 1.6,
+      organs: {
+        SEE:   { health: 72, max: 100, drain: 1.35, chargeRate: 5.0, deathFlash: 0, birthFlash: 0 },
+        WRITE: { health: 72, max: 100, drain: 1.55, chargeRate: 5.0, deathFlash: 0, birthFlash: 0 },
+        SEND:  { health: 72, max: 100, drain: 1.15, chargeRate: 5.0, deathFlash: 0, birthFlash: 0 }
+      },
+      touches: new Map(),
+      chargingOrgans: new Set(),
+      message: msg,
+      typedIndex: 0,
+      displayText: '',
+      typeSpeed: 4.5,
+      status: 'playing',
+      sendingProgress: 0,
+      sendingSpeed: 32,
+      lastTs: performance.now(),
+      time: 0,
+      firstTouchMade: false
+    };
+  }
+
+  function layout() {
+    const cy = H * 0.5;
+    const usable = Math.min(W * 0.98, H * 0.55);
+    const spacing = usable / 3;
+    const r = Math.min(spacing * 0.34, H * 0.075);
+    const startX = W / 2 - spacing;
+    organRegions = {
+      SEE:   { x: startX + spacing * 0, y: cy, r: r },
+      WRITE: { x: startX + spacing * 1, y: cy, r: r },
+      SEND:  { x: startX + spacing * 2, y: cy, r: r }
+    };
+    const poolR = Math.min(W * 0.18, H * 0.11);
+    poolRegion = { x: W/2, y: H * 0.83, r: poolR };
+  }
+
+  function hitTest(x, y) {
+    for (const key of ORGAN_KEYS) {
+      const r = organRegions[key];
+      if (!r) continue;
+      const dx = x - r.x, dy = y - r.y;
+      const hitR = Math.max(r.r * 1.7, 44);
+      if (dx*dx + dy*dy < hitR * hitR) return key;
+    }
+    return null;
+  }
+
+  function onTouchStart(e) {
+    if (!state || (state.status !== 'playing' && state.status !== 'sending')) return;
+    e.preventDefault();
+    state.firstTouchMade = true;
+    const rect = canvas.getBoundingClientRect();
+    for (const t of e.changedTouches) {
+      const x = t.clientX - rect.left;
+      const y = t.clientY - rect.top;
+      const organ = hitTest(x, y);
+      if (organ) {
+        state.touches.set(t.identifier, organ);
+        state.chargingOrgans.add(organ);
+      }
+    }
+  }
+  function onTouchEnd(e) {
+    if (!state) return;
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const organ = state.touches.get(t.identifier);
+      if (organ) {
+        state.touches.delete(t.identifier);
+        const stillOn = [...state.touches.values()].includes(organ);
+        if (!stillOn) state.chargingOrgans.delete(organ);
+      }
+    }
+  }
+  function onMouseDown(e) {
+    if (!state || (state.status !== 'playing' && state.status !== 'sending')) return;
+    e.preventDefault();
+    state.firstTouchMade = true;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const organ = hitTest(x, y);
+    if (organ) {
+      state.touches.set('mouse', organ);
+      state.chargingOrgans.add(organ);
+    }
+  }
+  function onMouseUp(e) {
+    if (!state) return;
+    e.preventDefault();
+    const organ = state.touches.get('mouse');
+    if (organ) {
+      state.touches.delete('mouse');
+      state.chargingOrgans.delete(organ);
+    }
+  }
+
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', () => {
+    if (!state) return;
+    state.touches.delete('mouse');
+    for (const k of ORGAN_KEYS) {
+      if (![...state.touches.values()].includes(k)) state.chargingOrgans.delete(k);
+    }
+  });
+
+  function tick(ts) {
+    const dt = Math.min(0.05, (ts - state.lastTs) / 1000);
+    state.lastTs = ts;
+    state.time += dt;
+
+    if (state.status === 'playing' || state.status === 'sending') {
+      state.battery -= state.passiveDrain * dt;
+      state.battery -= state.chargingOrgans.size * state.chargeCost * dt;
+
+      for (const k of ORGAN_KEYS) {
+        const o = state.organs[k];
+        const wasAlive = o.health > 0;
+        if (state.chargingOrgans.has(k) && state.battery > 0) {
+          o.health = Math.min(o.max, o.health + o.chargeRate * dt);
+          if (!wasAlive && o.health > 0) o.birthFlash = 1;
+        } else {
+          o.health = Math.max(0, o.health - o.drain * dt);
+          if (wasAlive && o.health === 0) o.deathFlash = 1;
+        }
+        o.deathFlash = Math.max(0, o.deathFlash - dt * 1.5);
+        o.birthFlash = Math.max(0, o.birthFlash - dt * 1.5);
+      }
+
+      if (state.status === 'playing') {
+        const writePct = state.organs.WRITE.health / state.organs.WRITE.max;
+        if (state.organs.WRITE.health > 0) {
+          const speed = state.typeSpeed * (0.35 + 0.65 * writePct);
+          state.typedIndex = Math.min(state.message.length, state.typedIndex + speed * dt);
+        }
+        while (state.displayText.length < Math.floor(state.typedIndex)) {
+          const next = state.message[state.displayText.length];
+          if (state.organs.SEE.health > 4) {
+            state.displayText += next;
+          } else {
+            state.displayText += (next === ' ') ? ' ' : '_';
+          }
+        }
+        if (state.typedIndex >= state.message.length) {
+          state.status = 'sending';
+        }
+      } else if (state.status === 'sending') {
+        const sendPct = state.organs.SEND.health / state.organs.SEND.max;
+        if (state.organs.SEND.health > 0) {
+          state.sendingProgress += state.sendingSpeed * dt * (0.4 + 0.6 * sendPct);
+        }
+        if (state.sendingProgress >= 100) {
+          state.status = 'won';
+          showEnd(true);
+        }
+      }
+
+      if (state.battery <= 0) {
+        state.battery = 0;
+        state.status = 'lost';
+        showEnd(false);
+      }
+    }
+
+    render(ts);
+    if (state.status === 'playing' || state.status === 'sending') {
+      requestAnimationFrame(tick);
+    }
+  }
+
+  function render(ts) {
+    const dimFactor = Math.min(1, state.battery / 25);
+    const bgBase = 8 + Math.floor(6 * dimFactor);
+    ctx.fillStyle = `rgb(${bgBase + 2}, ${bgBase}, ${Math.max(4, bgBase - 2)})`;
+    ctx.fillRect(0, 0, W, H);
+
+    if (state.battery < 20) {
+      const flick = Math.sin(state.time * 25) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(0,0,0,${0.15 + flick * 0.1 * (1 - state.battery/20)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    renderMessageArea(ts);
+
+    for (const k of ORGAN_KEYS) {
+      renderConnection(k, ts);
+    }
+    for (const k of ORGAN_KEYS) {
+      renderOrgan(k, ts);
+    }
+
+    renderPool(ts);
+    renderHUD(ts);
+    renderFirstHint(ts);
+  }
+
+  function renderMessageArea(ts) {
+    const areaY = H * 0.08;
+    const areaH = H * 0.22;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,217,163,0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.strokeRect(W * 0.05, areaY, W * 0.9, areaH);
+    ctx.setLineDash([]);
+
+    const label = state.status === 'sending' ? 'SENDING' : 'COMPOSING';
+    ctx.font = `600 ${Math.min(W,H)*0.024}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = state.status === 'sending' ? 'rgba(255,120,120,0.85)' : 'rgba(255,217,163,0.5)';
+    ctx.fillText(label, W * 0.07, areaY + 6);
+
+    if (state.status === 'sending') {
+      const pct = Math.floor(state.sendingProgress);
+      ctx.textAlign = 'right';
+      ctx.fillText(pct + '%', W * 0.93, areaY + 6);
+    }
+
+    const fontSize = Math.min(W * 0.05, H * 0.028);
+    ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const cursor = state.status === 'playing' && Math.floor(state.time * 2.4) % 2 ? '▍' : '';
+    const displayed = state.displayText + cursor;
+    const seeAlive = state.organs.SEE.health > 4;
+    const color = seeAlive ? '#ffd9a3' : 'rgba(120,90,70,0.4)';
+    wrapText(ctx, displayed, W/2, areaY + areaH * 0.55, W * 0.85, fontSize * 1.55, color);
+    ctx.restore();
+  }
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight, color) {
+    if (!text) return;
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxWidth && cur) {
+        lines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur) lines.push(cur);
+    const totalH = (lines.length - 1) * lineHeight;
+    ctx.fillStyle = color;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, x, y - totalH/2 + i * lineHeight);
+    });
+  }
+
+  function renderConnection(key, ts) {
+    const r = organRegions[key];
+    const info = ORGAN_INFO[key];
+    const charging = state.chargingOrgans.has(key);
+    const alive = state.organs[key].health > 0;
+
+    const startX = poolRegion.x;
+    const startY = poolRegion.y - poolRegion.r * 0.95;
+    const endX = r.x;
+    const endY = r.y + r.r;
+
+    ctx.strokeStyle = charging ? `hsla(${info.hue}, 90%, 65%, 0.6)` : (alive ? `hsla(${info.hue}, 30%, 40%, 0.22)` : 'rgba(70,60,50,0.12)');
+    ctx.lineWidth = charging ? 2.5 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+
+    if (charging) {
+      const t = (ts * 0.0015) % 1;
+      for (let i = 0; i < 3; i++) {
+        const pt = ((t + i / 3) % 1);
+        const px = startX + (endX - startX) * pt;
+        const py = startY + (endY - startY) * pt;
+        ctx.fillStyle = `hsl(${info.hue}, 100%, 78%)`;
+        ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+
+  function renderOrgan(key, ts) {
+    const r = organRegions[key];
+    const o = state.organs[key];
+    const info = ORGAN_INFO[key];
+    const healthPct = o.health / o.max;
+    const alive = o.health > 0;
+    const charging = state.chargingOrgans.has(key);
+
+    if (charging || o.birthFlash > 0) {
+      const strength = charging ? 0.55 : o.birthFlash * 0.7;
+      const grad = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.r * 2.4);
+      grad.addColorStop(0, `hsla(${info.hue}, 90%, 65%, ${strength})`);
+      grad.addColorStop(1, `hsla(${info.hue}, 90%, 65%, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r * 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    if (o.deathFlash > 0) {
+      const grad = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.r * 2.4);
+      grad.addColorStop(0, `hsla(0, 90%, 55%, ${o.deathFlash * 0.4})`);
+      grad.addColorStop(1, `hsla(0, 90%, 55%, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r * 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `hsla(${info.hue}, 30%, 22%, 0.75)`;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2); ctx.stroke();
+
+    if (healthPct > 0) {
+      const arcStart = -Math.PI / 2;
+      const arcEnd = arcStart + Math.PI * 2 * healthPct;
+      ctx.strokeStyle = `hsl(${info.hue}, 80%, 62%)`;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r, arcStart, arcEnd); ctx.stroke();
+    }
+
+    const bodyGrad = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.r * 0.9);
+    if (alive) {
+      const glow = 0.15 + healthPct * 0.35 + (charging ? 0.28 : 0);
+      bodyGrad.addColorStop(0, `hsla(${info.hue}, 85%, 62%, ${glow})`);
+      bodyGrad.addColorStop(1, `hsla(${info.hue}, 85%, 62%, 0)`);
+    } else {
+      bodyGrad.addColorStop(0, 'rgba(35,25,18,0.85)');
+      bodyGrad.addColorStop(1, 'rgba(10,8,6,0)');
+    }
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r * 0.9, 0, Math.PI * 2); ctx.fill();
+
+    ctx.font = `${r.r * 1.0}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = alive ? `hsl(${info.hue}, 55%, 88%)` : '#3a2e26';
+    ctx.fillText(info.symbol, r.x, r.y);
+
+    ctx.font = `600 ${Math.max(10, r.r * 0.30)}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = alive ? 'rgba(230,220,200,0.85)' : 'rgba(90,75,65,0.55)';
+    ctx.fillText(info.name, r.x, r.y + r.r * 1.55);
+  }
+
+  function renderPool(ts) {
+    const p = poolRegion;
+    const batteryPct = Math.max(0, state.battery / 100);
+
+    const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2.4);
+    glowGrad.addColorStop(0, `hsla(35, 90%, 55%, ${0.35 * batteryPct + 0.05})`);
+    glowGrad.addColorStop(1, `hsla(35, 90%, 55%, 0)`);
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.4, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,179,90,0.35)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.clip();
+    const fillY = p.y + p.r - p.r * 2 * batteryPct;
+    ctx.fillStyle = `hsla(35, 88%, ${42 + batteryPct * 18}%, ${0.72 + batteryPct * 0.25})`;
+    ctx.beginPath();
+    ctx.moveTo(p.x - p.r, p.y + p.r);
+    ctx.lineTo(p.x - p.r, fillY);
+    for (let x = -p.r; x <= p.r; x += 3) {
+      const wx = p.x + x;
+      const wy = fillY + Math.sin(ts * 0.003 + x * 0.05) * 3 + Math.sin(ts * 0.005 + x * 0.11) * 1.5;
+      ctx.lineTo(wx, wy);
+    }
+    ctx.lineTo(p.x + p.r, p.y + p.r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.font = `700 ${p.r * 0.55}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const numDisplay = Math.max(0, Math.ceil(state.battery));
+    if (batteryPct > 0.35) {
+      ctx.fillStyle = 'rgba(15,10,5,0.8)';
+    } else {
+      ctx.fillStyle = state.battery < 15 && Math.floor(state.time * 3) % 2 ? '#ff8a5a' : '#ffb35a';
+    }
+    ctx.fillText(numDisplay, p.x, p.y);
+
+    ctx.font = `600 ${p.r * 0.20}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = 'rgba(230,220,200,0.55)';
+    ctx.fillText('RESERVE', p.x, p.y + p.r * 1.35);
+  }
+
+  function renderHUD(ts) {
+    // Bottom hint line
+    if (state.time < 5 && state.firstTouchMade) {
+      ctx.font = `500 ${Math.min(W,H)*0.022}px 'JetBrains Mono', monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = `rgba(255,217,163,${0.5 - state.time * 0.1})`;
+      ctx.fillText('hold to power · two fingers ok', W/2, H * 0.35);
+    }
+  }
+
+  function renderFirstHint(ts) {
+    if (state.firstTouchMade || state.time < 0.6) return;
+    const pulse = 0.4 + Math.sin(state.time * 3) * 0.15;
+    for (const k of ORGAN_KEYS) {
+      const r = organRegions[k];
+      const info = ORGAN_INFO[k];
+      ctx.strokeStyle = `hsla(${info.hue}, 80%, 65%, ${pulse * 0.55})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r * (1.15 + Math.sin(state.time * 3 + info.hue) * 0.05), 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.font = `500 ${Math.min(W,H)*0.022}px 'JetBrains Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = `rgba(255,217,163,${pulse * 0.8})`;
+    ctx.fillText('press and hold', W/2, H * 0.62);
+  }
+
+  function showEnd(won) {
+    const endScreen = document.getElementById('end-screen');
+    const endTitle = document.getElementById('end-title');
+    const endMessage = document.getElementById('end-message');
+    const endDetail = document.getElementById('end-detail');
+    if (won) {
+      endTitle.textContent = 'SENT';
+      endTitle.style.color = '#ffb35a';
+      endTitle.style.textShadow = '0 0 30px rgba(255,179,90,0.5)';
+      endMessage.textContent = state.message;
+      endMessage.style.borderLeftColor = 'rgba(255,179,90,0.5)';
+      const left = Math.ceil(state.battery);
+      endDetail.textContent = `Delivered with ${left}% to spare.`;
+    } else {
+      endTitle.textContent = 'DARK';
+      endTitle.style.color = '#d94a3f';
+      endTitle.style.textShadow = '0 0 30px rgba(217,74,63,0.4)';
+      const half = (state.displayText || '').trim();
+      if (half) {
+        endMessage.textContent = half + '…';
+      } else {
+        endMessage.textContent = '(nothing left the phone)';
+      }
+      endMessage.style.borderLeftColor = 'rgba(217,74,63,0.5)';
+      let reason = 'The reserve went to zero.';
+      if (state.status === 'lost' && state.typedIndex >= state.message.length) {
+        reason = 'The words were written. The radio had nothing left to send them with.';
+      } else if (state.organs.WRITE.health === 0 && state.organs.SEE.health === 0) {
+        reason = 'You could neither see nor write. The screen just went dark.';
+      }
+      endDetail.textContent = reason;
+    }
+    setTimeout(() => endScreen.classList.add('active'), 350);
+  }
+
+  function startGame() {
+    document.getElementById('title-screen').classList.remove('active');
+    document.getElementById('end-screen').classList.remove('active');
+    initState();
+    requestAnimationFrame((ts) => { state.lastTs = ts; tick(ts); });
+  }
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+
+  resize();
+
+  // Idle render on title screen — soft ambient pool
+  function idleRender() {
+    if (state) return;
+    resize();
+    const ts = performance.now();
+    ctx.fillStyle = '#0a0806';
+    ctx.fillRect(0, 0, W, H);
+    // Ambient reserve pool underneath the title
+    const p = { x: W/2, y: H * 0.83, r: Math.min(W * 0.18, H * 0.11) };
+    const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2.4);
+    glowGrad.addColorStop(0, `hsla(35, 90%, 55%, 0.28)`);
+    glowGrad.addColorStop(1, `hsla(35, 90%, 55%, 0)`);
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.4, 0, Math.PI * 2); ctx.fill();
+    requestAnimationFrame(idleRender);
+  }
+  idleRender();
+</script>
+</body>
+</html>
