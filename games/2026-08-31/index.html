@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>HALVES</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0d0f14;
+      color: #ecebe4;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    #back-btn {
+      position: fixed;
+      top: 0.75rem;
+      left: 0.75rem;
+      z-index: 9998;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: none;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      font-family: system-ui, sans-serif;
+    }
+    #back-btn:hover { background: rgba(0,0,0,0.75); }
+
+    canvas {
+      display: block;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background: #0d0f14;
+      z-index: 100;
+    }
+    .screen.active { display: flex; }
+
+    #title-screen h1 {
+      font-size: clamp(3rem, 16vw, 6rem);
+      font-weight: 300;
+      letter-spacing: 0.55em;
+      margin-right: -0.55em;
+    }
+    #title-screen .sub {
+      font-style: italic;
+      opacity: 0.55;
+      max-width: 22em;
+      margin: 2rem 0 2.5rem;
+      font-size: 1.15rem;
+      line-height: 1.55;
+      font-weight: 300;
+    }
+    .btn {
+      background: transparent;
+      border: 1px solid rgba(236,235,228,0.35);
+      color: #ecebe4;
+      padding: 0.75rem 2rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      letter-spacing: 0.2em;
+      text-transform: lowercase;
+      cursor: pointer;
+      border-radius: 0;
+      transition: background 0.2s, border-color 0.2s;
+      min-width: 8rem;
+    }
+    .btn:hover, .btn:active {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(236,235,228,0.6);
+    }
+
+    #hud {
+      position: fixed;
+      top: 3.75rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #hud.active { display: flex; }
+    #shape-label {
+      font-style: italic;
+      opacity: 0.75;
+      font-size: 1.5rem;
+      letter-spacing: 0.05em;
+      font-weight: 300;
+    }
+    #balance {
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
+      font-size: 1.15rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      font-variant-numeric: tabular-nums;
+    }
+    #balance .a { color: #eb8460; }
+    #balance .b { color: #6bb7c4; }
+    #balance .sep { opacity: 0.35; font-weight: 300; }
+
+    #footer {
+      position: fixed;
+      bottom: 1.75rem;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #verdict {
+      font-size: 1.6rem;
+      font-style: italic;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      min-height: 1.6em;
+    }
+    #verdict.show { opacity: 1; }
+
+    #action-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .action-btn {
+      display: none;
+      pointer-events: auto;
+    }
+    .action-btn.show { display: inline-block; }
+
+    #end-screen h1 {
+      font-size: clamp(2.5rem, 10vw, 4rem);
+      font-weight: 300;
+      letter-spacing: 0.4em;
+      margin-right: -0.4em;
+    }
+    #end-screen .final {
+      font-style: italic;
+      opacity: 0.7;
+      max-width: 24em;
+      margin: 2.5rem 0 2rem;
+      font-size: 1.25rem;
+      line-height: 1.7;
+      font-weight: 300;
+    }
+
+    #progress {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      display: none;
+      gap: 0.45rem;
+      z-index: 20;
+    }
+    #progress.active { display: flex; }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(236,235,228,0.18);
+      transition: background 0.3s;
+    }
+    .dot.done { background: rgba(236,235,228,0.75); }
+    .dot.current { background: #eb8460; }
+
+    #prompt-hint {
+      position: fixed;
+      bottom: 7rem;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-style: italic;
+      opacity: 0;
+      font-size: 1.05rem;
+      pointer-events: none;
+      transition: opacity 0.8s;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      color: rgba(236,235,228,0.5);
+      z-index: 15;
+    }
+    #prompt-hint.show { opacity: 1; }
+
+    .fade-in {
+      animation: fadeIn 0.6s ease both;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <a id="back-btn" href="../../index.html">← Games</a>
+
+  <canvas id="canvas"></canvas>
+
+  <div id="progress"></div>
+
+  <div id="hud">
+    <div id="shape-label"></div>
+    <div id="balance">
+      <span class="a" id="balance-a">50.00</span>
+      <span class="sep">/</span>
+      <span class="b" id="balance-b">50.00</span>
+    </div>
+  </div>
+
+  <div id="prompt-hint">draw one straight line across the shape</div>
+
+  <div id="footer">
+    <div id="verdict"></div>
+    <div id="action-row">
+      <button class="btn action-btn" id="retry-btn">try again</button>
+      <button class="btn action-btn" id="next-btn">continue</button>
+    </div>
+  </div>
+
+  <div class="screen active" id="title-screen">
+    <h1>HALVES</h1>
+    <div class="sub">seven shapes. one straight line each. divide every one exactly in two.</div>
+    <button class="btn" id="start-btn">begin</button>
+  </div>
+
+  <div class="screen" id="end-screen">
+    <h1>DONE</h1>
+    <div class="final">each thing halved exactly. nothing left uneven.</div>
+    <button class="btn" id="restart-btn">again</button>
+  </div>
+
+  <script>
+    const ORIENTATION = 'PORTRAIT';
+
+    function checkOrientation() {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      const wrong = (ORIENTATION === 'PORTRAIT' && !isPortrait) ||
+                    (ORIENTATION === 'LANDSCAPE' && isPortrait);
+
+      let overlay = document.getElementById('orientation-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'orientation-overlay';
+        overlay.style.cssText = `
+          display:none; position:fixed; inset:0; z-index:9999;
+          background:#000; color:#fff; flex-direction:column;
+          align-items:center; justify-content:center;
+          font-family:sans-serif; font-size:1.2rem; text-align:center; gap:1rem;
+        `;
+        overlay.innerHTML = `
+          <div style="font-size:3rem">📱</div>
+          <div>Please rotate your device</div>
+          <div style="font-size:0.85rem;opacity:0.6;">${ORIENTATION === 'PORTRAIT' ? 'This game is best played upright' : 'This game is best played sideways'}</div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      overlay.style.display = wrong ? 'flex' : 'none';
+    }
+
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
+
+    async function tryLockOrientation() {
+      try {
+        await document.documentElement.requestFullscreen?.();
+        await screen.orientation?.lock?.(
+          ORIENTATION === 'PORTRAIT' ? 'portrait' : 'landscape'
+        );
+      } catch (_) { /* not supported — overlay handles it */ }
+    }
+    document.addEventListener('pointerdown', tryLockOrientation, { once: true });
+
+    // ---------- Geometry helpers ----------
+
+    function makeCircle(n) {
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        pts.push({ x: Math.cos(a), y: Math.sin(a) });
+      }
+      return pts;
+    }
+
+    function makeRegularPolygon(n, rotation) {
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const a = rotation + (i / n) * Math.PI * 2 - Math.PI / 2;
+        pts.push({ x: Math.cos(a), y: Math.sin(a) });
+      }
+      return pts;
+    }
+
+    function makeStarOutline(points, innerRatio) {
+      const pts = [];
+      for (let i = 0; i < points; i++) {
+        const aTip = -Math.PI / 2 + (i / points) * Math.PI * 2;
+        const aInner = aTip + Math.PI / points;
+        pts.push({ x: Math.cos(aTip), y: Math.sin(aTip) });
+        pts.push({ x: innerRatio * Math.cos(aInner), y: innerRatio * Math.sin(aInner) });
+      }
+      return pts;
+    }
+
+    function makeStarSubs(points, innerRatio) {
+      const inner = [];
+      for (let i = 0; i < points; i++) {
+        const a = -Math.PI / 2 + (i / points) * Math.PI * 2 + Math.PI / points;
+        inner.push({ x: innerRatio * Math.cos(a), y: innerRatio * Math.sin(a) });
+      }
+      const subs = [inner];
+      for (let i = 0; i < points; i++) {
+        const a = -Math.PI / 2 + (i / points) * Math.PI * 2;
+        const tip = { x: Math.cos(a), y: Math.sin(a) };
+        const innerBefore = inner[(i + points - 1) % points];
+        const innerAfter = inner[i];
+        subs.push([tip, innerAfter, innerBefore]);
+      }
+      return subs;
+    }
+
+    function makeEllipse(a, b, n) {
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const t = (i / n) * Math.PI * 2;
+        pts.push({ x: a * Math.cos(t), y: b * Math.sin(t) });
+      }
+      return pts;
+    }
+
+    function makeEgg(n) {
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const t = (i / n) * Math.PI * 2;
+        const c = Math.cos(t);
+        const s = Math.sin(t);
+        const widthMod = 1 + 0.14 * s;
+        pts.push({ x: c * widthMod * 0.82, y: s * 1.12 });
+      }
+      return pts;
+    }
+
+    // ---------- Shape definitions ----------
+    // Each shape: outline (single polygon boundary, for rendering & stroke),
+    //             subs (array of CONVEX sub-polygons summing to the same area, for splitting),
+    //             scale (fraction of available min-dim used as radius).
+
+    function buildShapes() {
+      const c = makeCircle(72);
+      const win = makeRegularPolygon(4, Math.PI / 4);
+      const tri = makeRegularPolygon(3, 0);
+      const pen = makeRegularPolygon(5, 0);
+      const starOut = makeStarOutline(5, 0.42);
+      const starSubs = makeStarSubs(5, 0.42);
+      const ell = makeEllipse(1, 0.42, 72);
+      const egg = makeEgg(72);
+      return [
+        { name: 'the moon',    outline: c,       subs: [c],       scale: 0.36 },
+        { name: 'the window',  outline: win,     subs: [win],     scale: 0.34 },
+        { name: 'the arrow',   outline: tri,     subs: [tri],     scale: 0.42 },
+        { name: 'the pact',    outline: pen,     subs: [pen],     scale: 0.38 },
+        { name: 'the wish',    outline: starOut, subs: starSubs,  scale: 0.42 },
+        { name: 'the eye',     outline: ell,     subs: [ell],     scale: 0.48 },
+        { name: 'you',         outline: egg,     subs: [egg],     scale: 0.36 },
+      ];
+    }
+
+    const shapes = buildShapes();
+
+    // ---------- Rendering setup ----------
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let DPR = 1, W = 0, H = 0;
+
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    resize();
+
+    // ---------- Geometry math ----------
+
+    function polygonArea(poly) {
+      let a = 0;
+      const n = poly.length;
+      for (let i = 0; i < n; i++) {
+        const c = poly[i];
+        const nx = poly[(i + 1) % n];
+        a += c.x * nx.y - nx.x * c.y;
+      }
+      return Math.abs(a) / 2;
+    }
+
+    function signedSide(line, p) {
+      const dx = line.p2.x - line.p1.x;
+      const dy = line.p2.y - line.p1.y;
+      return (p.x - line.p1.x) * dy - (p.y - line.p1.y) * dx;
+    }
+
+    // Split a convex polygon by an infinite line into [leftPolygon, rightPolygon].
+    function splitConvex(poly, line) {
+      const left = [];
+      const right = [];
+      const n = poly.length;
+      const sides = new Array(n);
+      for (let i = 0; i < n; i++) sides[i] = signedSide(line, poly[i]);
+      for (let i = 0; i < n; i++) {
+        const curr = poly[i];
+        const next = poly[(i + 1) % n];
+        const cs = sides[i];
+        const ns = sides[(i + 1) % n];
+        if (cs >= 0) left.push(curr);
+        if (cs <= 0) right.push(curr);
+        if ((cs > 0 && ns < 0) || (cs < 0 && ns > 0)) {
+          const t = cs / (cs - ns);
+          const isect = {
+            x: curr.x + t * (next.x - curr.x),
+            y: curr.y + t * (next.y - curr.y),
+          };
+          left.push(isect);
+          right.push(isect);
+        }
+      }
+      return [left, right];
+    }
+
+    // ---------- Game state ----------
+
+    let currentIndex = 0;
+    let scaledOutline = null;
+    let scaledSubs = null;
+    let center = { x: 0, y: 0 };
+    let currentScaleValue = 1;
+    let totalArea = 0;
+    let leftArea = 0;
+    let rightArea = 0;
+    let line = null;
+    let dragging = false;
+    let locked = false;
+    let perfectPulse = 0;
+
+    const shapeLabel = document.getElementById('shape-label');
+    const hud = document.getElementById('hud');
+    const balanceA = document.getElementById('balance-a');
+    const balanceB = document.getElementById('balance-b');
+    const verdict = document.getElementById('verdict');
+    const nextBtn = document.getElementById('next-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const promptHint = document.getElementById('prompt-hint');
+    const progress = document.getElementById('progress');
+    const titleScreen = document.getElementById('title-screen');
+    const endScreen = document.getElementById('end-screen');
+
+    function positionShape() {
+      const shape = shapes[currentIndex];
+      const availW = W - 40;
+      const availH = H - 260; // reserve top for HUD and bottom for verdict/buttons
+      const availableSize = Math.max(120, Math.min(availW, availH));
+      currentScaleValue = availableSize * shape.scale;
+      center = { x: W / 2, y: H / 2 };
+      scaledOutline = shape.outline.map(p => ({
+        x: center.x + p.x * currentScaleValue,
+        y: center.y + p.y * currentScaleValue,
+      }));
+      scaledSubs = shape.subs.map(sub => sub.map(p => ({
+        x: center.x + p.x * currentScaleValue,
+        y: center.y + p.y * currentScaleValue,
+      })));
+      totalArea = 0;
+      for (const sub of scaledSubs) totalArea += polygonArea(sub);
+    }
+
+    function computeAreas() {
+      if (!line || !scaledSubs) {
+        leftArea = totalArea;
+        rightArea = 0;
+        return;
+      }
+      const dx = line.p2.x - line.p1.x;
+      const dy = line.p2.y - line.p1.y;
+      if (dx * dx + dy * dy < 4) {
+        leftArea = totalArea;
+        rightArea = 0;
+        return;
+      }
+      let lA = 0, rA = 0;
+      for (const sub of scaledSubs) {
+        const [l, r] = splitConvex(sub, line);
+        if (l.length >= 3) lA += polygonArea(l);
+        if (r.length >= 3) rA += polygonArea(r);
+      }
+      leftArea = lA;
+      rightArea = rA;
+    }
+
+    function updateHUD() {
+      const total = leftArea + rightArea;
+      const pctA = total > 0 ? (leftArea / total) * 100 : 50;
+      const pctB = total > 0 ? (rightArea / total) * 100 : 50;
+      balanceA.textContent = pctA.toFixed(2);
+      balanceB.textContent = pctB.toFixed(2);
+    }
+
+    function updateProgress() {
+      progress.innerHTML = '';
+      for (let i = 0; i < shapes.length; i++) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        if (i < currentIndex) d.classList.add('done');
+        if (i === currentIndex) d.classList.add('current');
+        progress.appendChild(d);
+      }
+    }
+
+    function loadShape() {
+      positionShape();
+      line = null;
+      dragging = false;
+      locked = false;
+      leftArea = totalArea;
+      rightArea = 0;
+      shapeLabel.textContent = shapes[currentIndex].name;
+      shapeLabel.classList.remove('fade-in');
+      // Force reflow so animation replays
+      void shapeLabel.offsetWidth;
+      shapeLabel.classList.add('fade-in');
+      balanceA.textContent = '50.00';
+      balanceB.textContent = '50.00';
+      verdict.classList.remove('show');
+      verdict.textContent = '';
+      nextBtn.classList.remove('show');
+      retryBtn.classList.remove('show');
+      promptHint.classList.add('show');
+      updateProgress();
+      draw();
+    }
+
+    function scoreSplit() {
+      const total = leftArea + rightArea;
+      if (total < totalArea * 0.5) {
+        // Line barely intersects the shape — treat as invalid attempt
+        verdict.textContent = 'the line must cross it';
+        verdict.style.color = 'rgba(236,235,228,0.7)';
+        retryBtn.classList.add('show');
+        verdict.classList.add('show');
+        locked = true;
+        return;
+      }
+      const pctA = (leftArea / total) * 100;
+      const pctB = (rightArea / total) * 100;
+      const err = Math.abs(pctA - pctB);
+      locked = true;
+      if (err < 0.6) {
+        verdict.textContent = 'perfect';
+        verdict.style.color = '#f7d992';
+        nextBtn.classList.add('show');
+        perfectPulse = 1;
+        if (navigator.vibrate) navigator.vibrate(30);
+      } else if (err < 3) {
+        verdict.textContent = 'close enough';
+        verdict.style.color = '#e6c78e';
+        nextBtn.classList.add('show');
+      } else if (err < 8) {
+        verdict.textContent = 'not quite even';
+        verdict.style.color = 'rgba(236,235,228,0.75)';
+        retryBtn.classList.add('show');
+      } else {
+        verdict.textContent = 'try again';
+        verdict.style.color = 'rgba(236,235,228,0.75)';
+        retryBtn.classList.add('show');
+      }
+      verdict.classList.add('show');
+    }
+
+    // ---------- Drawing ----------
+
+    function drawOutlinePath(poly) {
+      ctx.beginPath();
+      ctx.moveTo(poly[0].x, poly[0].y);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y);
+      ctx.closePath();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      if (!scaledOutline) return;
+
+      // Base fill (subtle)
+      drawOutlinePath(scaledOutline);
+      ctx.fillStyle = 'rgba(236,235,228,0.06)';
+      ctx.fill();
+
+      // Colored halves clipped inside outline
+      if (line) {
+        ctx.save();
+        drawOutlinePath(scaledOutline);
+        ctx.clip();
+
+        // Compute a large rectangle covering each half-plane
+        const dx = line.p2.x - line.p1.x;
+        const dy = line.p2.y - line.p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len > 0) {
+          const nx = dx / len;
+          const ny = dy / len;
+          // Perpendicular normal (pointing "left" as defined by signedSide > 0)
+          const px = ny;
+          const py = -nx;
+          const big = Math.max(W, H) * 2;
+
+          // Left half-plane polygon (extends in +normal direction)
+          const goldPulse = perfectPulse > 0.02
+            ? `rgba(247, 217, 146, ${0.55 + 0.35 * perfectPulse})`
+            : 'rgba(235, 132, 96, 0.62)';
+          const otherPulse = perfectPulse > 0.02
+            ? `rgba(247, 217, 146, ${0.55 + 0.35 * perfectPulse})`
+            : 'rgba(107, 183, 196, 0.62)';
+
+          ctx.fillStyle = goldPulse;
+          ctx.beginPath();
+          ctx.moveTo(line.p1.x - nx * big, line.p1.y - ny * big);
+          ctx.lineTo(line.p2.x + nx * big, line.p2.y + ny * big);
+          ctx.lineTo(line.p2.x + nx * big + px * big, line.p2.y + ny * big + py * big);
+          ctx.lineTo(line.p1.x - nx * big + px * big, line.p1.y - ny * big + py * big);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = otherPulse;
+          ctx.beginPath();
+          ctx.moveTo(line.p1.x - nx * big, line.p1.y - ny * big);
+          ctx.lineTo(line.p2.x + nx * big, line.p2.y + ny * big);
+          ctx.lineTo(line.p2.x + nx * big - px * big, line.p2.y + ny * big - py * big);
+          ctx.lineTo(line.p1.x - nx * big - px * big, line.p1.y - ny * big - py * big);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Outline stroke
+      drawOutlinePath(scaledOutline);
+      ctx.strokeStyle = 'rgba(236,235,228,0.55)';
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+
+      // The line
+      if (line) {
+        const dx = line.p2.x - line.p1.x;
+        const dy = line.p2.y - line.p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len > 0) {
+          const nx = dx / len;
+          const ny = dy / len;
+          const extend = Math.max(W, H);
+          const x1 = line.p1.x - nx * extend;
+          const y1 = line.p1.y - ny * extend;
+          const x2 = line.p2.x + nx * extend;
+          const y2 = line.p2.y + ny * extend;
+
+          // Dashed extension across the full canvas
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = 'rgba(236,235,228,0.28)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 7]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Solid segment where the finger dragged
+          ctx.beginPath();
+          ctx.moveTo(line.p1.x, line.p1.y);
+          ctx.lineTo(line.p2.x, line.p2.y);
+          ctx.strokeStyle = 'rgba(236,235,228,0.95)';
+          ctx.lineWidth = 2.4;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+
+          // Endpoint dots
+          ctx.fillStyle = 'rgba(236,235,228,0.95)';
+          ctx.beginPath();
+          ctx.arc(line.p1.x, line.p1.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(line.p2.x, line.p2.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function animate() {
+      if (perfectPulse > 0) {
+        perfectPulse -= 0.02;
+        if (perfectPulse < 0) perfectPulse = 0;
+        draw();
+      }
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    // ---------- Input ----------
+
+    function pointerToCanvas(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (locked || !scaledOutline) return;
+      e.preventDefault();
+      dragging = true;
+      promptHint.classList.remove('show');
+      const p = pointerToCanvas(e);
+      line = { p1: p, p2: { x: p.x + 0.01, y: p.y + 0.01 } };
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      computeAreas();
+      updateHUD();
+      draw();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragging || locked) return;
+      e.preventDefault();
+      const p = pointerToCanvas(e);
+      line.p2 = p;
+      computeAreas();
+      updateHUD();
+      draw();
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (!line || Math.hypot(line.p2.x - line.p1.x, line.p2.y - line.p1.y) < 18) {
+        line = null;
+        promptHint.classList.add('show');
+        computeAreas();
+        updateHUD();
+        draw();
+        return;
+      }
+      computeAreas();
+      updateHUD();
+      draw();
+      scoreSplit();
+    }
+    canvas.addEventListener('pointerup', endDrag);
+    canvas.addEventListener('pointercancel', endDrag);
+
+    // ---------- Screen transitions ----------
+
+    function startGame() {
+      titleScreen.classList.remove('active');
+      endScreen.classList.remove('active');
+      hud.classList.add('active');
+      progress.classList.add('active');
+      currentIndex = 0;
+      loadShape();
+    }
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+
+    nextBtn.addEventListener('click', () => {
+      currentIndex++;
+      if (currentIndex >= shapes.length) {
+        hud.classList.remove('active');
+        progress.classList.remove('active');
+        promptHint.classList.remove('show');
+        verdict.classList.remove('show');
+        nextBtn.classList.remove('show');
+        retryBtn.classList.remove('show');
+        line = null;
+        scaledOutline = null;
+        scaledSubs = null;
+        draw();
+        endScreen.classList.add('active');
+      } else {
+        loadShape();
+      }
+    });
+
+    retryBtn.addEventListener('click', () => {
+      loadShape();
+    });
+
+    // ---------- Resize handling ----------
+
+    window.addEventListener('resize', () => {
+      resize();
+      if (scaledOutline) {
+        positionShape();
+        // Keep the line proportional to viewport? Simpler: clear the line on resize.
+        line = null;
+        dragging = false;
+        locked = false;
+        verdict.classList.remove('show');
+        nextBtn.classList.remove('show');
+        retryBtn.classList.remove('show');
+        promptHint.classList.add('show');
+        leftArea = totalArea;
+        rightArea = 0;
+        updateHUD();
+        draw();
+      }
+    });
+
+    draw();
+  </script>
+</body>
+</html>
